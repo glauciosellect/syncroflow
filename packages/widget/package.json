@@ -1,0 +1,13 @@
+{
+  "name": "@syncroflow/widget",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/index.js",
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --minify --outfile=dist/widget.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.21.0",
+    "typescript": "^5.4.0"
+  }
+}

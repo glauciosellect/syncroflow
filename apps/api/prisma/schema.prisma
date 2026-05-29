@@ -1,0 +1,498 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [uuid_ossp(map: "uuid-ossp", schema: "extensions"), vector]
+}
+
+model User {
+  id               String            @id @default(cuid())
+  name             String
+  email            String            @unique
+  passwordHash     String?
+  phone            String?
+  avatarUrl        String?
+  language         String            @default("pt-br")
+  theme            String            @default("light")
+  twoFactorSecret  String?
+  twoFactorEnabled Boolean           @default(false)
+  onboardingDone   Boolean           @default(false)
+  onboardingData   Json?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @default(now()) @updatedAt
+  apiKeys          ApiKey[]
+  sessions         Session[]
+  workspaceMembers WorkspaceMember[]
+}
+
+model Workspace {
+  id             String            @id @default(cuid())
+  name           String
+  slug           String            @unique
+  plan           Plan              @default(TRIAL)
+  trialEndsAt    DateTime?
+  credits        Int               @default(1000)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @default(now()) @updatedAt
+  agents         Agent[]
+  attendances    Attendance[]
+  channels       Channel[]
+  contacts       Contact[]
+  conversations  Conversation[]
+  envVariables   EnvVariable[]
+  invoices       Invoice[]
+  knowledgeBases KnowledgeBase[]
+  subscriptions  Subscription[]
+  members        WorkspaceMember[]
+}
+
+model WorkspaceMember {
+  id          String     @id @default(cuid())
+  role        MemberRole @default(AGENT)
+  userId      String
+  workspaceId String
+  createdAt   DateTime   @default(now())
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  refreshToken String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  name        String
+  keyHash     String    @unique
+  lastUsedAt  DateTime?
+  userId      String
+  workspaceId String
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Agent {
+  id                 String               @id @default(cuid())
+  name               String
+  avatarUrl          String?
+  purpose            AgentPurpose         @default(SUPPORT)
+  companyName        String?
+  companyWebsite     String?
+  companyDesc        String?
+  behavior           String?
+  communicationStyle CommunicationStyle   @default(NORMAL)
+  llmModel           String               @default("claude-haiku-4-5")
+  workspaceId        String
+  isActive           Boolean              @default(true)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @default(now()) @updatedAt
+  workspace          Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  agentChannels      AgentChannel[]
+  config             AgentConfig?
+  integrations       AgentIntegration[]
+  knowledgeBases     AgentKnowledgeBase[]
+  mcpServers         AgentMcpServer[]
+  conversations      Conversation[]
+  intentions         Intention[]
+  trainings          Training[]
+}
+
+model AgentConfig {
+  id                     String   @id @default(cuid())
+  agentId                String   @unique
+  transferToHuman        Boolean  @default(true)
+  summarizeOnTransfer    Boolean  @default(false)
+  useEmojis              Boolean  @default(false)
+  signNameInResponses    Boolean  @default(false)
+  restrictTopics         Boolean  @default(false)
+  splitLongMessages      Boolean  @default(false)
+  allowReminders         Boolean  @default(true)
+  smartTrainingSearch    Boolean  @default(false)
+  timezone               String   @default("America/Sao_Paulo")
+  responseDelay          Int      @default(0)
+  maxInteractionsPerChat Int?
+  workingHours           Json?
+  webhookEvents          Json?
+  transferRules          Json?
+  inactivityActions      Json?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @default(now()) @updatedAt
+  agent                  Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+}
+
+model Training {
+  id         String          @id @default(cuid())
+  agentId    String
+  type       TrainingType
+  title      String?
+  content    String?
+  url        String?
+  fileUrl    String?
+  fileName   String?
+  fileSize   Int?
+  status     TrainingStatus  @default(PENDING)
+  errorMsg   String?
+  chunkCount Int             @default(0)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @default(now()) @updatedAt
+  agent      Agent           @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  chunks     TrainingChunk[]
+}
+
+model TrainingChunk {
+  id         String                 @id @default(cuid())
+  trainingId String
+  content    String
+  embedding  Unsupported("vector")?
+  createdAt  DateTime               @default(now())
+  training   Training               @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+}
+
+model KnowledgeBase {
+  id          String               @id @default(cuid())
+  name        String
+  description String?
+  workspaceId String
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @default(now()) @updatedAt
+  agentLinks  AgentKnowledgeBase[]
+  workspace   Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  documents   KnowledgeDocument[]
+}
+
+model KnowledgeDocument {
+  id              String           @id @default(cuid())
+  knowledgeBaseId String
+  title           String
+  content         String
+  fileUrl         String?
+  fileName        String?
+  status          TrainingStatus   @default(PENDING)
+  chunkCount      Int              @default(0)
+  createdAt       DateTime         @default(now())
+  chunks          KnowledgeChunk[]
+  knowledgeBase   KnowledgeBase    @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+}
+
+model KnowledgeChunk {
+  id         String                 @id @default(cuid())
+  documentId String
+  content    String
+  embedding  Unsupported("vector")?
+  createdAt  DateTime               @default(now())
+  document   KnowledgeDocument      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+}
+
+model AgentKnowledgeBase {
+  agentId         String
+  knowledgeBaseId String
+  createdAt       DateTime      @default(now())
+  agent           Agent         @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  knowledgeBase   KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+
+  @@id([agentId, knowledgeBaseId])
+}
+
+model Intention {
+  id              String                @id @default(cuid())
+  agentId         String
+  name            String
+  description     String?
+  fields          Json?
+  actionType      IntentionAction       @default(WEBHOOK)
+  webhookUrl      String?
+  webhookMethod   String                @default("POST")
+  webhookHeaders  Json?
+  webhookParams   Json?
+  webhookBody     Json?
+  outputVariables Json?
+  responseMode    IntentionResponseMode @default(INTERPRET_API)
+  isActive        Boolean               @default(true)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @default(now()) @updatedAt
+  agent           Agent                 @relation(fields: [agentId], references: [id], onDelete: Cascade)
+}
+
+model Channel {
+  id            String         @id @default(cuid())
+  workspaceId   String
+  type          ChannelType
+  name          String
+  isActive      Boolean        @default(true)
+  config        Json
+  webhookSecret String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @default(now()) @updatedAt
+  agentChannels AgentChannel[]
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+}
+
+model AgentChannel {
+  agentId   String
+  channelId String
+  createdAt DateTime @default(now())
+  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@id([agentId, channelId])
+}
+
+model Contact {
+  id            String         @id @default(cuid())
+  workspaceId   String
+  name          String?
+  phone         String?
+  email         String?
+  avatarUrl     String?
+  channelId     String?
+  externalId    String?
+  variables     Json?
+  tags          String[]       @default([])
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @default(now()) @updatedAt
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+
+  @@unique([workspaceId, channelId, externalId])
+}
+
+model Conversation {
+  id               String             @id @default(cuid())
+  workspaceId      String
+  agentId          String
+  channelId        String
+  contactId        String
+  status           ConversationStatus @default(AI_ACTIVE)
+  assignedToId     String?
+  protocol         String             @unique @default(cuid())
+  startedAt        DateTime           @default(now())
+  endedAt          DateTime?
+  creditsUsed      Int                @default(0)
+  interactionCount Int                @default(0)
+  transferSummary  String?
+  closedBy         String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @default(now()) @updatedAt
+  agent            Agent              @relation(fields: [agentId], references: [id])
+  channel          Channel            @relation(fields: [channelId], references: [id])
+  contact          Contact            @relation(fields: [contactId], references: [id])
+  workspace        Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  messages         Message[]
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  role           MessageRole
+  content        String
+  mediaUrl       String?
+  mediaType      String?
+  creditsUsed    Int          @default(0)
+  intentionId    String?
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+}
+
+model Attendance {
+  id               String      @id @default(cuid())
+  workspaceId      String
+  conversationId   String      @unique
+  contactName      String?
+  contactPhone     String?
+  channelType      ChannelType
+  agentName        String
+  assigneeName     String?
+  status           String
+  startedAt        DateTime
+  endedAt          DateTime?
+  durationSeconds  Int?
+  creditsUsed      Int         @default(0)
+  interactionCount Int         @default(0)
+  protocol         String
+  createdAt        DateTime    @default(now())
+  workspace        Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model AgentIntegration {
+  id        String          @id @default(cuid())
+  agentId   String
+  type      IntegrationType
+  isActive  Boolean         @default(true)
+  config    Json
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @default(now()) @updatedAt
+  agent     Agent           @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, type])
+}
+
+model AgentMcpServer {
+  id        String   @id @default(cuid())
+  agentId   String
+  name      String
+  url       String
+  apiKey    String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+}
+
+model EnvVariable {
+  id          String     @id @default(cuid())
+  workspaceId String
+  key         String
+  value       String
+  type        EnvVarType @default(TEXT)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @default(now()) @updatedAt
+  workspace   Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, key])
+}
+
+model Subscription {
+  id                 String             @id @default(cuid())
+  workspaceId        String
+  plan               Plan
+  billingCycle       BillingCycle       @default(MONTHLY)
+  status             SubscriptionStatus @default(ACTIVE)
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd  Boolean            @default(false)
+  externalId         String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @default(now()) @updatedAt
+  workspace          Workspace          @relation(fields: [workspaceId], references: [id])
+}
+
+model Invoice {
+  id          String    @id @default(cuid())
+  workspaceId String
+  amount      Int
+  status      String
+  pdfUrl      String?
+  externalId  String?
+  createdAt   DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+}
+
+enum Plan {
+  TRIAL
+  BASIC
+  STANDARD
+  CORPORATE
+  ENTERPRISE
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  AGENT
+}
+
+enum AgentPurpose {
+  SUPPORT
+  SALES
+  PERSONAL
+}
+
+enum CommunicationStyle {
+  FORMAL
+  NORMAL
+  CASUAL
+}
+
+enum TrainingType {
+  TEXT
+  WEBSITE
+  VIDEO
+  DOCUMENT
+}
+
+enum TrainingStatus {
+  PENDING
+  PROCESSING
+  DONE
+  ERROR
+}
+
+enum IntentionAction {
+  WEBHOOK
+  INTERNAL
+}
+
+enum IntentionResponseMode {
+  INTERPRET_API
+  FIXED_MESSAGE
+  API_RAW
+}
+
+enum ChannelType {
+  WHATSAPP
+  INSTAGRAM
+  FACEBOOK
+  TELEGRAM
+  WIDGET
+  EMAIL
+  SMS
+}
+
+enum ConversationStatus {
+  AI_ACTIVE
+  WAITING_HUMAN
+  HUMAN_ACTIVE
+  CLOSED
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  HUMAN
+  SYSTEM
+}
+
+enum IntegrationType {
+  ELEVEN_LABS
+  GOOGLE_CALENDAR
+  PLUG_CHAT
+  E_VENDI
+  SHOPIFY
+  STRIPE
+  PAYPAL
+  INVIDEO
+}
+
+enum EnvVarType {
+  TEXT
+  NUMBER
+}
+
+enum BillingCycle {
+  MONTHLY
+  QUARTERLY
+  SEMIANNUAL
+  ANNUAL
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  TRIALING
+}
+
