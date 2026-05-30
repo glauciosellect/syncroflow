@@ -91,7 +91,7 @@ export function AgentWizard({ onClose, onSuccess }: { onClose: () => void; onSuc
             <h2 className="font-bold text-gray-900">Novo Agente</h2>
             <div className="flex gap-1 mt-2">
               {steps.map((s, i) => (
-                <div key={s} className={cn('h-1 rounded-full flex-1 transition-colors', i <= step ? 'bg-violet-600' : 'bg-gray-200')} />
+                <div key={s} className={cn('h-1 rounded-full flex-1 transition-colors', i <= step ? 'bg-[#1565C0]' : 'bg-gray-200')} />
               ))}
             </div>
           </div>
@@ -104,7 +104,7 @@ export function AgentWizard({ onClose, onSuccess }: { onClose: () => void; onSuc
           {step === 0 && (
             <div>
               <div className="flex justify-center mb-6">
-                <div className="w-20 h-20 bg-gradient-to-br from-violet-400 to-indigo-500 rounded-full flex items-center justify-center text-4xl font-bold text-white shadow-lg">
+                <div className="w-20 h-20 bg-gradient-to-br from-[#1565C0] to-[#2E7D32] rounded-full flex items-center justify-center text-4xl font-bold text-white shadow-lg">
                   {name?.[0]?.toUpperCase() || '?'}
                 </div>
               </div>
@@ -120,9 +120,9 @@ export function AgentWizard({ onClose, onSuccess }: { onClose: () => void; onSuc
               <div className="grid grid-cols-3 gap-3">
                 {purposeOptions.map((opt) => (
                   <button key={opt.value} onClick={() => { setPurpose(opt.value); setValue('purpose', opt.value) }}
-                    className={cn('p-4 border-2 rounded-xl flex flex-col items-center gap-2 transition-colors', purpose === opt.value ? 'border-violet-600 bg-violet-50' : 'border-gray-200 hover:border-gray-300')}>
-                    <opt.icon className={cn('w-8 h-8', purpose === opt.value ? 'text-violet-600' : 'text-gray-400')} />
-                    <span className={cn('text-sm font-medium', purpose === opt.value ? 'text-violet-700' : 'text-gray-600')}>{opt.label}</span>
+                    className={cn('p-4 border-2 rounded-xl flex flex-col items-center gap-2 transition-colors', purpose === opt.value ? 'border-[#1565C0] bg-blue-50' : 'border-gray-200 hover:border-gray-300')}>
+                    <opt.icon className={cn('w-8 h-8', purpose === opt.value ? 'text-[#1565C0]' : 'text-gray-400')} />
+                    <span className={cn('text-sm font-medium', purpose === opt.value ? 'text-[#1565C0]' : 'text-gray-600')}>{opt.label}</span>
                     <span className="text-xs text-gray-400 text-center">{opt.desc}</span>
                   </button>
                 ))}
@@ -163,7 +163,7 @@ export function AgentWizard({ onClose, onSuccess }: { onClose: () => void; onSuc
                         <div className="text-xs text-gray-400">{opt.desc}</div>
                       </div>
                       <button onClick={() => setValue(opt.key as any, !val)}
-                        className={cn('w-10 h-5 rounded-full transition-colors', val ? 'bg-violet-600' : 'bg-gray-300')}>
+                        className={cn('w-10 h-5 rounded-full transition-colors', val ? 'bg-[#1565C0]' : 'bg-gray-300')}>
                         <div className={cn('w-4 h-4 bg-white rounded-full shadow transition-transform mx-0.5', val ? 'translate-x-5' : 'translate-x-0')} />
                       </button>
                     </div>
@@ -179,11 +179,11 @@ export function AgentWizard({ onClose, onSuccess }: { onClose: () => void; onSuc
             {step === 0 ? 'Cancelar' : 'Voltar'}
           </Button>
           {step < steps.length - 1 ? (
-            <Button onClick={() => setStep(s => s + 1)} className="bg-violet-600 hover:bg-violet-700" disabled={step === 0 && !name}>
+            <Button onClick={() => setStep(s => s + 1)} className="hover:opacity-90" disabled={step === 0 && !name}>
               Continuar
             </Button>
           ) : (
-            <Button onClick={handleSubmit((data) => mutation.mutate(data))} className="bg-violet-600 hover:bg-violet-700" disabled={mutation.isPending}>
+            <Button onClick={handleSubmit((data) => mutation.mutate(data))} className="hover:opacity-90" disabled={mutation.isPending}>
               {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Criar Agente
             </Button>
@@ -193,3 +193,5 @@ export function AgentWizard({ onClose, onSuccess }: { onClose: () => void; onSuc
     </div>
   )
 }
+
+

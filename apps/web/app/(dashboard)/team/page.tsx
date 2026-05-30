@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Users, Loader2 } from 'lucide-react'
 
 const roleLabels: Record<string, string> = { OWNER: 'Proprietário', ADMIN: 'Administrador', AGENT: 'Agente' }
-const roleColors: Record<string, string> = { OWNER: 'bg-violet-100 text-violet-700', ADMIN: 'bg-blue-100 text-blue-700', AGENT: 'bg-gray-100 text-gray-700' }
+const roleColors: Record<string, string> = { OWNER: 'bg-blue-100 text-[#1565C0]', ADMIN: 'bg-blue-100 text-blue-700', AGENT: 'bg-gray-100 text-gray-700' }
 
 export default function TeamPage() {
   const qc = useQueryClient()
@@ -24,7 +24,7 @@ export default function TeamPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-violet-600" /></div>
+        <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#1565C0]" /></div>
       ) : (
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           <div className="p-4 border-b border-gray-100 flex items-center justify-between">
@@ -34,7 +34,7 @@ export default function TeamPage() {
             {(members || []).map((member: any) => (
               <div key={member.id} className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-violet-100 rounded-full flex items-center justify-center text-sm font-bold text-violet-600">
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-sm font-bold text-[#1565C0]">
                     {member.user?.name?.[0]?.toUpperCase()}
                   </div>
                   <div>
@@ -53,3 +53,4 @@ export default function TeamPage() {
     </div>
   )
 }
+

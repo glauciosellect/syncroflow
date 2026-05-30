@@ -18,11 +18,11 @@ export default function MorePage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {options.map((opt) => (
-          <Link key={opt.href} href={opt.href} className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md hover:border-violet-200 transition-all group">
+          <Link key={opt.href} href={opt.href} className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md hover:border-blue-200 transition-all group">
             <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${opt.color}`}>
               <opt.icon className="w-6 h-6" />
             </div>
-            <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-violet-700 transition-colors">{opt.label}</h3>
+            <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-[#1565C0] transition-colors">{opt.label}</h3>
             <p className="text-sm text-gray-400">{opt.desc}</p>
           </Link>
         ))}
@@ -30,3 +30,4 @@ export default function MorePage() {
     </div>
   )
 }
+

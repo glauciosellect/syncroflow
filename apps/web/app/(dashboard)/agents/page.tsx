@@ -47,7 +47,7 @@ export default function AgentsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Agentes</h1>
           <p className="text-gray-500 text-sm mt-1">Crie e gerencie seus agentes de IA</p>
         </div>
-        <Button onClick={() => setShowWizard(true)} className="bg-violet-600 hover:bg-violet-700">
+        <Button onClick={() => setShowWizard(true)} className="hover:opacity-90">
           <Plus className="w-4 h-4 mr-2" />
           Novo Agente
         </Button>
@@ -60,7 +60,7 @@ export default function AgentsPage() {
 
       {isLoading && (
         <div className="flex justify-center py-12">
-          <Loader2 className="w-6 h-6 animate-spin text-violet-600" />
+          <Loader2 className="w-6 h-6 animate-spin text-[#1565C0]" />
         </div>
       )}
 
@@ -69,7 +69,7 @@ export default function AgentsPage() {
           <Bot className="w-16 h-16 text-gray-200 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-700 mb-2">Nenhum agente ainda</h3>
           <p className="text-gray-400 mb-6">Crie seu primeiro agente de IA para começar a atender clientes</p>
-          <Button onClick={() => setShowWizard(true)} className="bg-violet-600 hover:bg-violet-700">
+          <Button onClick={() => setShowWizard(true)} className="hover:opacity-90">
             <Plus className="w-4 h-4 mr-2" />
             Criar primeiro agente
           </Button>
@@ -82,7 +82,7 @@ export default function AgentsPage() {
             <CardContent className="p-4">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-violet-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xl font-bold shadow-sm">
+                  <div className="w-12 h-12 bg-gradient-to-br from-[#1565C0] to-[#2E7D32] rounded-full flex items-center justify-center text-white text-xl font-bold shadow-sm">
                     {agent.name?.[0]?.toUpperCase()}
                   </div>
                   <div>
@@ -120,3 +120,5 @@ export default function AgentsPage() {
     </div>
   )
 }
+
+

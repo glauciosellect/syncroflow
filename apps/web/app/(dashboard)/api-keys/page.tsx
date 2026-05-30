@@ -83,7 +83,7 @@ export default function ApiKeysPage() {
             <div className="flex-1">
               <Input placeholder="Nome da chave (ex: Produção, Teste)" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && name.trim() && createMutation.mutate(name)} />
             </div>
-            <Button onClick={() => createMutation.mutate(name)} disabled={!name.trim() || createMutation.isPending} className="bg-violet-600 hover:bg-violet-700">
+            <Button onClick={() => createMutation.mutate(name)} disabled={!name.trim() || createMutation.isPending} className="hover:opacity-90">
               {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
               Gerar
             </Button>
@@ -92,7 +92,7 @@ export default function ApiKeysPage() {
       </Card>
 
       {isLoading ? (
-        <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-violet-600" /></div>
+        <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-[#1565C0]" /></div>
       ) : keys?.length === 0 ? (
         <div className="text-center py-12">
           <Key className="w-12 h-12 text-gray-200 mx-auto mb-3" />
@@ -134,3 +134,4 @@ export default function ApiKeysPage() {
     </div>
   )
 }
+

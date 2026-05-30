@@ -1,6 +1,6 @@
 import { createWorker } from '../../lib/queue'
 import { prisma } from '../../lib/prisma'
-import { processAgentResponse, detectIntention } from '../ai/ai.service'
+import { processAgentResponse, detectIntention, processIncomingMedia } from '../ai/ai.service'
 import { getWhatsAppProvider } from '../channels/whatsapp/provider.factory'
 import axios from 'axios'
 
@@ -21,10 +21,22 @@ export function startMessageWorker() {
       if (channelType === 'WHATSAPP') {
         const provider = getWhatsAppProvider()
         const msg = provider.parseWebhook(payload)
-        if (!msg || !msg.text) return
+        if (!msg) return
         from = msg.from
         name = msg.name
         text = msg.text
+
+        // Processar mídia: áudio (transcrição), imagem (visão), documento (extração)
+        if (!text && msg.mediaUrl && msg.mediaType) {
+          // Debitar créditos de mídia antecipadamente
+          await prisma.workspace.update({
+            where: { id: channel.workspaceId },
+            data: { credits: { decrement: MEDIA_CREDITS } },
+          })
+          text = await processIncomingMedia(msg.mediaUrl, msg.mediaType)
+        }
+
+        if (!text) return
       } else if (channelType === 'TELEGRAM') {
         from = String(payload.message?.from?.id || payload.message?.chat?.id)
         name = payload.message?.from?.first_name || 'Usuário'
@@ -44,6 +56,37 @@ export function startMessageWorker() {
       const agentChannel = channel.agentChannels[0]
       if (!agentChannel) return
       const agent = agentChannel.agent
+
+      // Verificar créditos antes de processar
+      const workspace = await prisma.workspace.findUnique({ where: { id: channel.workspaceId } })
+      if (!workspace) return
+
+      const MEDIA_CREDITS = 2 // custo fixo para áudio, imagem, documento
+      const isMedia = !!(payload?.message?.mediaUrl || payload?.message?.fileUrl || payload?.message?.url)
+
+      if (workspace.credits <= 0) {
+        const noCreditsMsg = '⚠️ O atendimento automático está temporariamente indisponível. Entre em contato conosco para reativar o serviço.'
+        if (channelType === 'WHATSAPP') {
+          const provider = getWhatsAppProvider()
+          await provider.sendText(channelId, from!, noCreditsMsg)
+        } else if (channelType === 'TELEGRAM') {
+          const botToken = (channel.config as any).botToken
+          await axios.post(`https://api.telegram.org/bot${botToken}/sendMessage`, { chat_id: from, text: noCreditsMsg })
+        }
+        return
+      }
+
+      // Aviso de créditos baixos (≤20% do plano)
+      const planCredits: Record<string, number> = { TRIAL: 1000, BASIC: 2500, STANDARD: 11500, CORPORATE: 30000, ENTERPRISE: 50000 }
+      const totalCredits = planCredits[workspace.plan] || 1000
+      const lowCreditThreshold = Math.floor(totalCredits * 0.2)
+      if (workspace.credits <= lowCreditThreshold && workspace.credits > 0) {
+        const lowMsg = `⚠️ Atenção: você está com apenas ${workspace.credits} créditos restantes. Adquira mais créditos para não interromper seu atendimento.`
+        if (channelType === 'WHATSAPP') {
+          const provider = getWhatsAppProvider()
+          await provider.sendText(channelId, from!, lowMsg)
+        }
+      }
 
       let contact = await prisma.contact.findUnique({
         where: { workspaceId_channelId_externalId: { workspaceId: channel.workspaceId, channelId, externalId: from } },
@@ -86,7 +129,11 @@ export function startMessageWorker() {
       let responseText: string
       let creditsUsed = 0
 
-      if (intention && intention.webhookUrl) {
+      if (intention && intention.actionType === 'INTERNAL') {
+        // Intenção interna — mensagem fixa, zero créditos de IA
+        responseText = (intention.webhookBody as any)?.fixedMessage || intention.name
+        creditsUsed = 0
+      } else if (intention && intention.webhookUrl) {
         try {
           const webhookRes = await axios({
             method: (intention.webhookMethod || 'POST') as any,
@@ -99,7 +146,7 @@ export function startMessageWorker() {
           if (intention.responseMode === 'API_RAW') {
             responseText = JSON.stringify(webhookRes.data)
           } else if (intention.responseMode === 'FIXED_MESSAGE') {
-            responseText = 'Sua solicitação foi processada com sucesso.'
+            responseText = (intention.webhookBody as any)?.fixedMessage || 'Sua solicitação foi processada com sucesso.'
           } else {
             const aiRes = await processAgentResponse({
               agent: agent as any,

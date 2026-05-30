@@ -71,7 +71,7 @@ export default function RegisterPage() {
           <Label htmlFor="workspaceName">Nome do workspace (opcional)</Label>
           <Input id="workspaceName" placeholder="Minha Empresa" {...register('workspaceName')} />
         </div>
-        <Button type="submit" className="w-full bg-violet-600 hover:bg-violet-700" disabled={loading}>
+        <Button type="submit" className="w-full text-white hover:opacity-90" style={{ background: 'linear-gradient(135deg, #1565C0, #2E7D32)' }} disabled={loading}>
           {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
           Criar conta grátis
         </Button>
@@ -79,7 +79,7 @@ export default function RegisterPage() {
 
       <p className="text-center text-sm text-gray-500 mt-4">
         Já tem conta?{' '}
-        <Link href="/login" className="text-violet-600 hover:underline font-medium">
+        <Link href="/login" className="text-[#1565C0] hover:underline font-medium">
           Entrar
         </Link>
       </p>

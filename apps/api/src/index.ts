@@ -19,6 +19,7 @@ import { knowledgeRoutes } from './modules/knowledge/knowledge.routes'
 import { analyticsRoutes } from './modules/analytics/analytics.routes'
 import { attendanceRoutes } from './modules/attendances/attendances.routes'
 import { billingRoutes } from './modules/billing/billing.routes'
+import { stripeRoutes } from './modules/billing/stripe.routes'
 import { mcpRoutes } from './modules/mcp/mcp.routes'
 import { integrationRoutes } from './modules/integrations/integrations.routes'
 import { apiKeyRoutes } from './modules/auth/apikeys.routes'
@@ -87,6 +88,7 @@ async function bootstrap() {
   await app.register(analyticsRoutes)
   await app.register(attendanceRoutes)
   await app.register(billingRoutes)
+  await app.register(stripeRoutes)
   await app.register(mcpRoutes)
   await app.register(integrationRoutes)
   await app.register(apiKeyRoutes)

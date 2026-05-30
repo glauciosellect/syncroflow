@@ -49,7 +49,7 @@ export default function AttendancesPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-violet-600" /></div>
+        <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#1565C0]" /></div>
       ) : data?.data?.length === 0 ? (
         <div className="text-center py-16">
           <ClipboardList className="w-16 h-16 text-gray-200 mx-auto mb-4" />
@@ -108,3 +108,4 @@ export default function AttendancesPage() {
     </div>
   )
 }
+

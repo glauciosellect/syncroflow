@@ -81,14 +81,14 @@ export default function OnboardingPage() {
     <div className="w-full max-w-lg">
       <div className="text-center mb-8">
         <div className="flex items-center justify-center gap-2 mb-4">
-          <div className="w-10 h-10 bg-violet-600 rounded-xl flex items-center justify-center">
+          <div className="w-10 h-10 bg-[#1565C0] rounded-xl flex items-center justify-center">
             <Zap className="w-6 h-6 text-white" />
           </div>
           <span className="text-2xl font-bold text-gray-900">SyncroFlow</span>
         </div>
         <div className="flex gap-1.5 justify-center mb-6">
           {steps.map((_, i) => (
-            <div key={i} className={cn('h-1.5 rounded-full transition-all', i === currentStep ? 'w-8 bg-violet-600' : i < currentStep ? 'w-4 bg-violet-300' : 'w-4 bg-gray-200')} />
+            <div key={i} className={cn('h-1.5 rounded-full transition-all', i === currentStep ? 'w-8 bg-[#1565C0]' : i < currentStep ? 'w-4 bg-blue-300' : 'w-4 bg-gray-200')} />
           ))}
         </div>
         <p className="text-sm text-gray-400">Passo {currentStep + 1} de {steps.length}</p>
@@ -100,13 +100,13 @@ export default function OnboardingPage() {
           {step.options.map((opt) => (
             <button key={opt.value} onClick={() => handleSelect(opt.value)}
               className={cn('w-full text-left px-4 py-3 rounded-xl border-2 transition-all text-sm font-medium',
-                selected === opt.value ? 'border-violet-600 bg-violet-50 text-violet-700' : 'border-gray-200 text-gray-700 hover:border-gray-300')}>
+                selected === opt.value ? 'border-[#1565C0] bg-blue-50 text-[#1565C0]' : 'border-gray-200 text-gray-700 hover:border-gray-300')}>
               {opt.label}
             </button>
           ))}
         </div>
 
-        <Button onClick={handleNext} disabled={!selected || loading} className="w-full mt-6 bg-violet-600 hover:bg-violet-700">
+        <Button onClick={handleNext} disabled={!selected || loading} className="w-full mt-6 hover:opacity-90">
           {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
           {isLast ? 'Entrar no painel' : 'Continuar'}
         </Button>
@@ -114,3 +114,4 @@ export default function OnboardingPage() {
     </div>
   )
 }
+

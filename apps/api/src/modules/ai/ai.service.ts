@@ -2,6 +2,10 @@ import Anthropic from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
 import { prisma } from '../../lib/prisma'
 import type { Agent, AgentConfig, Intention } from '@prisma/client'
+import axios from 'axios'
+import * as fs from 'fs'
+import * as os from 'os'
+import * as path from 'path'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
@@ -172,6 +176,90 @@ export async function testAgent(agent: Agent & { config: AgentConfig | null }, m
     creditsUsed: calcCredits(res.inputTokens, res.outputTokens, agent.llmModel),
     model: agent.llmModel,
     responseTimeMs: Date.now() - start,
+  }
+}
+
+async function downloadToTempFile(url: string, ext: string): Promise<string> {
+  const tmpPath = path.join(os.tmpdir(), `syncro_${Date.now()}${ext}`)
+  const res = await axios.get(url, { responseType: 'arraybuffer', timeout: 30000 })
+  fs.writeFileSync(tmpPath, Buffer.from(res.data))
+  return tmpPath
+}
+
+export async function transcribeAudio(audioUrl: string): Promise<string> {
+  const tmpPath = await downloadToTempFile(audioUrl, '.ogg')
+  try {
+    const transcription = await openai.audio.transcriptions.create({
+      file: fs.createReadStream(tmpPath) as any,
+      model: 'whisper-1',
+      language: 'pt',
+    })
+    return transcription.text
+  } finally {
+    fs.unlinkSync(tmpPath)
+  }
+}
+
+export async function describeImage(imageUrl: string): Promise<string> {
+  const res = await anthropic.messages.create({
+    model: 'claude-haiku-4-5',
+    max_tokens: 512,
+    messages: [{
+      role: 'user',
+      content: [
+        { type: 'image', source: { type: 'url', url: imageUrl } },
+        { type: 'text', text: 'Descreva em detalhes o conteúdo desta imagem enviada por um cliente no WhatsApp. Seja objetivo e inclua textos visíveis, produtos, documentos ou qualquer informação relevante.' },
+      ],
+    }],
+  })
+  return res.content[0].type === 'text' ? res.content[0].text : 'Imagem recebida.'
+}
+
+export async function extractDocumentText(docUrl: string, mimetype?: string): Promise<string> {
+  // Para PDFs usa visão do Claude; para outros documentos extrai texto bruto
+  const isPdf = !mimetype || mimetype.includes('pdf')
+  if (isPdf) {
+    const tmpPath = await downloadToTempFile(docUrl, '.pdf')
+    try {
+      const fileData = fs.readFileSync(tmpPath)
+      const base64 = fileData.toString('base64')
+      const res = await anthropic.messages.create({
+        model: 'claude-haiku-4-5',
+        max_tokens: 2048,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
+            { type: 'text', text: 'Extraia e resuma o conteúdo principal deste documento enviado pelo cliente.' },
+          ],
+        }],
+      })
+      return res.content[0].type === 'text' ? res.content[0].text : 'Documento recebido.'
+    } finally {
+      fs.unlinkSync(tmpPath)
+    }
+  }
+
+  // Word/outros: tenta extrair texto bruto
+  try {
+    const res = await axios.get(docUrl, { responseType: 'text', timeout: 15000 })
+    const raw = String(res.data).slice(0, 3000)
+    return `Conteúdo do documento:\n${raw}`
+  } catch {
+    return 'Documento recebido (formato não suportado para leitura automática).'
+  }
+}
+
+export async function processIncomingMedia(mediaUrl: string, mediaType: 'audio' | 'image' | 'document' | 'video', mimetype?: string): Promise<string> {
+  try {
+    if (mediaType === 'audio') return await transcribeAudio(mediaUrl)
+    if (mediaType === 'image') return await describeImage(mediaUrl)
+    if (mediaType === 'document') return await extractDocumentText(mediaUrl, mimetype)
+    return '[Vídeo recebido]'
+  } catch (err: any) {
+    if (mediaType === 'audio') return '[Áudio recebido — não foi possível transcrever]'
+    if (mediaType === 'image') return '[Imagem recebida — não foi possível analisar]'
+    return '[Documento recebido — não foi possível processar]'
   }
 }
 

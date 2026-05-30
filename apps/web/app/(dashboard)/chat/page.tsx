@@ -68,7 +68,7 @@ export default function ChatPage() {
           <div className="flex gap-1 mt-2">
             {tabs.map((t) => (
               <button key={t.key} onClick={() => setFilter(t.key)}
-                className={cn('text-xs px-2 py-1 rounded-md flex-1 transition-colors', filter === t.key ? 'bg-violet-600 text-white' : 'text-gray-500 hover:bg-gray-50')}>
+                className={cn('text-xs px-2 py-1 rounded-md flex-1 transition-colors', filter === t.key ? 'bg-[#1565C0] text-white' : 'text-gray-500 hover:bg-gray-50')}>
                 {t.label}
               </button>
             ))}
@@ -84,7 +84,7 @@ export default function ChatPage() {
           )}
           {(conversations?.data || []).map((conv: any) => (
             <button key={conv.id} onClick={() => setSelected(conv)}
-              className={cn('w-full text-left p-3 border-b border-gray-50 hover:bg-gray-50 transition-colors', selected?.id === conv.id ? 'bg-violet-50' : '')}>
+              className={cn('w-full text-left p-3 border-b border-gray-50 hover:bg-gray-50 transition-colors', selected?.id === conv.id ? 'bg-blue-50' : '')}>
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
@@ -127,7 +127,7 @@ export default function ChatPage() {
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {(msgs?.data || []).map((msg: any) => (
               <div key={msg.id} className={cn('flex', msg.role === 'USER' ? 'justify-start' : 'justify-end')}>
-                <div className={cn('max-w-xs lg:max-w-md xl:max-w-lg rounded-2xl px-4 py-2 text-sm', msg.role === 'USER' ? 'bg-gray-100 text-gray-800' : msg.role === 'HUMAN' ? 'bg-green-600 text-white' : msg.role === 'SYSTEM' ? 'bg-yellow-50 text-yellow-700 text-xs w-full text-center' : 'bg-violet-600 text-white')}>
+                <div className={cn('max-w-xs lg:max-w-md xl:max-w-lg rounded-2xl px-4 py-2 text-sm', msg.role === 'USER' ? 'bg-gray-100 text-gray-800' : msg.role === 'HUMAN' ? 'bg-green-600 text-white' : msg.role === 'SYSTEM' ? 'bg-yellow-50 text-yellow-700 text-xs w-full text-center' : 'bg-[#1565C0] text-white')}>
                   {msg.role === 'ASSISTANT' && <div className="flex items-center gap-1 mb-1 opacity-70"><Bot className="w-3 h-3" /><span className="text-xs">IA</span></div>}
                   {msg.content}
                   <div className={cn('text-xs mt-1 opacity-60', msg.role !== 'USER' ? 'text-right' : '')}>
@@ -141,7 +141,7 @@ export default function ChatPage() {
           {selected.status === 'HUMAN_ACTIVE' && (
             <div className="p-4 border-t border-gray-100 flex gap-2">
               <Input value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Digite sua mensagem..." onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMutation.mutate({ id: selected.id, content: message })} />
-              <Button onClick={() => sendMutation.mutate({ id: selected.id, content: message })} disabled={!message.trim() || sendMutation.isPending} className="bg-violet-600 hover:bg-violet-700">
+              <Button onClick={() => sendMutation.mutate({ id: selected.id, content: message })} disabled={!message.trim() || sendMutation.isPending} className="hover:opacity-90">
                 <Send className="w-4 h-4" />
               </Button>
             </div>
@@ -159,3 +159,4 @@ export default function ChatPage() {
     </div>
   )
 }
+

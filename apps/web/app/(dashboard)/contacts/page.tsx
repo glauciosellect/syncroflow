@@ -30,7 +30,7 @@ export default function ContactsPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-violet-600" /></div>
+        <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#1565C0]" /></div>
       ) : data?.data?.length === 0 ? (
         <div className="text-center py-16">
           <Users className="w-16 h-16 text-gray-200 mx-auto mb-4" />
@@ -55,7 +55,7 @@ export default function ContactsPage() {
                   <tr key={contact.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-violet-100 rounded-full flex items-center justify-center text-xs font-bold text-violet-600">
+                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-xs font-bold text-[#1565C0]">
                           {contact.name?.[0]?.toUpperCase() || '?'}
                         </div>
                         <div>
@@ -100,3 +100,4 @@ export default function ContactsPage() {
     </div>
   )
 }
+

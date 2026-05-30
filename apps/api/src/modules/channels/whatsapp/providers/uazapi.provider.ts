@@ -18,19 +18,20 @@ export class UazApiProvider implements WhatsAppProvider {
   }
 
   async getQRCode(channelId: string): Promise<string> {
-    const res = await axios.get(`${this.baseUrl}/instance/qrcode`, {
+    const res = await axios.get(`${this.baseUrl}/instance/status`, {
       headers: this.headers(),
     })
-    return res.data.qrcode || res.data.base64 || ''
+    return res.data.instance?.qrcode || ''
   }
 
   async getStatus(channelId: string): Promise<'connected' | 'disconnected' | 'qr_required'> {
-    const res = await axios.get(`${this.baseUrl}/instance/info`, {
+    const res = await axios.get(`${this.baseUrl}/instance/status`, {
       headers: this.headers(),
     })
-    const status = res.data?.status || res.data?.instance?.status
-    if (status === 'connected' || status === 'open') return 'connected'
-    if (status === 'qr') return 'qr_required'
+    const connected = res.data?.status?.connected
+    const qrcode = res.data?.instance?.qrcode
+    if (connected === true) return 'connected'
+    if (qrcode) return 'qr_required'
     return 'disconnected'
   }
 
@@ -60,29 +61,54 @@ export class UazApiProvider implements WhatsAppProvider {
   parseWebhook(payload: any): WhatsAppMessage | null {
     if (!payload) return null
 
-    // Formato UazAPI: { EventType, message, chat, owner }
     const msg = payload.message
     if (!msg) return null
 
-    // Ignorar mensagens enviadas pelo próprio número
     if (msg.fromMe === true) return null
-
-    // Ignorar grupos
     if (msg.isGroup === true) return null
 
-    // Ignorar se não tiver texto
-    const text = msg.text || msg.content
-    if (!text || typeof text !== 'string') return null
-
-    // Telefone do remetente — usa chatid (número da conversa) sem sufixo
     const chatid = msg.chatid || msg.sender_pn || ''
     const phone = chatid.replace('@s.whatsapp.net', '').replace(/\D/g, '')
     if (!phone) return null
+
+    const text = msg.text || msg.content || undefined
+
+    // Detectar mídia
+    let mediaUrl: string | undefined
+    let mediaType: WhatsAppMessage['mediaType'] | undefined
+
+    const mimetype: string = msg.mimetype || msg.Mimetype || ''
+    const rawUrl: string = msg.mediaUrl || msg.fileUrl || msg.url || ''
+
+    if (rawUrl) {
+      if (mimetype.startsWith('audio') || msg.type === 'ptt' || msg.type === 'audio') {
+        mediaUrl = rawUrl
+        mediaType = 'audio'
+      } else if (mimetype.startsWith('image') || msg.type === 'image') {
+        mediaUrl = rawUrl
+        mediaType = 'image'
+      } else if (mimetype.startsWith('video') || msg.type === 'video') {
+        mediaUrl = rawUrl
+        mediaType = 'video'
+      } else if (
+        mimetype.includes('pdf') || mimetype.includes('word') || mimetype.includes('document') ||
+        mimetype.includes('spreadsheet') || mimetype.includes('presentation') ||
+        mimetype.includes('text/plain') || msg.type === 'document'
+      ) {
+        mediaUrl = rawUrl
+        mediaType = 'document'
+      }
+    }
+
+    // Ignorar se não tem texto nem mídia reconhecida
+    if (!text && !mediaUrl) return null
 
     return {
       from: phone,
       name: msg.senderName || payload.chat?.name || 'Desconhecido',
       text,
+      mediaUrl,
+      mediaType,
       messageId: msg.messageid || msg.id || '',
       timestamp: msg.messageTimestamp
         ? Math.floor(msg.messageTimestamp / 1000)

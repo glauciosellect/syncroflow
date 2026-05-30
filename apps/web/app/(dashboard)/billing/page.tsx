@@ -1,13 +1,30 @@
 'use client'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
 import api from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Check, Coins, Loader2 } from 'lucide-react'
+import { Check, Coins, Loader2, Zap, AlertTriangle } from 'lucide-react'
 import { useAuthStore } from '@/store/auth.store'
 import { formatDate } from '@/lib/utils'
+import { useSearchParams } from 'next/navigation'
+import { useToast } from '@/components/ui/use-toast'
+
+const creditPackages = [
+  { id: 'starter', name: 'Starter', credits: 2000, priceLabel: 'R$ 59,90', popular: false },
+  { id: 'pro', name: 'Pro', credits: 5000, priceLabel: 'R$ 149,90', popular: true },
+  { id: 'business', name: 'Business', credits: 15000, priceLabel: 'R$ 499,90', popular: false },
+  { id: 'enterprise', name: 'Enterprise', credits: 50000, priceLabel: 'R$ 1.499,90', popular: false },
+]
+
+const modelCosts: Record<string, { label: string; credits: number }> = {
+  'claude-3-5-haiku-20241022': { label: 'Haiku', credits: 1 },
+  'claude-3-5-sonnet-20241022': { label: 'Sonnet', credits: 3 },
+  'claude-opus-4-5': { label: 'Opus', credits: 10 },
+  'gpt-4o-mini': { label: 'GPT-4o Mini', credits: 1 },
+  'gpt-4o': { label: 'GPT-4o', credits: 5 },
+}
 
 const cycleOptions = [
   { key: 'MONTHLY', label: 'Mensal', discount: 0 },
@@ -21,6 +38,15 @@ const features = ['Widget para sites', 'Intenções avançadas', 'API completa',
 export default function BillingPage() {
   const { workspace } = useAuthStore()
   const [cycle, setCycle] = useState('MONTHLY')
+  const { toast } = useToast()
+  const searchParams = useSearchParams()
+  const paymentStatus = searchParams.get('payment')
+
+  const checkoutMutation = useMutation({
+    mutationFn: (packageId: string) => api.post('/billing/checkout', { packageId }).then(r => r.data),
+    onSuccess: (data) => { if (data.url) window.location.href = data.url },
+    onError: () => toast({ title: 'Erro ao processar pagamento', variant: 'destructive' }),
+  })
 
   const { data: plans, isLoading: plansLoading } = useQuery({
     queryKey: ['billing-plans'],
@@ -46,7 +72,7 @@ export default function BillingPage() {
         <p className="text-gray-500 text-sm mt-1">Gerencie sua assinatura e créditos</p>
       </div>
 
-      <Card className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white border-0">
+      <Card className="text-white border-0" style={{ background: 'linear-gradient(135deg, #0D47A1, #1565C0 50%, #2E7D32)' }}>
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -73,7 +99,7 @@ export default function BillingPage() {
         <div className="flex gap-2 mb-6">
           {cycleOptions.map((opt) => (
             <button key={opt.key} onClick={() => setCycle(opt.key)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${cycle === opt.key ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${cycle === opt.key ? 'bg-[#1565C0] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
               {opt.label}
               {opt.discount > 0 && <span className="ml-1 text-xs opacity-80">-{opt.discount}%</span>}
             </button>
@@ -81,7 +107,7 @@ export default function BillingPage() {
         </div>
 
         {plansLoading ? (
-          <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-violet-600" /></div>
+          <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-[#1565C0]" /></div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {(plans || []).map((plan: any) => {
@@ -91,9 +117,9 @@ export default function BillingPage() {
               const isCurrent = workspace?.plan === plan.id
 
               return (
-                <div key={plan.id} className={`relative rounded-2xl border-2 p-6 ${isPopular ? 'border-violet-600 shadow-lg shadow-violet-100' : 'border-gray-200'}`}>
+                <div key={plan.id} className={`relative rounded-2xl border-2 p-6 ${isPopular ? 'border-[#1565C0] shadow-lg shadow-blue-100' : 'border-gray-200'}`}>
                   {isPopular && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-violet-600 text-white text-xs font-bold px-3 py-1 rounded-full">
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#1565C0] text-white text-xs font-bold px-3 py-1 rounded-full">
                       Mais popular
                     </div>
                   )}
@@ -107,14 +133,14 @@ export default function BillingPage() {
                   </div>
 
                   <div className="space-y-2 mb-6 text-sm text-gray-600">
-                    <div className="flex items-center gap-2"><Coins className="w-4 h-4 text-violet-500" />{plan.credits?.toLocaleString()} créditos/mês</div>
+                    <div className="flex items-center gap-2"><Coins className="w-4 h-4 text-[#1565C0]" />{plan.credits?.toLocaleString()} créditos/mês</div>
                     <div className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" />Até {plan.agents} agentes</div>
                     {features.map((f) => (
                       <div key={f} className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" />{f}</div>
                     ))}
                   </div>
 
-                  <Button className={`w-full ${isPopular ? 'bg-violet-600 hover:bg-violet-700' : ''}`} variant={isPopular ? 'default' : 'outline'} disabled={isCurrent}
+                  <Button className={`w-full ${isPopular ? 'hover:opacity-90' : ''}`} variant={isPopular ? 'default' : 'outline'} disabled={isCurrent}
                     onClick={() => alert('Integração com Stripe em desenvolvimento. Configure a variável STRIPE_SECRET_KEY.')}>
                     {isCurrent ? 'Plano atual' : 'Assinar agora'}
                   </Button>
@@ -123,6 +149,79 @@ export default function BillingPage() {
             })}
           </div>
         )}
+      </div>
+
+      {/* Alerta de pagamento */}
+      {paymentStatus === 'success' && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
+          <Check className="w-5 h-5 text-green-600 shrink-0" />
+          <div>
+            <div className="font-medium text-green-800">Pagamento confirmado!</div>
+            <div className="text-sm text-green-600">Seus créditos foram adicionados à conta.</div>
+          </div>
+        </div>
+      )}
+      {paymentStatus === 'cancelled' && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+          <div className="text-sm text-amber-700">Pagamento cancelado. Nenhum valor foi cobrado.</div>
+        </div>
+      )}
+
+      {/* Pacotes de créditos avulsos */}
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <Zap className="w-5 h-5 text-[#1565C0]" />
+          <h2 className="text-lg font-semibold text-gray-900">Comprar créditos avulsos</h2>
+        </div>
+        <p className="text-sm text-gray-500 mb-4">Adicione créditos à sua conta a qualquer momento, sem alterar seu plano.</p>
+
+        {/* Tabela de custo por modelo */}
+        <div className="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-100">
+          <div className="text-xs font-semibold text-gray-500 uppercase mb-2">Custo por mensagem por modelo</div>
+          <div className="flex flex-wrap gap-3">
+            {Object.entries(modelCosts).map(([, m]) => (
+              <div key={m.label} className="flex items-center gap-1.5 text-xs bg-white border border-gray-200 rounded-lg px-2 py-1">
+                <span className="font-medium text-gray-700">{m.label}</span>
+                <span className="text-gray-400">→</span>
+                <span className="font-semibold text-[#1565C0]">{m.credits} crédito{m.credits > 1 ? 's' : ''}/msg</span>
+              </div>
+            ))}
+            <div className="flex items-center gap-1.5 text-xs bg-white border border-gray-200 rounded-lg px-2 py-1">
+              <span className="font-medium text-gray-700">Áudio/Imagem/PDF</span>
+              <span className="text-gray-400">→</span>
+              <span className="font-semibold text-[#1565C0]">2 créditos fixos</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {creditPackages.map((pkg) => (
+            <div key={pkg.id} className={`relative rounded-xl border-2 p-4 text-center ${pkg.popular ? 'border-[#1565C0] shadow-md shadow-blue-100' : 'border-gray-200'}`}>
+              {pkg.popular && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#1565C0] text-white text-xs font-bold px-3 py-0.5 rounded-full">
+                  Mais popular
+                </div>
+              )}
+              <div className="font-bold text-gray-900 mb-1">{pkg.name}</div>
+              <div className="flex items-center justify-center gap-1 text-[#1565C0] mb-1">
+                <Coins className="w-4 h-4" />
+                <span className="font-bold text-lg">{pkg.credits.toLocaleString('pt-BR')}</span>
+              </div>
+              <div className="text-xs text-gray-400 mb-3">créditos</div>
+              <div className="text-xl font-bold text-gray-900 mb-3">{pkg.priceLabel}</div>
+              <Button
+                size="sm"
+                className={`w-full ${pkg.popular ? 'hover:opacity-90' : ''}`}
+                variant={pkg.popular ? 'default' : 'outline'}
+                disabled={checkoutMutation.isPending}
+                onClick={() => checkoutMutation.mutate(pkg.id)}
+              >
+                {checkoutMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Comprar'}
+              </Button>
+            </div>
+          ))}
+        </div>
       </div>
 
       {invoices && invoices.length > 0 && (
@@ -155,3 +254,5 @@ export default function BillingPage() {
     </div>
   )
 }
+
+

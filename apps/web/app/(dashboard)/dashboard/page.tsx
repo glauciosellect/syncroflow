@@ -131,7 +131,7 @@ export default function DashboardPage() {
               <div key={agent.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-bold text-gray-400">#{i + 1}</span>
-                  <div className="w-8 h-8 bg-violet-100 rounded-full flex items-center justify-center text-xs font-bold text-violet-600">
+                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-xs font-bold text-[#1565C0]">
                     {agent.name?.[0]?.toUpperCase()}
                   </div>
                   <span className="font-medium text-gray-700">{agent.name}</span>
@@ -148,3 +148,4 @@ export default function DashboardPage() {
     </div>
   )
 }
+

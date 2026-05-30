@@ -70,19 +70,19 @@ export default function LoginPage() {
             <Input id="totpCode" placeholder="000000" maxLength={6} {...register('totpCode')} />
           </div>
         )}
-        <Button type="submit" className="w-full bg-violet-600 hover:bg-violet-700" disabled={loading}>
+        <Button type="submit" className="w-full text-white hover:opacity-90" style={{ background: 'linear-gradient(135deg, #1565C0, #2E7D32)' }} disabled={loading}>
           {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
           Entrar
         </Button>
       </form>
 
       <div className="mt-4 text-center space-y-2">
-        <Link href="/forgot-password" className="text-sm text-violet-600 hover:underline block">
+        <Link href="/forgot-password" className="text-sm text-[#1565C0] hover:underline block">
           Esqueci minha senha
         </Link>
         <p className="text-sm text-gray-500">
           Não tem conta?{' '}
-          <Link href="/register" className="text-violet-600 hover:underline font-medium">
+          <Link href="/register" className="text-[#1565C0] hover:underline font-medium">
             Cadastre-se grátis
           </Link>
         </p>

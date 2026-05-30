@@ -9,18 +9,23 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/components/ui/use-toast'
-import { ArrowLeft, Save, Loader2, Bot, Send, X, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, Save, Loader2, Bot, Send, X, Plus, Trash2, Pencil } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 
 const tabs = ['Perfil', 'Treinamentos', 'Intenções', 'Configurações']
 const modelOptions = [
-  { value: 'claude-3-5-haiku-20241022', label: 'Claude Haiku (rápido e barato)' },
-  { value: 'claude-3-5-sonnet-20241022', label: 'Claude Sonnet (equilibrado)' },
-  { value: 'claude-opus-4-5', label: 'Claude Opus (mais poderoso)' },
-  { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
-  { value: 'gpt-4o', label: 'GPT-4o' },
+  { value: 'claude-3-5-haiku-20241022', label: 'Claude Haiku', desc: 'Rápido e econômico', creditsPerMsg: 1, color: 'text-green-600' },
+  { value: 'claude-3-5-sonnet-20241022', label: 'Claude Sonnet', desc: 'Equilibrado', creditsPerMsg: 3, color: 'text-blue-600' },
+  { value: 'claude-opus-4-5', label: 'Claude Opus', desc: 'Máxima inteligência', creditsPerMsg: 10, color: 'text-[#1565C0]' },
+  { value: 'gpt-4o-mini', label: 'GPT-4o Mini', desc: 'Alternativa econômica', creditsPerMsg: 1, color: 'text-green-600' },
+  { value: 'gpt-4o', label: 'GPT-4o', desc: 'Alternativa poderosa', creditsPerMsg: 5, color: 'text-orange-600' },
 ]
+
+function calcMsgEstimate(credits: number, creditsPerMsg: number) {
+  if (!credits || credits <= 0) return '0'
+  return Math.floor(credits / creditsPerMsg).toLocaleString('pt-BR')
+}
 
 export default function AgentDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -34,6 +39,9 @@ export default function AgentDetailPage() {
   const [showTest, setShowTest] = useState(false)
   const [trainingText, setTrainingText] = useState('')
   const [trainingUrl, setTrainingUrl] = useState('')
+  const [showIntentionForm, setShowIntentionForm] = useState(false)
+  const [intentionForm, setIntentionForm] = useState({ name: '', description: '', actionType: 'INTERNAL', fixedMessage: '' })
+  const [editingIntention, setEditingIntention] = useState<any>(null)
 
   const { data: agent, isLoading } = useQuery({
     queryKey: ['agent', id],
@@ -69,9 +77,61 @@ export default function AgentDetailPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['agent', id] }),
   })
 
+  const createIntentionMutation = useMutation({
+    mutationFn: (data: any) => api.post(`/agents/${id}/intentions`, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['agent', id] })
+      setShowIntentionForm(false)
+      setIntentionForm({ name: '', description: '', actionType: 'INTERNAL', fixedMessage: '' })
+      toast({ title: 'Intenção criada!' })
+    },
+    onError: () => toast({ title: 'Erro ao criar intenção', variant: 'destructive' }),
+  })
+
+  const updateIntentionMutation = useMutation({
+    mutationFn: ({ intentId, data }: { intentId: string; data: any }) => api.patch(`/agents/${id}/intentions/${intentId}`, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['agent', id] })
+      setEditingIntention(null)
+      toast({ title: 'Intenção atualizada!' })
+    },
+    onError: () => toast({ title: 'Erro ao atualizar', variant: 'destructive' }),
+  })
+
+  const deleteIntentionMutation = useMutation({
+    mutationFn: (intentId: string) => api.delete(`/agents/${id}/intentions/${intentId}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['agent', id] }); toast({ title: 'Intenção removida' }) },
+  })
+
+  const handleSaveIntention = () => {
+    const payload = {
+      name: intentionForm.name,
+      description: intentionForm.description || null,
+      actionType: 'INTERNAL',
+      responseMode: 'FIXED_MESSAGE',
+      webhookBody: intentionForm.fixedMessage ? { fixedMessage: intentionForm.fixedMessage } : null,
+    }
+    if (editingIntention) {
+      updateIntentionMutation.mutate({ intentId: editingIntention.id, data: payload })
+    } else {
+      createIntentionMutation.mutate(payload)
+    }
+  }
+
+  const openEditIntention = (intention: any) => {
+    setIntentionForm({
+      name: intention.name || '',
+      description: intention.description || '',
+      actionType: intention.actionType || 'INTERNAL',
+      fixedMessage: intention.webhookBody?.fixedMessage || '',
+    })
+    setEditingIntention(intention)
+    setShowIntentionForm(true)
+  }
+
   if (isLoading) return (
     <div className="flex items-center justify-center h-64">
-      <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
+      <Loader2 className="w-8 h-8 animate-spin text-[#1565C0]" />
     </div>
   )
 
@@ -105,32 +165,58 @@ export default function AgentDetailPage() {
         </Link>
 
         <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 text-center">
-          <div className="w-16 h-16 bg-gradient-to-br from-violet-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-2xl font-bold mx-auto mb-2">
+          <div className="w-16 h-16 bg-gradient-to-br from-[#1565C0] to-[#2E7D32] rounded-full flex items-center justify-center text-white text-2xl font-bold mx-auto mb-2">
             {agent.name?.[0]?.toUpperCase()}
           </div>
           <div className="font-semibold text-gray-900 text-sm">{agent.name}</div>
           <div className="text-xs text-gray-400 mt-0.5">{agent.companyName}</div>
 
-          <select
-            className="mt-3 w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600"
-            value={f.llmModel || agent.llmModel}
-            onChange={(e) => setForm((prev: any) => ({ ...(prev || agent), llmModel: e.target.value }))}
-          >
-            {modelOptions.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-          </select>
+          <div className="mt-3">
+            <select
+              className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600"
+              value={f.llmModel || agent.llmModel}
+              onChange={(e) => setForm((prev: any) => ({ ...(prev || agent), llmModel: e.target.value }))}
+            >
+              {modelOptions.map(m => (
+                <option key={m.value} value={m.value}>{m.label} — {m.desc}</option>
+              ))}
+            </select>
+            {(() => {
+              const selected = modelOptions.find(m => m.value === (f.llmModel || agent.llmModel))
+              const wsCredits = (agent as any).workspace?.credits ?? 0
+              if (!selected) return null
+              return (
+                <div className={`mt-1.5 text-xs rounded-lg px-2 py-1.5 bg-gray-50 border border-gray-100`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-500">Custo por msg</span>
+                    <span className={`font-semibold ${selected.color}`}>{selected.creditsPerMsg} crédito{selected.creditsPerMsg > 1 ? 's' : ''}</span>
+                  </div>
+                  {wsCredits > 0 && (
+                    <div className="flex items-center justify-between mt-0.5">
+                      <span className="text-gray-500">Msgs estimadas</span>
+                      <span className="font-semibold text-gray-700">~{calcMsgEstimate(wsCredits, selected.creditsPerMsg)}</span>
+                    </div>
+                  )}
+                  {selected.creditsPerMsg > 3 && (
+                    <div className="mt-1 text-amber-600 text-xs">⚠️ Consome {selected.creditsPerMsg}x mais que o padrão</div>
+                  )}
+                </div>
+              )
+            })()}
+          </div>
         </div>
 
         <nav className="space-y-1">
           {tabs.map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={cn('w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                activeTab === tab ? 'bg-violet-50 text-violet-700' : 'text-gray-600 hover:bg-gray-50')}>
+                activeTab === tab ? 'bg-blue-50 text-[#1565C0]' : 'text-gray-600 hover:bg-gray-50')}>
               {tab}
             </button>
           ))}
         </nav>
 
-        <Button onClick={() => setShowTest(true)} variant="outline" className="w-full mt-4 text-violet-600 border-violet-200 hover:bg-violet-50">
+        <Button onClick={() => setShowTest(true)} variant="outline" className="w-full mt-4 text-[#1565C0] border-blue-200 hover:bg-blue-50">
           Testar IA
         </Button>
       </div>
@@ -153,7 +239,7 @@ export default function AgentDetailPage() {
                   {['FORMAL', 'NORMAL', 'CASUAL'].map(s => (
                     <button key={s} onClick={() => setForm((p: any) => ({ ...(p || agent), communicationStyle: s }))}
                       className={cn('flex-1 py-2 rounded-lg border text-sm font-medium transition-colors',
-                        (f.communicationStyle || 'NORMAL') === s ? 'border-violet-600 bg-violet-50 text-violet-700' : 'border-gray-200 text-gray-600 hover:border-gray-300')}>
+                        (f.communicationStyle || 'NORMAL') === s ? 'border-[#1565C0] bg-blue-50 text-[#1565C0]' : 'border-gray-200 text-gray-600 hover:border-gray-300')}>
                       {s === 'FORMAL' ? 'Formal' : s === 'NORMAL' ? 'Normal' : 'Descontraído'}
                     </button>
                   ))}
@@ -186,7 +272,7 @@ export default function AgentDetailPage() {
                   onChange={e => setForm((p: any) => ({ ...(p || agent), companyDesc: e.target.value }))}
                 />
               </div>
-              <Button onClick={() => updateMutation.mutate(f)} disabled={updateMutation.isPending} className="bg-violet-600 hover:bg-violet-700">
+              <Button onClick={() => updateMutation.mutate(f)} disabled={updateMutation.isPending} className="bg-[#1565C0] hover:bg-[#0D47A1]">
                 {updateMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
                 Salvar
               </Button>
@@ -206,7 +292,7 @@ export default function AgentDetailPage() {
                   value={trainingText}
                   onChange={e => setTrainingText(e.target.value)}
                 />
-                <Button onClick={() => trainingTextMutation.mutate(trainingText)} disabled={!trainingText.trim() || trainingTextMutation.isPending} className="bg-violet-600 hover:bg-violet-700">
+                <Button onClick={() => trainingTextMutation.mutate(trainingText)} disabled={!trainingText.trim() || trainingTextMutation.isPending} className="bg-[#1565C0] hover:bg-[#0D47A1]">
                   {trainingTextMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
                   Adicionar Texto
                 </Button>
@@ -218,7 +304,7 @@ export default function AgentDetailPage() {
               <CardContent>
                 <div className="flex gap-2">
                   <Input placeholder="https://seusite.com/pagina" value={trainingUrl} onChange={e => setTrainingUrl(e.target.value)} />
-                  <Button onClick={() => trainingUrlMutation.mutate(trainingUrl)} disabled={!trainingUrl.trim() || trainingUrlMutation.isPending} className="bg-violet-600 hover:bg-violet-700">
+                  <Button onClick={() => trainingUrlMutation.mutate(trainingUrl)} disabled={!trainingUrl.trim() || trainingUrlMutation.isPending} className="bg-[#1565C0] hover:bg-[#0D47A1]">
                     {trainingUrlMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Adicionar'}
                   </Button>
                 </div>
@@ -255,16 +341,97 @@ export default function AgentDetailPage() {
 
         {/* ABA: INTENÇÕES */}
         {activeTab === 'Intenções' && (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <Bot className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-              <h3 className="font-semibold text-gray-700 mb-2">Intenções</h3>
-              <p className="text-sm text-gray-400 mb-4">Configure ações automáticas que o agente executa quando detecta uma intenção específica do cliente.</p>
-              <Button className="bg-violet-600 hover:bg-violet-700">
-                <Plus className="w-4 h-4 mr-2" /> Criar Intenção
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">Intenções</h2>
+                <p className="text-xs text-gray-400 mt-0.5">Ações automáticas quando o agente detecta uma intenção do cliente</p>
+              </div>
+              {!showIntentionForm && (
+                <Button onClick={() => { setEditingIntention(null); setIntentionForm({ name: '', description: '', actionType: 'INTERNAL', fixedMessage: '' }); setShowIntentionForm(true) }} className="bg-[#1565C0] hover:bg-[#0D47A1]" size="sm">
+                  <Plus className="w-3 h-3 mr-1" /> Nova Intenção
+                </Button>
+              )}
+            </div>
+
+            {showIntentionForm && (
+              <Card>
+                <CardHeader><CardTitle className="text-sm">{editingIntention ? 'Editar Intenção' : 'Nova Intenção'}</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label>Nome da intenção</Label>
+                    <Input className="mt-1" placeholder="Ex: Solicitar demonstração" value={intentionForm.name} onChange={e => setIntentionForm(p => ({ ...p, name: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label>Descrição <span className="text-gray-400 text-xs">(quando o agente deve acionar esta intenção)</span></Label>
+                    <textarea
+                      className="w-full mt-1 border border-input rounded-md px-3 py-2 text-sm h-20 resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                      placeholder="Ex: Cliente pergunta sobre preços, planos ou quer saber quanto custa"
+                      value={intentionForm.description}
+                      onChange={e => setIntentionForm(p => ({ ...p, description: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label>Mensagem de resposta</Label>
+                    <textarea
+                      className="w-full mt-1 border border-input rounded-md px-3 py-2 text-sm h-28 resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                      placeholder="Ex: Temos planos para todos os tamanhos de operação. Pode me informar quantos atendimentos sua empresa realiza por mês?"
+                      value={intentionForm.fixedMessage}
+                      onChange={e => setIntentionForm(p => ({ ...p, fixedMessage: e.target.value }))}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={handleSaveIntention} disabled={!intentionForm.name.trim() || createIntentionMutation.isPending || updateIntentionMutation.isPending} className="bg-[#1565C0] hover:bg-[#0D47A1]">
+                      {(createIntentionMutation.isPending || updateIntentionMutation.isPending) ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                      {editingIntention ? 'Atualizar' : 'Criar Intenção'}
+                    </Button>
+                    <Button variant="ghost" onClick={() => { setShowIntentionForm(false); setEditingIntention(null) }}>Cancelar</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {(agent.intentions?.length === 0 && !showIntentionForm) && (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <Bot className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+                  <h3 className="font-semibold text-gray-700 mb-2">Nenhuma intenção cadastrada</h3>
+                  <p className="text-sm text-gray-400">Crie intenções para o agente executar ações automáticas quando detectar o que o cliente precisa.</p>
+                </CardContent>
+              </Card>
+            )}
+
+            <div className="space-y-2">
+              {(agent.intentions || []).map((intention: any) => (
+                <Card key={intention.id}>
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium text-sm text-gray-900">{intention.name}</span>
+                          <Badge variant={intention.isActive !== false ? 'success' : 'secondary'} className="text-xs">
+                            {intention.isActive !== false ? 'Ativa' : 'Inativa'}
+                          </Badge>
+                        </div>
+                        {intention.description && <p className="text-xs text-gray-500 mb-1">{intention.description}</p>}
+                        {intention.webhookBody?.fixedMessage && (
+                          <p className="text-xs text-gray-400 bg-gray-50 rounded px-2 py-1 mt-1 truncate">"{intention.webhookBody.fixedMessage}"</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button onClick={() => openEditIntention(intention)} className="p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => deleteIntentionMutation.mutate(intention.id)} className="p-1.5 hover:bg-red-50 rounded text-gray-400 hover:text-red-500">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* ABA: CONFIGURAÇÕES */}
@@ -288,7 +455,7 @@ export default function AgentDetailPage() {
                       <div className="text-xs text-gray-400">{opt.desc}</div>
                     </div>
                     <button onClick={() => setConfigForm((p: any) => ({ ...(p || c), [opt.key]: !val }))}
-                      className={cn('w-10 h-5 rounded-full transition-colors', val ? 'bg-violet-600' : 'bg-gray-300')}>
+                      className={cn('w-10 h-5 rounded-full transition-colors', val ? 'bg-[#1565C0]' : 'bg-gray-300')}>
                       <div className={cn('w-4 h-4 bg-white rounded-full shadow transition-transform mx-0.5', val ? 'translate-x-5' : 'translate-x-0')} />
                     </button>
                   </div>
@@ -308,7 +475,7 @@ export default function AgentDetailPage() {
                 </select>
               </div>
 
-              <Button onClick={() => configMutation.mutate(configForm || c)} disabled={configMutation.isPending} className="bg-violet-600 hover:bg-violet-700">
+              <Button onClick={() => configMutation.mutate(configForm || c)} disabled={configMutation.isPending} className="bg-[#1565C0] hover:bg-[#0D47A1]">
                 {configMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
                 Salvar Configurações
               </Button>
@@ -333,7 +500,7 @@ export default function AgentDetailPage() {
                   <div className="text-center py-6 text-xs text-gray-400">Envie uma mensagem para testar</div>
                 )}
                 {testMessages.map((m, i) => (
-                  <div key={i} className={cn('text-xs rounded-xl px-3 py-2 max-w-[85%]', m.role === 'user' ? 'ml-auto bg-violet-600 text-white' : 'bg-gray-100 text-gray-700')}>
+                  <div key={i} className={cn('text-xs rounded-xl px-3 py-2 max-w-[85%]', m.role === 'user' ? 'ml-auto bg-[#1565C0] text-white' : 'bg-gray-100 text-gray-700')}>
                     {m.content}
                     {m.credits && <div className="text-xs opacity-60 mt-1">{m.credits} créditos</div>}
                   </div>
@@ -344,7 +511,7 @@ export default function AgentDetailPage() {
                 <Input className="text-xs h-8" placeholder="Digite uma mensagem..." value={testMessage}
                   onChange={e => setTestMessage(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSendTest()} />
-                <Button size="sm" onClick={handleSendTest} disabled={testLoading || !testMessage.trim()} className="h-8 bg-violet-600 hover:bg-violet-700">
+                <Button size="sm" onClick={handleSendTest} disabled={testLoading || !testMessage.trim()} className="h-8 bg-[#1565C0] hover:bg-[#0D47A1]">
                   <Send className="w-3 h-3" />
                 </Button>
               </div>

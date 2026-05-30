@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Plus, Trash2, QrCode, Loader2, Radio } from 'lucide-react'
+import { Plus, Trash2, QrCode, Loader2, Radio, Save } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
 import { channelLabel } from '@/lib/utils'
 
@@ -20,11 +20,24 @@ export default function ChannelsPage() {
   const qc = useQueryClient()
   const [showForm, setShowForm] = useState<string | null>(null)
   const [formData, setFormData] = useState<any>({})
-  const [qrData, setQrData] = useState<Record<string, string>>({})
+  const [qrData, setQrData] = useState<Record<string, { qr: string; status: string }>>({})
+  const [selectedAgents, setSelectedAgents] = useState<Record<string, string>>({})
 
   const { data: channels, isLoading } = useQuery({
     queryKey: ['channels'],
     queryFn: () => api.get('/channels').then(r => r.data),
+  })
+
+  const { data: agents } = useQuery({
+    queryKey: ['agents'],
+    queryFn: () => api.get('/agents').then(r => r.data),
+  })
+
+  const assignAgentMutation = useMutation({
+    mutationFn: ({ channelId, agentId }: { channelId: string; agentId: string }) =>
+      api.patch(`/channels/${channelId}/agents`, { agentIds: agentId ? [agentId] : [] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['channels'] }); toast({ title: 'Agente vinculado ao canal!' }) },
+    onError: () => toast({ title: 'Erro ao vincular agente', variant: 'destructive' }),
   })
 
   const createMutation = useMutation({
@@ -41,9 +54,9 @@ export default function ChannelsPage() {
   const loadQR = async (channelId: string) => {
     try {
       const res = await api.get(`/channels/${channelId}/qr`)
-      setQrData(p => ({ ...p, [channelId]: res.data.qr }))
+      setQrData(p => ({ ...p, [channelId]: { qr: res.data.qr, status: res.data.status } }))
     } catch (err: any) {
-      toast({ title: 'Erro', description: 'Não foi possível carregar QR Code', variant: 'destructive' })
+      toast({ title: 'Erro', description: 'Não foi possível carregar status do canal', variant: 'destructive' })
     }
   }
 
@@ -84,7 +97,7 @@ export default function ChannelsPage() {
               </div>
             ))}
             <div className="flex gap-2">
-              <Button onClick={() => createMutation.mutate(formData)} className="bg-violet-600 hover:bg-violet-700" disabled={createMutation.isPending}>
+              <Button onClick={() => createMutation.mutate(formData)} className="hover:opacity-90" disabled={createMutation.isPending}>
                 {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                 Conectar
               </Button>
@@ -95,7 +108,7 @@ export default function ChannelsPage() {
       )}
 
       {isLoading ? (
-        <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-violet-600" /></div>
+        <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#1565C0]" /></div>
       ) : channels?.length === 0 ? (
         <div className="text-center py-16">
           <Radio className="w-16 h-16 text-gray-200 mx-auto mb-4" />
@@ -123,7 +136,17 @@ export default function ChannelsPage() {
                 {channel.type === 'WHATSAPP' && (
                   <div className="mt-3">
                     {qrData[channel.id] ? (
-                      <img src={qrData[channel.id]} alt="QR Code" className="w-32 h-32 mx-auto rounded-lg" />
+                      qrData[channel.id].status === 'connected' ? (
+                        <div className="text-center text-sm text-green-600 font-medium py-2">
+                          ✓ WhatsApp conectado
+                        </div>
+                      ) : qrData[channel.id].qr ? (
+                        <img src={qrData[channel.id].qr} alt="QR Code" className="w-40 h-40 mx-auto rounded-lg" />
+                      ) : (
+                        <div className="text-center text-sm text-gray-500 py-2">
+                          Aguardando QR Code...
+                        </div>
+                      )
                     ) : (
                       <Button variant="outline" size="sm" onClick={() => loadQR(channel.id)} className="w-full">
                         <QrCode className="w-3 h-3 mr-2" />
@@ -133,7 +156,31 @@ export default function ChannelsPage() {
                   </div>
                 )}
 
-                <div className="mt-3 pt-3 border-t border-gray-100">
+                <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
+                  <div>
+                    <Label className="text-xs text-gray-500">Agente vinculado</Label>
+                    <div className="flex gap-2 mt-1">
+                      <select
+                        className="flex-1 text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-700 bg-white"
+                        value={selectedAgents[channel.id] ?? (channel.agents?.[0]?.agentId || channel.agentChannels?.[0]?.agentId || '')}
+                        onChange={e => setSelectedAgents(p => ({ ...p, [channel.id]: e.target.value }))}
+                      >
+                        <option value="">Nenhum agente</option>
+                        {(agents || []).map((a: any) => (
+                          <option key={a.id} value={a.id}>{a.name}</option>
+                        ))}
+                      </select>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0 h-7 px-2"
+                        disabled={assignAgentMutation.isPending}
+                        onClick={() => assignAgentMutation.mutate({ channelId: channel.id, agentId: selectedAgents[channel.id] ?? '' })}
+                      >
+                        {assignAgentMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                      </Button>
+                    </div>
+                  </div>
                   <Button variant="ghost" size="sm" onClick={() => deleteMutation.mutate(channel.id)} className="text-red-500 hover:text-red-700 hover:bg-red-50 w-full">
                     <Trash2 className="w-3 h-3 mr-2" />
                     Desconectar
@@ -147,3 +194,4 @@ export default function ChannelsPage() {
     </div>
   )
 }
+
