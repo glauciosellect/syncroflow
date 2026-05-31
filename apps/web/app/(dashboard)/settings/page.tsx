@@ -14,8 +14,10 @@ import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/utils'
 import {
   Plus, Trash2, Loader2, Eye, EyeOff, KeyRound,
-  User, CreditCard, Variable, Check, Coins, Zap, AlertTriangle,
+  User, CreditCard, Variable, Check, Coins, Zap, AlertTriangle, Plug,
 } from 'lucide-react'
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
 // ─── ABA: PERFIL ──────────────────────────────────────────────────────────────
 function ProfileTab() {
@@ -563,11 +565,130 @@ function ApiKeysTab() {
   )
 }
 
+// ─── ABA: INTEGRAÇÕES ────────────────────────────────────────────────────────
+function IntegrationsTab() {
+  const { toast } = useToast()
+  const searchParams = useSearchParams()
+
+  const { data: googleStatus, refetch } = useQuery({
+    queryKey: ['google-integration'],
+    queryFn: () => api.get('/integrations/google').then(r => r.data),
+  })
+
+  const disconnectMutation = useMutation({
+    mutationFn: () => api.delete('/integrations/google'),
+    onSuccess: () => { refetch(); toast({ title: 'Google Calendar desconectado' }) },
+  })
+
+  useEffect(() => {
+    const result = searchParams.get('google')
+    if (result === 'success') { refetch(); toast({ title: '✅ Google Calendar conectado!' }) }
+    if (result === 'error') toast({ title: 'Erro ao conectar Google Calendar', variant: 'destructive' })
+  }, [searchParams, refetch, toast])
+
+  return (
+    <div className="space-y-5 max-w-2xl">
+      <p className="text-sm text-gray-500">
+        Conecte serviços externos para ampliar as capacidades dos seus agentes.
+      </p>
+
+      {/* Google Calendar */}
+      <Card className={googleStatus?.connected ? 'border-green-200' : 'border-gray-200'}>
+        <CardContent className="p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-white border border-gray-100 shadow-sm flex items-center justify-center shrink-0">
+                <svg viewBox="0 0 24 24" className="w-7 h-7">
+                  <path d="M19 3h-1V1h-2v2H8V1H6v2H5C3.9 3 3 3.9 3 5v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z" fill="#4285F4"/>
+                </svg>
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-gray-900">Google Calendar</h3>
+                  {googleStatus?.connected ? (
+                    <span className="inline-flex items-center gap-1 text-xs bg-green-50 text-green-700 rounded-full px-2 py-0.5 font-medium">
+                      <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                      Conectado
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-xs bg-gray-50 text-gray-500 rounded-full px-2 py-0.5 font-medium">
+                      <span className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
+                      Não conectado
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  {googleStatus?.connected
+                    ? `Conta: ${googleStatus.email}${googleStatus.tokenExpired ? ' · ⚠️ Token expirado — reconecte' : ''}`
+                    : 'Permita que os agentes criem e gerenciem agendamentos'}
+                </p>
+              </div>
+            </div>
+            <div className="shrink-0">
+              {googleStatus?.connected ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => disconnectMutation.mutate()}
+                  disabled={disconnectMutation.isPending}
+                  className="text-red-500 border-red-200 hover:bg-red-50"
+                >
+                  {disconnectMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
+                  Desconectar
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  onClick={() => { window.location.href = `${API_URL}/integrations/google/connect` }}
+                  className="bg-[#4285F4] hover:bg-[#3367D6] text-white"
+                >
+                  Conectar
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {googleStatus?.connected && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <p className="text-xs text-gray-500">
+                Os agentes com a intenção de agendamento configurada poderão criar eventos automaticamente neste calendário durante as conversas.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Outros cards — em breve */}
+      {[
+        { name: 'ElevenLabs', desc: 'Respostas em voz humanizada', icon: '🎙️' },
+        { name: 'Shopify', desc: 'Catálogo e pedidos', icon: '🛍️' },
+        { name: 'Stripe', desc: 'Links de pagamento', icon: '💳' },
+      ].map(item => (
+        <Card key={item.name} className="opacity-60">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-2xl shrink-0">{item.icon}</div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-gray-900">{item.name}</h3>
+                  <Badge variant="secondary" className="text-xs">Em breve</Badge>
+                </div>
+                <p className="text-sm text-gray-400 mt-0.5">{item.desc}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  )
+}
+
 // ─── PÁGINA PRINCIPAL ─────────────────────────────────────────────────────────
 const tabs = [
   { key: 'profile', label: 'Perfil', icon: User },
   { key: 'billing', label: 'Faturamento', icon: CreditCard },
-  { key: 'env', label: 'Variáveis de Ambiente', icon: Variable },
+  { key: 'integrations', label: 'Integrações', icon: Plug },
+  { key: 'env', label: 'Variáveis', icon: Variable },
   { key: 'apikeys', label: 'Chaves de API', icon: KeyRound },
 ]
 
@@ -603,6 +724,7 @@ function SettingsContent() {
       <div>
         {active === 'profile' && <ProfileTab />}
         {active === 'billing' && <BillingTab />}
+        {active === 'integrations' && <IntegrationsTab />}
         {active === 'env' && <EnvTab />}
         {active === 'apikeys' && <ApiKeysTab />}
       </div>

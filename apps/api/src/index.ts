@@ -8,6 +8,7 @@ import { redis } from './lib/redis'
 import { logger } from './lib/logger'
 
 import { authRoutes } from './modules/auth/auth.routes'
+import { googleRoutes } from './modules/auth/google.routes'
 import { workspaceRoutes } from './modules/workspaces/workspaces.routes'
 import { agentRoutes } from './modules/agents/agents.routes'
 import { trainingRoutes } from './modules/training/training.routes'
@@ -78,6 +79,7 @@ async function bootstrap() {
   })
 
   await app.register(authRoutes)
+  await app.register(googleRoutes)
   await app.register(workspaceRoutes)
   await app.register(agentRoutes)
   await app.register(trainingRoutes)

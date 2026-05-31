@@ -17,6 +17,7 @@ model User {
   passwordHash     String?
   phone            String?
   avatarUrl        String?
+  googleId         String?           @unique
   language         String            @default("pt-br")
   theme            String            @default("light")
   twoFactorSecret  String?
@@ -31,14 +32,20 @@ model User {
 }
 
 model Workspace {
-  id             String            @id @default(cuid())
-  name           String
-  slug           String            @unique
-  plan           Plan              @default(TRIAL)
-  trialEndsAt    DateTime?
-  credits        Int               @default(1000)
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @default(now()) @updatedAt
+  id                      String            @id @default(cuid())
+  name                    String
+  slug                    String            @unique
+  plan                    Plan              @default(TRIAL)
+  trialEndsAt             DateTime?
+  credits                 Int               @default(1000)
+  googleCalendarEnabled   Boolean           @default(false)
+  googleCalendarEmail     String?
+  googleCalendarId        String?
+  googleAccessToken       String?
+  googleRefreshToken      String?
+  googleTokenExpiry       DateTime?
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @default(now()) @updatedAt
   agents         Agent[]
   attendances    Attendance[]
   channels       Channel[]
