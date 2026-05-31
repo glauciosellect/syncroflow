@@ -9,21 +9,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Plus, Trash2, QrCode, Loader2, Save, Plug } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
-import { channelLabel } from '@/lib/utils'
-import { cn } from '@/lib/utils'
+import { channelLabel, cn } from '@/lib/utils'
 
 const channelIcons: Record<string, string> = {
   WHATSAPP: '📱', INSTAGRAM: '📸', FACEBOOK: '📘', TELEGRAM: '✈️', WIDGET: '💬', EMAIL: '📧', SMS: '📩',
 }
-
-const externalApis = [
-  { key: 'google_calendar', label: 'Google Calendar', desc: 'Agendamentos e convites automáticos', icon: '📅', color: 'bg-blue-50 border-blue-200', tag: 'Em breve' },
-  { key: 'elevenlabs', label: 'ElevenLabs', desc: 'Respostas em voz humanizada', icon: '🎙️', color: 'bg-purple-50 border-purple-200', tag: 'Em breve' },
-  { key: 'shopify', label: 'Shopify', desc: 'Catálogo de produtos e pedidos', icon: '🛍️', color: 'bg-green-50 border-green-200', tag: 'Em breve' },
-  { key: 'stripe', label: 'Stripe', desc: 'Links de pagamento e cobranças', icon: '💳', color: 'bg-indigo-50 border-indigo-200', tag: 'Em breve' },
-  { key: 'n8n', label: 'n8n / Zapier', desc: 'Automações via webhook externo', icon: '⚡', color: 'bg-orange-50 border-orange-200', tag: 'Via intenção' },
-  { key: 'notion', label: 'Notion', desc: 'Bases de conhecimento externas', icon: '📒', color: 'bg-gray-50 border-gray-200', tag: 'Em breve' },
-]
 
 const channelForms: Record<string, { label: string; fields: { key: string; label: string; placeholder?: string }[] }> = {
   whatsapp: { label: 'WhatsApp', fields: [{ key: 'name', label: 'Nome da conexão', placeholder: 'Ex: WhatsApp Principal' }] },
@@ -31,11 +21,6 @@ const channelForms: Record<string, { label: string; fields: { key: string; label
   instagram: { label: 'Instagram', fields: [{ key: 'name', label: 'Nome', placeholder: 'Ex: Instagram da Loja' }, { key: 'pageAccessToken', label: 'Page Access Token' }, { key: 'pageId', label: 'Page ID' }] },
   widget: { label: 'Widget para Sites', fields: [{ key: 'name', label: 'Nome', placeholder: 'Ex: Widget do Site' }, { key: 'welcomeMessage', label: 'Mensagem de boas-vindas', placeholder: 'Olá! Como posso ajudar?' }] },
 }
-
-const sections = [
-  { key: 'channels', label: 'Canais de Mensagem' },
-  { key: 'apis', label: 'APIs & Plataformas' },
-]
 
 export default function IntegrationsPage() {
   const { toast } = useToast()
@@ -87,33 +72,19 @@ export default function IntegrationsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Integrações</h1>
-          <p className="text-gray-500 text-sm mt-1">Conecte canais de mensagem e plataformas externas</p>
+          <h1 className="text-2xl font-bold text-gray-900">Canais</h1>
+          <p className="text-gray-500 text-sm mt-1">Conecte seus canais de atendimento</p>
         </div>
-        {activeSection === 'channels' && (
-          <div className="flex gap-2">
-            {Object.entries(channelForms).map(([key, form]) => (
-              <Button key={key} variant="outline" size="sm" onClick={() => setShowForm(key)}>
-                <Plus className="w-3 h-3 mr-1" />{form.label}
-              </Button>
-            ))}
-          </div>
-        )}
+        <div className="flex gap-2">
+          {Object.entries(channelForms).map(([key, form]) => (
+            <Button key={key} variant="outline" size="sm" onClick={() => setShowForm(key)}>
+              <Plus className="w-3 h-3 mr-1" />{form.label}
+            </Button>
+          ))}
+        </div>
       </div>
 
-      {/* Sub-abas */}
-      <div className="flex gap-1 border-b border-gray-200">
-        {sections.map(s => (
-          <button key={s.key} onClick={() => setActiveSection(s.key)}
-            className={cn('px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px',
-              activeSection === s.key ? 'border-[#1565C0] text-[#1565C0]' : 'border-transparent text-gray-500 hover:text-gray-700')}>
-            {s.label}
-          </button>
-        ))}
-      </div>
-
-      {/* CANAIS DE MENSAGEM */}
-      {activeSection === 'channels' && (
+      {(
         <>
           {showForm && channelForms[showForm] && (
             <Card>
@@ -209,28 +180,6 @@ export default function IntegrationsPage() {
             </div>
           )}
         </>
-      )}
-
-      {/* APIs & PLATAFORMAS */}
-      {activeSection === 'apis' && (
-        <div className="space-y-4">
-          <p className="text-sm text-gray-500">
-            Conecte plataformas externas para expandir as capacidades dos seus agentes.
-            Integrações via webhook já funcionam pelo módulo de <strong>Intenções</strong> em cada agente.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {externalApis.map(api => (
-              <div key={api.key} className={cn('rounded-xl border-2 p-5 bg-white', api.color)}>
-                <div className="flex items-start justify-between mb-3">
-                  <span className="text-3xl">{api.icon}</span>
-                  <Badge variant="secondary" className="text-xs">{api.tag}</Badge>
-                </div>
-                <h3 className="font-semibold text-gray-900 mb-1">{api.label}</h3>
-                <p className="text-sm text-gray-500">{api.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
       )}
     </div>
   )
