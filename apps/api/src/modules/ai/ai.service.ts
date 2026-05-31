@@ -66,7 +66,7 @@ export function calcCredits(inputTokens: number, outputTokens: number, model: st
 }
 
 export function buildSystemPrompt(agent: Agent, config: AgentConfig | null, knowledgeContext: string): string {
-  const style = config?.communicationStyle || agent.communicationStyle
+  const style = (config as any)?.communicationStyle || agent.communicationStyle
   return `
 Você é ${agent.name}, um assistente de ${agent.purpose === 'SUPPORT' ? 'suporte' : agent.purpose === 'SALES' ? 'vendas' : 'uso pessoal'} ${agent.companyName ? `da empresa ${agent.companyName}` : ''}.
 
@@ -201,36 +201,43 @@ export async function transcribeAudio(audioUrl: string): Promise<string> {
 }
 
 export async function describeImage(imageUrl: string): Promise<string> {
-  const res = await anthropic.messages.create({
-    model: 'claude-haiku-4-5',
-    max_tokens: 512,
-    messages: [{
-      role: 'user',
-      content: [
-        { type: 'image', source: { type: 'url', url: imageUrl } },
-        { type: 'text', text: 'Descreva em detalhes o conteúdo desta imagem enviada por um cliente no WhatsApp. Seja objetivo e inclua textos visíveis, produtos, documentos ou qualquer informação relevante.' },
-      ],
-    }],
-  })
-  return res.content[0].type === 'text' ? res.content[0].text : 'Imagem recebida.'
+  // Baixa a imagem e envia como base64
+  const tmpPath = await downloadToTempFile(imageUrl, '.jpg')
+  try {
+    const fileData = fs.readFileSync(tmpPath)
+    const base64 = fileData.toString('base64')
+    const res = await (anthropic.messages.create as any)({
+      model: 'claude-haiku-4-5',
+      max_tokens: 512,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } },
+          { type: 'text', text: 'Descreva em detalhes o conteúdo desta imagem enviada por um cliente no WhatsApp.' },
+        ],
+      }],
+    })
+    return res.content[0].type === 'text' ? res.content[0].text : 'Imagem recebida.'
+  } finally {
+    fs.unlinkSync(tmpPath)
+  }
 }
 
 export async function extractDocumentText(docUrl: string, mimetype?: string): Promise<string> {
-  // Para PDFs usa visão do Claude; para outros documentos extrai texto bruto
   const isPdf = !mimetype || mimetype.includes('pdf')
   if (isPdf) {
     const tmpPath = await downloadToTempFile(docUrl, '.pdf')
     try {
       const fileData = fs.readFileSync(tmpPath)
       const base64 = fileData.toString('base64')
-      const res = await anthropic.messages.create({
+      const res = await (anthropic.messages.create as any)({
         model: 'claude-haiku-4-5',
         max_tokens: 2048,
         messages: [{
           role: 'user',
           content: [
             { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-            { type: 'text', text: 'Extraia e resuma o conteúdo principal deste documento enviado pelo cliente.' },
+            { type: 'text', text: 'Extraia e resuma o conteúdo principal deste documento.' },
           ],
         }],
       })
@@ -239,12 +246,9 @@ export async function extractDocumentText(docUrl: string, mimetype?: string): Pr
       fs.unlinkSync(tmpPath)
     }
   }
-
-  // Word/outros: tenta extrair texto bruto
   try {
     const res = await axios.get(docUrl, { responseType: 'text', timeout: 15000 })
-    const raw = String(res.data).slice(0, 3000)
-    return `Conteúdo do documento:\n${raw}`
+    return `Conteúdo do documento:\n${String(res.data).slice(0, 3000)}`
   } catch {
     return 'Documento recebido (formato não suportado para leitura automática).'
   }

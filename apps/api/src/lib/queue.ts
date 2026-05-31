@@ -1,7 +1,8 @@
 import { Queue, Worker, Job } from 'bullmq'
-import { redis } from './redis'
 
-const connection = redis
+const connection = {
+  url: process.env.REDIS_URL || 'redis://localhost:6379',
+}
 
 export const messageQueue = new Queue('messages', { connection })
 export const trainingQueue = new Queue('training', { connection })

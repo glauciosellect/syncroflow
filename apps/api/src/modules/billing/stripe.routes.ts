@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import Stripe from 'stripe'
 import { prisma } from '../../lib/prisma'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-04-30.basil' })
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
 async function getWorkspaceId(userId: string) {
   const member = await prisma.workspaceMember.findFirst({ where: { userId }, orderBy: { createdAt: 'asc' } })
@@ -63,20 +63,20 @@ export async function stripeRoutes(app: FastifyInstance) {
     const sig = req.headers['stripe-signature'] as string
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
 
-    let event: Stripe.Event
+    let event: any
 
     try {
       if (webhookSecret) {
         event = stripe.webhooks.constructEvent((req as any).rawBody || req.body, sig, webhookSecret)
       } else {
-        event = req.body as Stripe.Event
+        event = req.body
       }
     } catch (err: any) {
       return reply.status(400).send({ error: `Webhook error: ${err.message}` })
     }
 
     if (event.type === 'checkout.session.completed') {
-      const session = event.data.object as Stripe.Checkout.Session
+      const session = event.data.object as any
       const { workspaceId, credits } = session.metadata || {}
 
       if (workspaceId && credits) {

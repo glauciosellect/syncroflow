@@ -132,7 +132,7 @@ export async function analyticsRoutes(app: FastifyInstance) {
 
     const [total, byStatus, avgCredits, avgInteractions] = await prisma.$transaction([
       prisma.conversation.count({ where: { workspaceId, createdAt: range } }),
-      prisma.conversation.groupBy({ by: ['status'], where: { workspaceId, createdAt: range }, _count: true }),
+      prisma.conversation.groupBy({ by: ['status'], where: { workspaceId, createdAt: range }, _count: true, orderBy: { _count: { status: 'desc' } } }),
       prisma.conversation.aggregate({ where: { workspaceId, createdAt: range }, _avg: { creditsUsed: true } }),
       prisma.conversation.aggregate({ where: { workspaceId, createdAt: range }, _avg: { interactionCount: true }, _min: { interactionCount: true }, _max: { interactionCount: true } }),
     ])

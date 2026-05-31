@@ -18,7 +18,7 @@ export async function webhookRoutes(app: FastifyInstance) {
   app.get('/webhooks/meta/:channelId', async (req, reply) => {
     const query = req.query as Record<string, string>
     if (query['hub.mode'] === 'subscribe') {
-      const channel = await prisma.channel.findUnique({ where: { id: req.params['channelId' as keyof typeof req.params] as string } })
+      const channel = await prisma.channel.findUnique({ where: { id: (req.params as any).channelId as string } })
       const verifyToken = (channel?.config as any)?.verifyToken || process.env.META_VERIFY_TOKEN
       if (query['hub.verify_token'] === verifyToken) {
         return reply.send(query['hub.challenge'])

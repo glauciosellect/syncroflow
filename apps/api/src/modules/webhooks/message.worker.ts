@@ -16,6 +16,7 @@ export function startMessageWorker() {
       })
       if (!channel) return
 
+      const MEDIA_CREDITS = 2
       let from: string, name: string, text: string | undefined
 
       if (channelType === 'WHATSAPP') {
@@ -61,7 +62,6 @@ export function startMessageWorker() {
       const workspace = await prisma.workspace.findUnique({ where: { id: channel.workspaceId } })
       if (!workspace) return
 
-      const MEDIA_CREDITS = 2 // custo fixo para áudio, imagem, documento
       const isMedia = !!(payload?.message?.mediaUrl || payload?.message?.fileUrl || payload?.message?.url)
 
       if (workspace.credits <= 0) {
