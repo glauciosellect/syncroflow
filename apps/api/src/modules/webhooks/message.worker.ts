@@ -30,12 +30,28 @@ export function startMessageWorker() {
 
         // Processar mídia: áudio (transcrição), imagem (visão), documento (extração)
         if (!text && msg.mediaUrl && msg.mediaType) {
-          // Debitar créditos de mídia antecipadamente
           await prisma.workspace.update({
             where: { id: channel.workspaceId },
             data: { credits: { decrement: MEDIA_CREDITS } },
           })
-          text = await processIncomingMedia(msg.mediaUrl, msg.mediaType)
+
+          // UAZAPI: usar endpoint nativo de download/transcrição
+          if (msg.mediaUrl.startsWith('uazapi:') && provider.downloadMedia) {
+            const messageId = msg.mediaUrl.replace('uazapi:', '')
+            const result = await provider.downloadMedia(messageId)
+
+            if (result.transcription) {
+              text = result.transcription
+            } else if (result.fileURL) {
+              text = await processIncomingMedia(result.fileURL, msg.mediaType)
+            } else {
+              text = msg.mediaType === 'audio'
+                ? '[Áudio recebido — não foi possível transcrever]'
+                : '[Mídia recebida]'
+            }
+          } else {
+            text = await processIncomingMedia(msg.mediaUrl, msg.mediaType)
+          }
         }
 
         if (!text) return

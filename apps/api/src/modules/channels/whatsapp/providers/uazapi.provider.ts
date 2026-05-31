@@ -58,6 +58,21 @@ export class UazApiProvider implements WhatsAppProvider {
     }, { headers: this.headers() })
   }
 
+  async downloadMedia(messageId: string): Promise<{ fileURL?: string; transcription?: string; mimetype?: string }> {
+    try {
+      const res = await axios.post(`${this.baseUrl}/message/download`, {
+        id: messageId,
+        return_link: true,
+        generate_mp3: true,
+        transcribe: true,
+        openai_apikey: process.env.OPENAI_API_KEY,
+      }, { headers: this.headers(), timeout: 30000 })
+      return res.data || {}
+    } catch {
+      return {}
+    }
+  }
+
   parseWebhook(payload: any): WhatsAppMessage | null {
     if (!payload) return null
 
@@ -71,49 +86,35 @@ export class UazApiProvider implements WhatsAppProvider {
     const phone = chatid.replace('@s.whatsapp.net', '').replace(/\D/g, '')
     if (!phone) return null
 
-    // Texto: pode ser string direta ou estar em msg.text
-    const text = typeof msg.text === 'string' ? msg.text :
-                 typeof msg.content === 'string' ? msg.content : undefined
+    const text = typeof msg.text === 'string' && msg.text ? msg.text : undefined
 
-    // Mídia: UAZAPI envia content como objeto { URL, mimetype, ... }
+    // Detectar mídia pelo tipo ou mimetype
     const contentObj = typeof msg.content === 'object' && msg.content !== null ? msg.content : null
     const mimetype: string = msg.mimetype || msg.Mimetype || contentObj?.mimetype || ''
-    const rawUrl: string = msg.mediaUrl || msg.fileUrl || msg.url || contentObj?.URL || contentObj?.url || ''
+    const messageId: string = msg.messageid || msg.id || ''
 
-    // Detectar mídia
-    let mediaUrl: string | undefined
     let mediaType: WhatsAppMessage['mediaType'] | undefined
 
-    if (rawUrl) {
-      if (mimetype.startsWith('audio') || msg.type === 'ptt' || msg.type === 'audio' || msg.PTT === true) {
-        mediaUrl = rawUrl
-        mediaType = 'audio'
-      } else if (mimetype.startsWith('image') || msg.type === 'image') {
-        mediaUrl = rawUrl
-        mediaType = 'image'
-      } else if (mimetype.startsWith('video') || msg.type === 'video') {
-        mediaUrl = rawUrl
-        mediaType = 'video'
-      } else if (
-        mimetype.includes('pdf') || mimetype.includes('word') || mimetype.includes('document') ||
-        mimetype.includes('spreadsheet') || mimetype.includes('presentation') ||
-        mimetype.includes('text/plain') || msg.type === 'document'
-      ) {
-        mediaUrl = rawUrl
-        mediaType = 'document'
-      }
-    }
+    const isAudio = mimetype.startsWith('audio') || msg.type === 'ptt' || msg.type === 'audio' || msg.PTT === true || contentObj?.PTT === true
+    const isImage = mimetype.startsWith('image') || msg.type === 'image'
+    const isVideo = mimetype.startsWith('video') || msg.type === 'video'
+    const isDoc = mimetype.includes('pdf') || mimetype.includes('word') || mimetype.includes('document') || msg.type === 'document'
+
+    if (isAudio) mediaType = 'audio'
+    else if (isImage) mediaType = 'image'
+    else if (isVideo) mediaType = 'video'
+    else if (isDoc) mediaType = 'document'
 
     // Ignorar se não tem texto nem mídia reconhecida
-    if (!text && !mediaUrl) return null
+    if (!text && !mediaType) return null
 
     return {
       from: phone,
       name: msg.senderName || payload.chat?.name || 'Desconhecido',
       text,
-      mediaUrl,
+      mediaUrl: mediaType ? `uazapi:${messageId}` : undefined, // marcador para baixar depois
       mediaType,
-      messageId: msg.messageid || msg.id || '',
+      messageId,
       timestamp: msg.messageTimestamp
         ? Math.floor(msg.messageTimestamp / 1000)
         : Math.floor(Date.now() / 1000),
