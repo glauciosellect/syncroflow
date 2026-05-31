@@ -108,7 +108,7 @@ export async function retrieveContext(message: string, agentId: string, topK = 5
         INNER JOIN "AgentKnowledgeBase" akb ON akb."knowledgeBaseId" = kd."knowledgeBaseId"
         WHERE akb."agentId" = '${agentId}'
       ) combined
-      WHERE 1 - (embedding <=> '${vectorStr}'::vector) > 0.7
+      WHERE 1 - (embedding <=> '${vectorStr}'::vector) > 0.5
       ORDER BY similarity DESC
       LIMIT ${topK}
     `)
