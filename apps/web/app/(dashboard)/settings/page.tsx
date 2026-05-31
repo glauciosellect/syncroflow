@@ -569,6 +569,7 @@ function ApiKeysTab() {
 function IntegrationsTab() {
   const { toast } = useToast()
   const searchParams = useSearchParams()
+  const { token } = useAuthStore()
 
   const { data: googleStatus, refetch } = useQuery({
     queryKey: ['google-integration'],
@@ -639,7 +640,7 @@ function IntegrationsTab() {
               ) : (
                 <Button
                   size="sm"
-                  onClick={() => { window.location.href = `${API_URL}/integrations/google/connect` }}
+                  onClick={() => { window.location.href = `${API_URL}/integrations/google/connect?token=${token}` }}
                   className="bg-[#4285F4] hover:bg-[#3367D6] text-white"
                 >
                   Conectar

@@ -114,9 +114,20 @@ export async function googleRoutes(app: FastifyInstance) {
   })
 
   // ── GOOGLE CALENDAR — conectar workspace ─────────────────────────────────
-  app.get('/integrations/google/connect', { onRequest: [app.authenticate] }, async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const member = await prisma.workspaceMember.findFirst({ where: { userId: sub } })
+  // Aceita token via query param pois é um redirect de browser (sem header Authorization)
+  app.get('/integrations/google/connect', async (req, reply) => {
+    const { token } = req.query as Record<string, string>
+    if (!token) return reply.status(401).send({ error: 'Não autorizado' })
+
+    let userId: string
+    try {
+      const decoded = app.jwt.verify(token) as { sub: string }
+      userId = decoded.sub
+    } catch {
+      return reply.status(401).send({ error: 'Token inválido' })
+    }
+
+    const member = await prisma.workspaceMember.findFirst({ where: { userId } })
     if (!member) return reply.status(404).send({ error: 'Workspace não encontrado' })
 
     const redirectUri = `${API_URL}/integrations/google/callback`
