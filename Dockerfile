@@ -2,21 +2,22 @@ FROM node:20-alpine
 
 RUN apk add --no-cache openssl
 
-WORKDIR /app
+WORKDIR /app/apps/api
 
-# Copia tudo do repositório
-COPY . .
+# Copia só a pasta da API
+COPY apps/api/package*.json ./
+COPY apps/api/prisma ./prisma/
+COPY apps/api/src ./src/
+COPY apps/api/tsconfig.json ./
 
-# Instala dependências da API
-RUN cd apps/api && npm install
+# Instala dependências
+RUN npm install
 
-# Gera o Prisma Client (passando o schema explicitamente)
-RUN cd apps/api && npx prisma generate --schema=prisma/schema.prisma
+# Gera o Prisma Client
+RUN npx prisma generate
 
 # Build TypeScript
-RUN cd apps/api && npm run build
-
-WORKDIR /app/apps/api
+RUN npm run build
 
 EXPOSE 3001
 
