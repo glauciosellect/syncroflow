@@ -4,17 +4,19 @@ RUN apk add --no-cache openssl
 
 WORKDIR /app
 
-# Copia tudo
+# Copia tudo (contexto é a raiz do repo)
 COPY . .
 
-# Instala dependências
-RUN npm install
+# Instala dependências da API
+RUN cd apps/api && npm install
 
-# Gera o Prisma Client (schema está em ./prisma/schema.prisma)
-RUN npx prisma generate --schema=./prisma/schema.prisma
+# Gera o Prisma Client com caminho absoluto
+RUN cd apps/api && npx prisma generate --schema=./prisma/schema.prisma
 
 # Build TypeScript
-RUN npm run build
+RUN cd apps/api && npm run build
+
+WORKDIR /app/apps/api
 
 EXPOSE 3001
 
