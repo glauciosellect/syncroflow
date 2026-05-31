@@ -1,5 +1,5 @@
 'use client'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/auth.store'
 import { Sidebar } from '@/components/shared/sidebar'
@@ -9,14 +9,20 @@ import { useSocketConnect } from '@/hooks/use-socket'
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const user = useAuthStore((s) => s.user)
+  const [hydrated, setHydrated] = useState(false)
 
   useSocketConnect()
 
   useEffect(() => {
-    if (!user) router.push('/login')
-  }, [user, router])
+    // Aguarda o Zustand hidratar do localStorage antes de redirecionar
+    setHydrated(true)
+  }, [])
 
-  if (!user) return null
+  useEffect(() => {
+    if (hydrated && !user) router.push('/login')
+  }, [hydrated, user, router])
+
+  if (!hydrated || !user) return null
 
   return (
     <div className="flex h-screen bg-gray-50">
