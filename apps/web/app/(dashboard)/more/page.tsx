@@ -1,11 +1,13 @@
 import Link from 'next/link'
-import { Brain, ClipboardList, Variable, Key, CreditCard, Settings } from 'lucide-react'
+import { Brain, ClipboardList, KeyRound, CreditCard, Variable, Settings } from 'lucide-react'
 
 const options = [
   { href: '/knowledge', label: 'Base de conhecimento', desc: 'Gerencie bases compartilhadas entre agentes', icon: Brain, color: 'bg-purple-100 text-purple-600' },
   { href: '/attendances', label: 'Atendimentos', desc: 'Histórico completo com exportação CSV', icon: ClipboardList, color: 'bg-blue-100 text-blue-600' },
-  { href: '/api-keys', label: 'Chaves de API', desc: 'Gere e revogue chaves de acesso à API', icon: Key, color: 'bg-orange-100 text-orange-600' },
+  { href: '/api-keys', label: 'Chaves de API', desc: 'Gere e revogue chaves de acesso à API', icon: KeyRound, color: 'bg-orange-100 text-orange-600' },
   { href: '/billing', label: 'Faturamento', desc: 'Planos, créditos e histórico de faturas', icon: CreditCard, color: 'bg-green-100 text-green-600' },
+  { href: '/settings?tab=env', label: 'Variáveis de Ambiente', desc: 'Armazene credenciais e segredos com segurança', icon: Variable, color: 'bg-yellow-100 text-yellow-600' },
+  { href: '/settings', label: 'Configurações', desc: 'Perfil, workspace, senha e segurança', icon: Settings, color: 'bg-gray-100 text-gray-600' },
 ]
 
 export default function MorePage() {
@@ -30,4 +32,3 @@ export default function MorePage() {
     </div>
   )
 }
-

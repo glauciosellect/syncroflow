@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Bot, Users, Radio, MessageSquare, Contact, MoreHorizontal, Zap, KeyRound } from 'lucide-react'
+import { LayoutDashboard, Bot, Users, Radio, MessageSquare, Contact, MoreHorizontal } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth.store'
 import { planLabel } from '@/lib/utils'
@@ -10,7 +10,7 @@ const navItems = [
   { section: 'VISÃO GERAL', items: [{ href: '/dashboard', label: 'Dashboards', icon: LayoutDashboard }] },
   { section: 'CADASTROS', items: [{ href: '/agents', label: 'Agentes', icon: Bot }, { href: '/team', label: 'Equipe', icon: Users }, { href: '/channels', label: 'Canais', icon: Radio }] },
   { section: 'COMUNICAÇÃO', items: [{ href: '/chat', label: 'Chat', icon: MessageSquare }, { href: '/contacts', label: 'Contatos', icon: Contact }] },
-  { section: 'CENTRAL', items: [{ href: '/settings', label: 'Variáveis de Ambiente', icon: KeyRound }, { href: '/more', label: 'Mais opções', icon: MoreHorizontal }] },
+  { section: 'CENTRAL', items: [{ href: '/more', label: 'Central', icon: MoreHorizontal }] },
 ]
 
 export function Sidebar() {
