@@ -1,16 +1,16 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Bot, Users, Radio, MessageSquare, Contact, MoreHorizontal } from 'lucide-react'
+import { LayoutDashboard, Bot, Users, Plug, MessageSquare, Contact, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth.store'
 import { planLabel } from '@/lib/utils'
 
 const navItems = [
   { section: 'VISÃO GERAL', items: [{ href: '/dashboard', label: 'Dashboards', icon: LayoutDashboard }] },
-  { section: 'CADASTROS', items: [{ href: '/agents', label: 'Agentes', icon: Bot }, { href: '/team', label: 'Equipe', icon: Users }, { href: '/channels', label: 'Canais', icon: Radio }] },
+  { section: 'CADASTROS', items: [{ href: '/agents', label: 'Agentes', icon: Bot }, { href: '/team', label: 'Equipe', icon: Users }, { href: '/channels', label: 'Integrações', icon: Plug }] },
   { section: 'COMUNICAÇÃO', items: [{ href: '/chat', label: 'Chat', icon: MessageSquare }, { href: '/contacts', label: 'Contatos', icon: Contact }] },
-  { section: 'CENTRAL', items: [{ href: '/more', label: 'Central', icon: MoreHorizontal }] },
+  { section: 'SISTEMA', items: [{ href: '/settings', label: 'Configurações', icon: Settings }] },
 ]
 
 export function Sidebar() {
@@ -75,7 +75,7 @@ export function Sidebar() {
             <div className="w-full bg-blue-200 rounded-full h-1.5 mb-2">
               <div className="h-1.5 rounded-full" style={{ width: `${((7 - daysLeft) / 7) * 100}%`, background: 'linear-gradient(90deg, #1565C0, #2E7D32)' }} />
             </div>
-            <Link href="/billing" className="block text-center text-xs text-white rounded-md py-1.5 font-medium transition-colors hover:opacity-90" style={{ background: 'linear-gradient(135deg, #1565C0, #2E7D32)' }}>
+            <Link href="/settings?tab=billing" className="block text-center text-xs text-white rounded-md py-1.5 font-medium transition-colors hover:opacity-90" style={{ background: 'linear-gradient(135deg, #1565C0, #2E7D32)' }}>
               Fazer upgrade
             </Link>
           </div>
