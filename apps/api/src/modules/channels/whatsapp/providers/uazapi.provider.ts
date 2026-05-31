@@ -71,17 +71,21 @@ export class UazApiProvider implements WhatsAppProvider {
     const phone = chatid.replace('@s.whatsapp.net', '').replace(/\D/g, '')
     if (!phone) return null
 
-    const text = msg.text || msg.content || undefined
+    // Texto: pode ser string direta ou estar em msg.text
+    const text = typeof msg.text === 'string' ? msg.text :
+                 typeof msg.content === 'string' ? msg.content : undefined
+
+    // Mídia: UAZAPI envia content como objeto { URL, mimetype, ... }
+    const contentObj = typeof msg.content === 'object' && msg.content !== null ? msg.content : null
+    const mimetype: string = msg.mimetype || msg.Mimetype || contentObj?.mimetype || ''
+    const rawUrl: string = msg.mediaUrl || msg.fileUrl || msg.url || contentObj?.URL || contentObj?.url || ''
 
     // Detectar mídia
     let mediaUrl: string | undefined
     let mediaType: WhatsAppMessage['mediaType'] | undefined
 
-    const mimetype: string = msg.mimetype || msg.Mimetype || ''
-    const rawUrl: string = msg.mediaUrl || msg.fileUrl || msg.url || ''
-
     if (rawUrl) {
-      if (mimetype.startsWith('audio') || msg.type === 'ptt' || msg.type === 'audio') {
+      if (mimetype.startsWith('audio') || msg.type === 'ptt' || msg.type === 'audio' || msg.PTT === true) {
         mediaUrl = rawUrl
         mediaType = 'audio'
       } else if (mimetype.startsWith('image') || msg.type === 'image') {
