@@ -123,26 +123,24 @@ function ProfileTab() {
 // ─── ABA: FATURAMENTO ─────────────────────────────────────────────────────────
 const plans = [
   {
-    id: 'BASIC', name: 'Basic', priceMonthly: 8700, credits: 2500, agents: 5,
+    id: 'BASIC', name: 'Basic', credits: 2500, agents: 5,
     highlight: false,
-    prices: { MONTHLY: 8700, QUARTERLY: 8265, SEMIANNUAL: 8091, ANNUAL: 7830 },
+    prices: { MONTHLY: 8700, ANNUAL: 7830 },
   },
   {
-    id: 'STANDARD', name: 'Standard', priceMonthly: 39700, credits: 11500, agents: 20,
+    id: 'STANDARD', name: 'Standard', credits: 11500, agents: 20,
     highlight: true,
-    prices: { MONTHLY: 39700, QUARTERLY: 37715, SEMIANNUAL: 36921, ANNUAL: 35730 },
+    prices: { MONTHLY: 39700, ANNUAL: 35730 },
   },
   {
-    id: 'CORPORATE', name: 'Corporate', priceMonthly: 99700, credits: 30000, agents: 50,
+    id: 'CORPORATE', name: 'Corporate', credits: 30000, agents: 50,
     highlight: false,
-    prices: { MONTHLY: 99700, QUARTERLY: 94715, SEMIANNUAL: 92721, ANNUAL: 89730 },
+    prices: { MONTHLY: 99700, ANNUAL: 89730 },
   },
 ]
 
 const cycleOptions = [
   { key: 'MONTHLY', label: 'Mensal', discount: 0 },
-  { key: 'QUARTERLY', label: 'Trimestral', discount: 5 },
-  { key: 'SEMIANNUAL', label: 'Semestral', discount: 7 },
   { key: 'ANNUAL', label: 'Anual', discount: 10 },
 ]
 
@@ -154,14 +152,6 @@ const planFeatures = [
   'API completa',
   'Analytics detalhado',
 ]
-
-const modelCosts: Record<string, { label: string; credits: number }> = {
-  'claude-haiku': { label: 'Claude Haiku', credits: 1 },
-  'claude-sonnet': { label: 'Claude Sonnet', credits: 3 },
-  'claude-opus': { label: 'Claude Opus', credits: 10 },
-  'gpt-4o-mini': { label: 'GPT-4o Mini', credits: 1 },
-  'gpt-4o': { label: 'GPT-4o', credits: 5 },
-}
 
 function BillingTab() {
   const { workspace } = useAuthStore()
@@ -194,7 +184,7 @@ function BillingTab() {
               <div className="text-sm opacity-80 mb-1">Plano atual</div>
               <div className="text-2xl font-bold capitalize">{workspace?.plan?.toLowerCase() || 'Trial'}</div>
               {workspace?.plan === 'TRIAL' && (
-                <div className="text-sm opacity-80 mt-1">Experimente todos os recursos por 7 dias</div>
+                <div className="text-sm opacity-80 mt-1">Experimente todos os recursos por 14 dias</div>
               )}
             </div>
             <div className="text-right">
@@ -299,25 +289,6 @@ function BillingTab() {
           <h2 className="text-lg font-semibold text-gray-900">Crédito Avulso</h2>
         </div>
         <p className="text-sm text-gray-500 mb-4">Adicione créditos à sua conta sem alterar seu plano. Ideal para picos de atendimento.</p>
-
-        {/* Tabela de custo por modelo */}
-        <div className="bg-gray-50 rounded-xl p-4 mb-5 border border-gray-100">
-          <div className="text-xs font-semibold text-gray-500 uppercase mb-3">Custo por mensagem</div>
-          <div className="flex flex-wrap gap-2">
-            {Object.values(modelCosts).map(m => (
-              <div key={m.label} className="flex items-center gap-1.5 text-xs bg-white border border-gray-200 rounded-lg px-3 py-1.5">
-                <span className="font-medium text-gray-700">{m.label}</span>
-                <span className="text-gray-300">·</span>
-                <span className="font-semibold text-[#1565C0]">{m.credits} crédito{m.credits > 1 ? 's' : ''}</span>
-              </div>
-            ))}
-            <div className="flex items-center gap-1.5 text-xs bg-white border border-gray-200 rounded-lg px-3 py-1.5">
-              <span className="font-medium text-gray-700">Áudio / Imagem / PDF</span>
-              <span className="text-gray-300">·</span>
-              <span className="font-semibold text-[#1565C0]">2 créditos</span>
-            </div>
-          </div>
-        </div>
 
         <div className="max-w-xs">
           <div className="rounded-2xl border-2 border-[#1565C0] p-6 bg-white shadow-md shadow-blue-100 text-center">
@@ -687,7 +658,7 @@ function IntegrationsTab() {
 // ─── PÁGINA PRINCIPAL ─────────────────────────────────────────────────────────
 const tabs = [
   { key: 'profile', label: 'Perfil', icon: User },
-  { key: 'billing', label: 'Faturamento', icon: CreditCard },
+  { key: 'billing', label: 'Planos e Pagamento', icon: CreditCard },
   { key: 'integrations', label: 'Integrações', icon: Plug },
   { key: 'env', label: 'Variáveis', icon: Variable },
   { key: 'apikeys', label: 'Chaves de API', icon: KeyRound },

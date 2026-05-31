@@ -55,7 +55,7 @@ export async function registerUser(input: RegisterInput, signTokens: (userId: st
               name: workspaceName,
               slug,
               plan: 'TRIAL',
-              trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+              trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
               credits: 1000,
             },
           },

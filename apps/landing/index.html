@@ -413,12 +413,12 @@
             Crie agentes de IA que atendem seus clientes 24 horas por dia. Sem código, sem complicação. Conecte WhatsApp, Instagram, Telegram e mais em minutos.
           </p>
           <div class="hero-btns">
-            <a href="https://app.syncroflow.io/register" class="btn-primary">Começar grátis — 7 dias →</a>
+            <a href="https://app.syncroflow.io/register" class="btn-primary">Começar grátis — 14 dias →</a>
             <a href="#como-funciona" class="btn-outline">Ver como funciona</a>
           </div>
           <div class="hero-stats">
             <div class="hero-stat">
-              <strong>7 dias</strong>
+              <strong>14 dias</strong>
               <span>de trial grátis</span>
             </div>
             <div class="hero-stat">
@@ -614,7 +614,7 @@
           <span class="step-icon">👤</span>
           <div class="step-number">1</div>
           <h3>Crie sua conta</h3>
-          <p>Cadastro rápido, 7 dias grátis com 1.000 créditos para testar tudo.</p>
+          <p>Cadastro rápido, 14 dias grátis com 1.000 créditos para testar tudo.</p>
         </div>
         <div class="step fade-up">
           <span class="step-icon">🤖</span>
@@ -691,58 +691,71 @@
     <div class="container">
       <div class="section-header fade-up">
         <span class="section-label">Planos</span>
-        <h2>Créditos para cada <span class="gradient-text">tamanho</span> de operação</h2>
-        <p>Compre uma vez, use quando quiser. Sem mensalidade obrigatória, sem surpresas.</p>
+        <h2>Escolha o plano ideal para <span class="gradient-text">sua operação</span></h2>
+        <p>14 dias grátis em qualquer plano. Sem cartão de crédito.</p>
       </div>
+
+      <!-- Toggle Mensal / Anual -->
+      <div style="display:flex;justify-content:center;gap:8px;margin-bottom:40px">
+        <button id="btn-mensal" onclick="setPlanCycle('mensal')" style="padding:8px 24px;border-radius:999px;border:2px solid #1565C0;background:#1565C0;color:white;font-weight:600;cursor:pointer;font-size:14px">Mensal</button>
+        <button id="btn-anual" onclick="setPlanCycle('anual')" style="padding:8px 24px;border-radius:999px;border:2px solid #e5e7eb;background:white;color:#374151;font-weight:600;cursor:pointer;font-size:14px">Anual <span style="color:#2E7D32;font-size:12px">-10%</span></button>
+      </div>
+
       <div class="plans-grid">
         <div class="plan-card fade-up">
-          <div class="plan-name">Starter</div>
-          <div class="plan-price">R$ 59<span>,90</span></div>
+          <div class="plan-name">Basic</div>
+          <div class="plan-price" id="price-basic">R$ 87<span>,00</span></div>
+          <div style="font-size:13px;color:#6b7280;margin-top:-8px;margin-bottom:12px">/mês</div>
           <div class="plan-credits">
-            <strong>2.000 créditos</strong>
-            <span>• ~2.000 msgs (Haiku)</span>
+            <strong>2.500 créditos/mês</strong>
+            <span>• Até 5 agentes</span>
           </div>
           <ul class="plan-features">
-            <li>Todos os canais inclusos</li>
-            <li>Multi-modelo de IA</li>
-            <li>Treinamento ilimitado</li>
-            <li>Intenções automáticas</li>
-            <li>Suporte por email</li>
+            <li>WhatsApp, Instagram, Telegram</li>
+            <li>Widget para sites</li>
+            <li>Intenções com webhook</li>
+            <li>Base de conhecimento</li>
+            <li>API completa</li>
+            <li>Analytics detalhado</li>
           </ul>
-          <a href="https://app.syncroflow.io/register" class="plan-btn">Começar agora</a>
+          <a href="https://app.syncroflow.io/register" class="plan-btn">Começar grátis</a>
         </div>
         <div class="plan-card popular fade-up">
           <div class="popular-badge">⭐ Mais popular</div>
-          <div class="plan-name">Pro</div>
-          <div class="plan-price">R$ 149<span>,90</span></div>
+          <div class="plan-name">Standard</div>
+          <div class="plan-price" id="price-standard">R$ 397<span>,00</span></div>
+          <div style="font-size:13px;color:#6b7280;margin-top:-8px;margin-bottom:12px">/mês</div>
           <div class="plan-credits" style="background:linear-gradient(135deg,#E3F2FD,#E8F5E9)">
-            <strong>5.000 créditos</strong>
-            <span>• ~5.000 msgs (Haiku)</span>
+            <strong>11.500 créditos/mês</strong>
+            <span>• Até 20 agentes</span>
           </div>
           <ul class="plan-features">
-            <li>Tudo do Starter</li>
-            <li>Analytics avançado</li>
-            <li>API completa + Webhooks</li>
-            <li>Atendimento humano</li>
-            <li>Suporte prioritário</li>
+            <li>WhatsApp, Instagram, Telegram</li>
+            <li>Widget para sites</li>
+            <li>Intenções com webhook</li>
+            <li>Base de conhecimento</li>
+            <li>API completa</li>
+            <li>Analytics detalhado</li>
           </ul>
-          <a href="https://app.syncroflow.io/register" class="plan-btn primary-btn">Começar agora</a>
+          <a href="https://app.syncroflow.io/register" class="plan-btn primary-btn">Começar grátis</a>
         </div>
         <div class="plan-card fade-up">
-          <div class="plan-name">Business</div>
-          <div class="plan-price">R$ 499<span>,90</span></div>
+          <div class="plan-name">Corporate</div>
+          <div class="plan-price" id="price-corporate">R$ 997<span>,00</span></div>
+          <div style="font-size:13px;color:#6b7280;margin-top:-8px;margin-bottom:12px">/mês</div>
           <div class="plan-credits">
-            <strong>15.000 créditos</strong>
-            <span>• ~15.000 msgs (Haiku)</span>
+            <strong>30.000 créditos/mês</strong>
+            <span>• Até 50 agentes</span>
           </div>
           <ul class="plan-features">
-            <li>Tudo do Pro</li>
-            <li>Múltiplos workspaces</li>
-            <li>SLA de suporte</li>
-            <li>Onboarding dedicado</li>
-            <li>Relatórios personalizados</li>
+            <li>WhatsApp, Instagram, Telegram</li>
+            <li>Widget para sites</li>
+            <li>Intenções com webhook</li>
+            <li>Base de conhecimento</li>
+            <li>API completa</li>
+            <li>Analytics detalhado</li>
           </ul>
-          <a href="https://app.syncroflow.io/register" class="plan-btn">Começar agora</a>
+          <a href="https://app.syncroflow.io/register" class="plan-btn">Começar grátis</a>
         </div>
       </div>
       <p style="text-align:center;margin-top:32px;font-size:14px;color:var(--gray-600)">
@@ -750,6 +763,24 @@
       </p>
     </div>
   </section>
+
+  <script>
+    const prices = {
+      mensal: { basic: 'R$ 87<span>,00</span>', standard: 'R$ 397<span>,00</span>', corporate: 'R$ 997<span>,00</span>' },
+      anual:  { basic: 'R$ 78<span>,30</span>', standard: 'R$ 357<span>,30</span>', corporate: 'R$ 897<span>,30</span>' }
+    }
+    function setPlanCycle(cycle) {
+      document.getElementById('price-basic').innerHTML = prices[cycle].basic
+      document.getElementById('price-standard').innerHTML = prices[cycle].standard
+      document.getElementById('price-corporate').innerHTML = prices[cycle].corporate
+      document.getElementById('btn-mensal').style.background = cycle === 'mensal' ? '#1565C0' : 'white'
+      document.getElementById('btn-mensal').style.color = cycle === 'mensal' ? 'white' : '#374151'
+      document.getElementById('btn-mensal').style.borderColor = cycle === 'mensal' ? '#1565C0' : '#e5e7eb'
+      document.getElementById('btn-anual').style.background = cycle === 'anual' ? '#1565C0' : 'white'
+      document.getElementById('btn-anual').style.color = cycle === 'anual' ? 'white' : '#374151'
+      document.getElementById('btn-anual').style.borderColor = cycle === 'anual' ? '#1565C0' : '#e5e7eb'
+    }
+  </script>
 
   <!-- TESTIMONIALS -->
   <section class="testimonials">
@@ -801,7 +832,7 @@
     <div class="container" style="position:relative;z-index:1">
       <div class="fade-up">
         <h2>Pronto para automatizar<br>seu atendimento?</h2>
-        <p>Comece grátis hoje. 7 dias de trial, 1.000 créditos inclusos, sem cartão de crédito.</p>
+        <p>Comece grátis hoje. 14 dias de trial, 1.000 créditos inclusos, sem cartão de crédito.</p>
         <div class="cta-btns">
           <a href="https://app.syncroflow.io/register" class="btn-white">🚀 Criar conta grátis</a>
           <a href="https://wa.me/5532988290229" class="btn-ghost" target="_blank">💬 Falar no WhatsApp</a>
