@@ -2,6 +2,7 @@ import { createWorker } from '../../lib/queue'
 import { prisma } from '../../lib/prisma'
 import { processAgentResponse, detectIntention, processIncomingMedia } from '../ai/ai.service'
 import { getWhatsAppProvider } from '../channels/whatsapp/provider.factory'
+import { emitNewMessage, emitConversationUpdated } from '../../lib/socket'
 import axios from 'axios'
 
 export function startMessageWorker() {
@@ -112,9 +113,10 @@ export function startMessageWorker() {
         })
       }
 
-      await prisma.message.create({
+      const userMsg = await prisma.message.create({
         data: { conversationId: conversation.id, role: 'USER', content: text },
       })
+      try { emitNewMessage(channel.workspaceId, conversation.id, userMsg) } catch {}
 
       if (conversation.status === 'HUMAN_ACTIVE' || conversation.status === 'WAITING_HUMAN') {
         return
@@ -196,17 +198,19 @@ export function startMessageWorker() {
         await new Promise((r) => setTimeout(r, config.responseDelay * 1000))
       }
 
-      await prisma.message.create({
+      const aiMsg = await prisma.message.create({
         data: { conversationId: conversation.id, role: 'ASSISTANT', content: responseText, creditsUsed },
       })
+      try { emitNewMessage(channel.workspaceId, conversation.id, aiMsg) } catch {}
 
-      await prisma.conversation.update({
+      const updatedConv = await prisma.conversation.update({
         where: { id: conversation.id },
         data: {
           creditsUsed: { increment: creditsUsed },
           interactionCount: { increment: 1 },
         },
       })
+      try { emitConversationUpdated(channel.workspaceId, updatedConv) } catch {}
 
       await prisma.workspace.update({
         where: { id: channel.workspaceId },

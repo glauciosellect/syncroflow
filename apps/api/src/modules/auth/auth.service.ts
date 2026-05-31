@@ -40,6 +40,13 @@ export async function registerUser(input: RegisterInput, signTokens: (userId: st
       name: input.name,
       email: input.email,
       passwordHash,
+      phone: input.phone,
+      onboardingDone: true,
+      onboardingData: {
+        segment: input.segment,
+        role: input.role,
+        teamSize: input.teamSize,
+      },
       workspaceMembers: {
         create: {
           role: 'OWNER',

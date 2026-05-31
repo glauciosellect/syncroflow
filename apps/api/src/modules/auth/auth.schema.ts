@@ -5,6 +5,10 @@ export const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8).max(128),
   workspaceName: z.string().min(2).max(64).optional(),
+  phone: z.string().max(20).optional(),
+  segment: z.string().max(64).optional(),
+  role: z.string().max(64).optional(),
+  teamSize: z.string().max(32).optional(),
 })
 
 export const loginSchema = z.object({

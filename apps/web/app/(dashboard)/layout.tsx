@@ -4,10 +4,13 @@ import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/auth.store'
 import { Sidebar } from '@/components/shared/sidebar'
 import { Topbar } from '@/components/shared/topbar'
+import { useSocketConnect } from '@/hooks/use-socket'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const user = useAuthStore((s) => s.user)
+
+  useSocketConnect()
 
   useEffect(() => {
     if (!user) router.push('/login')

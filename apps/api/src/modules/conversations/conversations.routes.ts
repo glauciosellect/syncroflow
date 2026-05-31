@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { prisma } from '../../lib/prisma'
+import { emitNewMessage, emitConversationUpdated } from '../../lib/socket'
 
 async function getWorkspaceId(userId: string) {
   const member = await prisma.workspaceMember.findFirst({ where: { userId }, orderBy: { createdAt: 'asc' } })
@@ -92,6 +93,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     const message = await prisma.message.create({
       data: { conversationId: id, role: 'HUMAN', content },
     })
+    try { emitNewMessage(workspaceId, id, message) } catch {}
     return reply.status(201).send(message)
   })
 
@@ -107,9 +109,11 @@ export async function conversationRoutes(app: FastifyInstance) {
       where: { id },
       data: { status: 'HUMAN_ACTIVE', assignedToId: sub },
     })
-    await prisma.message.create({
+    const sysMsg = await prisma.message.create({
       data: { conversationId: id, role: 'SYSTEM', content: 'Atendimento assumido por humano.' },
     })
+    try { emitConversationUpdated(workspaceId, updated) } catch {}
+    try { emitNewMessage(workspaceId, id, sysMsg) } catch {}
     return reply.send(updated)
   })
 
@@ -124,9 +128,11 @@ export async function conversationRoutes(app: FastifyInstance) {
 
     const status = to === 'human' ? 'WAITING_HUMAN' : 'AI_ACTIVE'
     const updated = await prisma.conversation.update({ where: { id }, data: { status } })
-    await prisma.message.create({
+    const sysMsg = await prisma.message.create({
       data: { conversationId: id, role: 'SYSTEM', content: to === 'human' ? 'Atendimento transferido para equipe humana.' : 'Atendimento retornado para IA.' },
     })
+    try { emitConversationUpdated(workspaceId, updated) } catch {}
+    try { emitNewMessage(workspaceId, id, sysMsg) } catch {}
     return reply.send(updated)
   })
 
@@ -167,6 +173,7 @@ export async function conversationRoutes(app: FastifyInstance) {
       },
     })
 
+    try { emitConversationUpdated(workspaceId, updated) } catch {}
     return reply.send(updated)
   })
 }

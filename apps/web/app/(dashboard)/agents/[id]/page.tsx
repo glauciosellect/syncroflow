@@ -264,10 +264,11 @@ export default function AgentDetailPage() {
                 <Input className="mt-1" placeholder="https://..." value={f.companyWebsite ?? ''} onChange={e => setForm((p: any) => ({ ...(p || agent), companyWebsite: e.target.value }))} />
               </div>
               <div>
-                <Label>Descrição da empresa</Label>
+                <Label>Descrição da empresa <span className="text-gray-400 text-xs">({(f.companyDesc || '').length}/2000)</span></Label>
                 <textarea
                   className="w-full mt-1 border border-input rounded-md px-3 py-2 text-sm h-24 resize-none focus:outline-none focus:ring-2 focus:ring-ring"
                   placeholder="Descreva a empresa, produtos e serviços..."
+                  maxLength={2000}
                   value={f.companyDesc ?? ''}
                   onChange={e => setForm((p: any) => ({ ...(p || agent), companyDesc: e.target.value }))}
                 />
