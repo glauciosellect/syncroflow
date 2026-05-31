@@ -4,22 +4,19 @@ WORKDIR /app
 
 # Copia arquivos de dependências
 COPY package*.json ./
-COPY apps/api/package*.json ./apps/api/
-COPY packages/ ./packages/
+COPY prisma ./prisma/
 
 # Instala dependências
-RUN npm install --workspace=apps/api --include-workspace-root
-
-# Copia o código da API
-COPY apps/api ./apps/api
+RUN npm install
 
 # Gera o Prisma Client
-RUN cd apps/api && npx prisma generate
+RUN npx prisma generate
+
+# Copia o código
+COPY . .
 
 # Build TypeScript
-RUN cd apps/api && npm run build
-
-WORKDIR /app/apps/api
+RUN npm run build
 
 EXPOSE 3001
 
