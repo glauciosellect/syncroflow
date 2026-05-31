@@ -13,6 +13,7 @@ import { AgentWizard } from '@/components/agents/agent-wizard'
 
 const purposeLabel: Record<string, string> = { SUPPORT: 'Suporte', SALES: 'Vendas', PERSONAL: 'Pessoal' }
 const modelLabel: Record<string, string> = {
+  'claude-haiku-4-5': 'Claude Haiku',
   'claude-3-5-haiku-20241022': 'Claude Haiku',
   'claude-3-5-sonnet-20241022': 'Claude Sonnet',
   'gpt-4o-mini': 'GPT-4o Mini',

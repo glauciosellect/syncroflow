@@ -57,6 +57,7 @@ export function calcCredits(inputTokens: number, outputTokens: number, model: st
   const rates: Record<string, number> = {
     'claude-haiku-4-5': 1,
     'claude-3-5-sonnet-20241022': 3,
+    'claude-3-5-haiku-20241022': 1,
     'claude-opus-4-5': 10,
     'gpt-4o-mini': 1,
     'gpt-4o': 5,

@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils'
 
 const tabs = ['Perfil', 'Treinamentos', 'Intenções', 'Configurações']
 const modelOptions = [
-  { value: 'claude-3-5-haiku-20241022', label: 'Claude Haiku', desc: 'Rápido e econômico', creditsPerMsg: 1, color: 'text-green-600' },
+  { value: 'claude-haiku-4-5', label: 'Claude Haiku', desc: 'Rápido e econômico', creditsPerMsg: 1, color: 'text-green-600' },
   { value: 'claude-3-5-sonnet-20241022', label: 'Claude Sonnet', desc: 'Equilibrado', creditsPerMsg: 3, color: 'text-blue-600' },
   { value: 'claude-opus-4-5', label: 'Claude Opus', desc: 'Máxima inteligência', creditsPerMsg: 10, color: 'text-[#1565C0]' },
   { value: 'gpt-4o-mini', label: 'GPT-4o Mini', desc: 'Alternativa econômica', creditsPerMsg: 1, color: 'text-green-600' },
