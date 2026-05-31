@@ -123,19 +123,19 @@ function ProfileTab() {
 // ─── ABA: FATURAMENTO ─────────────────────────────────────────────────────────
 const plans = [
   {
-    id: 'BASIC', name: 'Basic', credits: 2500, agents: 5,
+    id: 'BASIC', name: 'Starter', credits: 2000, agents: 5,
     highlight: false,
-    prices: { MONTHLY: 8700, ANNUAL: 7830 },
+    prices: { MONTHLY: 5990, ANNUAL: 5391 },
   },
   {
-    id: 'STANDARD', name: 'Standard', credits: 11500, agents: 20,
+    id: 'STANDARD', name: 'Pro', credits: 5000, agents: 20,
     highlight: true,
-    prices: { MONTHLY: 39700, ANNUAL: 35730 },
+    prices: { MONTHLY: 14990, ANNUAL: 13491 },
   },
   {
-    id: 'CORPORATE', name: 'Corporate', credits: 30000, agents: 50,
+    id: 'CORPORATE', name: 'Business', credits: 15000, agents: 50,
     highlight: false,
-    prices: { MONTHLY: 99700, ANNUAL: 89730 },
+    prices: { MONTHLY: 49990, ANNUAL: 44991 },
   },
 ]
 
