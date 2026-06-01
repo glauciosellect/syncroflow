@@ -39,11 +39,12 @@ export async function webhookRoutes(app: FastifyInstance) {
       const silenceKey = `silence:${channelId}:${ownerTo}`
 
       // Comando #jarbas on — reativa o agente imediatamente para esse contato
+      const body = req.body as any
       const ownerText: string =
-        req.body?.message?.text ||
-        req.body?.data?.message?.conversation ||
-        req.body?.data?.message?.extendedTextMessage?.text ||
-        req.body?.text?.message || ''
+        body?.message?.text ||
+        body?.data?.message?.conversation ||
+        body?.data?.message?.extendedTextMessage?.text ||
+        body?.text?.message || ''
 
       if (ownerText.trim().toLowerCase() === '#jarbas on') {
         await redis.del(silenceKey)
