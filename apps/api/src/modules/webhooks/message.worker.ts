@@ -145,6 +145,7 @@ export function startMessageWorker() {
       let contact = await prisma.contact.findUnique({
         where: { workspaceId_channelId_externalId: { workspaceId: channel.workspaceId, channelId, externalId: from } },
       })
+      const isNewContact = !contact
       if (!contact) {
         contact = await prisma.contact.create({
           data: { workspaceId: channel.workspaceId, channelId, externalId: from, name, phone: channelType === 'WHATSAPP' ? from : undefined },
@@ -237,10 +238,15 @@ export function startMessageWorker() {
           content: m.content,
         }))
 
+        // Injetar contexto de novo contato vs. retorno para o agente adaptar a saudação
+        const contactContext = isNewContact
+          ? '\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Este é o PRIMEIRO contato desta pessoa. Apresente-se e faça uma saudação completa.]'
+          : `\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Esta pessoa já entrou em contato antes. O nome dela é ${contact.name}. Use apenas uma saudação breve e direta, sem se reapresentar.]`
+
         const aiRes = await processAgentResponse({
           agent: agent as any,
           conversationHistory,
-          userMessage: text,
+          userMessage: text + contactContext,
           agentId: agent.id,
         })
         responseText = aiRes.content
