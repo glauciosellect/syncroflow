@@ -3,7 +3,32 @@ import { prisma } from '../../lib/prisma'
 import { processAgentResponse, detectIntention, processIncomingMedia } from '../ai/ai.service'
 import { getWhatsAppProvider } from '../channels/whatsapp/provider.factory'
 import { emitNewMessage, emitConversationUpdated } from '../../lib/socket'
+import { redis } from '../../lib/redis'
 import axios from 'axios'
+
+// Detecta se o remetente é um grupo do WhatsApp (@g.us)
+function isWhatsAppGroup(from: string): boolean {
+  return from.endsWith('@g.us')
+}
+
+// Detecta se a mensagem parece ser de outra IA / bot automatizado
+// Evita loop infinito entre agentes
+function isBotMessage(text: string): boolean {
+  const botPatterns = [
+    /até\s*(breve|logo|mais)/i,
+    /obrigad[oa]\s*por\s*(entrar|contatar|nos\s*contatar)/i,
+    /atendimento\s*(encerrado|finalizado|conclu[ií]do)/i,
+    /foi\s*um\s*prazer\s*(atend|ajud)/i,
+    /\bbot\b/i,
+    /assistente\s*virtual/i,
+    /atendimento\s*autom[aá]tico/i,
+    /se\s*precisar.*estamos\s*[àa]\s*disposi/i,
+    /qualquer\s*(d[úu]vida|necessidade).*entre\s*em\s*contato/i,
+    /conversa\s*(encerrada|finalizada)/i,
+    /tchau|goodbye|adeus/i,
+  ]
+  return botPatterns.some((pattern) => pattern.test(text))
+}
 
 export function startMessageWorker() {
   return createWorker<{ channelId: string; channelType: string; payload: any }>(
@@ -55,6 +80,18 @@ export function startMessageWorker() {
         }
 
         if (!text) return
+
+        // Ignorar mensagens de grupos do WhatsApp
+        if (isWhatsAppGroup(from)) return
+
+        // Ignorar mensagens que parecem ser de outra IA (evita loop infinito)
+        if (isBotMessage(text)) return
+
+        // Verificar se o dono do número enviou mensagem para este contato recentemente (silêncio de 1h)
+        const silenceKey = `silence:${channelId}:${from}`
+        const isSilenced = await redis.get(silenceKey)
+        if (isSilenced) return
+
       } else if (channelType === 'TELEGRAM') {
         from = String(payload.message?.from?.id || payload.message?.chat?.id)
         name = payload.message?.from?.first_name || 'Usuário'
