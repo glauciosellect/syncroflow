@@ -1,11 +1,11 @@
 'use client'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import api from '@/lib/api'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Search, Download, Loader2, ClipboardList } from 'lucide-react'
+import { Search, Download, Loader2, ClipboardList, UserCheck, Bot } from 'lucide-react'
 import { formatDateTime, channelLabel } from '@/lib/utils'
 
 const statusColors: Record<string, string> = { CLOSED: 'secondary', AI_ACTIVE: 'default', WAITING_HUMAN: 'warning', HUMAN_ACTIVE: 'success' }
@@ -18,6 +18,18 @@ export default function AttendancesPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['attendances', search, page],
     queryFn: () => api.get('/attendances', { params: { search: search || undefined, page, limit: 20 } }).then(r => r.data),
+  })
+
+  const qc = useQueryClient()
+
+  const assumeMutation = useMutation({
+    mutationFn: (id: string) => api.post(`/conversations/${id}/assume`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['attendances'] }),
+  })
+
+  const reactivateAIMutation = useMutation({
+    mutationFn: (id: string) => api.post(`/conversations/${id}/transfer`, { to: 'ai' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['attendances'] }),
   })
 
   const exportCSV = async () => {
@@ -70,6 +82,7 @@ export default function AttendancesPage() {
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Início</th>
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Duração</th>
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Créditos</th>
+                  <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -90,6 +103,28 @@ export default function AttendancesPage() {
                       {a.durationSeconds ? `${Math.floor(a.durationSeconds / 60)}m ${a.durationSeconds % 60}s` : '—'}
                     </td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-900">{a.creditsUsed}</td>
+                    <td className="px-4 py-3">
+                      {a.status === 'AI_ACTIVE' && (
+                        <button
+                          onClick={() => assumeMutation.mutate(a.id)}
+                          disabled={assumeMutation.isPending}
+                          title="Assumir conversa — silencia o Jarbas"
+                          className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-orange-50 text-orange-600 hover:bg-orange-100 border border-orange-200"
+                        >
+                          <UserCheck className="w-3 h-3" /> Assumir
+                        </button>
+                      )}
+                      {a.status === 'HUMAN_ACTIVE' && (
+                        <button
+                          onClick={() => reactivateAIMutation.mutate(a.id)}
+                          disabled={reactivateAIMutation.isPending}
+                          title="Reativar Jarbas"
+                          className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200"
+                        >
+                          <Bot className="w-3 h-3" /> Reativar IA
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
