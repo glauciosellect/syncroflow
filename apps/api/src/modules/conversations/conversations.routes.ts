@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { prisma } from '../../lib/prisma'
 import { emitNewMessage, emitConversationUpdated } from '../../lib/socket'
+import { getWhatsAppProvider } from '../channels/whatsapp/provider.factory'
 
 async function getWorkspaceId(userId: string) {
   const member = await prisma.workspaceMember.findFirst({ where: { userId }, orderBy: { createdAt: 'asc' } })
@@ -56,7 +57,13 @@ export async function conversationRoutes(app: FastifyInstance) {
       },
     })
     if (!conversation) return reply.status(404).send({ error: 'Conversa não encontrada' })
-    return reply.send(conversation)
+
+    // Zera não lidas ao abrir a conversa
+    if (conversation.unreadCount > 0) {
+      await prisma.conversation.update({ where: { id }, data: { unreadCount: 0 } })
+    }
+
+    return reply.send({ ...conversation, unreadCount: 0 })
   })
 
   app.get('/conversations/:id/messages', async (req, reply) => {
@@ -87,13 +94,50 @@ export async function conversationRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string }
     const { content } = z.object({ content: z.string().min(1) }).parse(req.body)
 
-    const conv = await prisma.conversation.findFirst({ where: { id, workspaceId } })
+    const conv = await prisma.conversation.findFirst({
+      where: { id, workspaceId },
+      include: { contact: true, channel: true },
+    })
     if (!conv) return reply.status(404).send({ error: 'Conversa não encontrada' })
 
     const message = await prisma.message.create({
       data: { conversationId: id, role: 'HUMAN', content },
     })
     try { emitNewMessage(workspaceId, id, message) } catch {}
+
+    // Envia a mensagem pelo canal de origem (WhatsApp, etc.)
+    try {
+      if (conv.channel.type === 'WHATSAPP' && conv.contact.externalId) {
+        const provider = getWhatsAppProvider()
+        await provider.sendText(conv.channelId, conv.contact.externalId, content)
+      }
+      // Telegram
+      if (conv.channel.type === 'TELEGRAM' && conv.contact.externalId) {
+        const cfg = conv.channel.config as any
+        if (cfg?.botToken) {
+          const axios = (await import('axios')).default
+          await axios.post(`https://api.telegram.org/bot${cfg.botToken}/sendMessage`, {
+            chat_id: conv.contact.externalId,
+            text: content,
+          })
+        }
+      }
+      // Meta (Instagram / Facebook)
+      if ((conv.channel.type === 'FACEBOOK' || conv.channel.type === 'INSTAGRAM') && conv.contact.externalId) {
+        const cfg = conv.channel.config as any
+        if (cfg?.pageAccessToken) {
+          const axios = (await import('axios')).default
+          await axios.post('https://graph.facebook.com/v19.0/me/messages', {
+            recipient: { id: conv.contact.externalId },
+            message: { text: content },
+          }, { headers: { Authorization: `Bearer ${cfg.pageAccessToken}` } })
+        }
+      }
+    } catch (err: any) {
+      // Log mas não falha — mensagem já está salva no banco
+      console.error('[chat] Erro ao enviar mensagem pelo canal:', err?.message)
+    }
+
     return reply.status(201).send(message)
   })
 

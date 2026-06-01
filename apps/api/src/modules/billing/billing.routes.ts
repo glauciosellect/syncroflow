@@ -2,12 +2,12 @@ import type { FastifyInstance } from 'fastify'
 import { prisma } from '../../lib/prisma'
 
 const PLANS = {
-  BASIC: { name: 'Basic', credits: 2500, agents: 5, priceMonthly: 8700 },
-  STANDARD: { name: 'Standard', credits: 11500, agents: 20, priceMonthly: 39700 },
-  CORPORATE: { name: 'Corporate', credits: 30000, agents: 50, priceMonthly: 99700 },
+  STARTER:  { name: 'Starter',  credits: 2000,  agents: 5,  priceMonthly: 6000  },
+  PRO:      { name: 'Pro',      credits: 5000,  agents: 15, priceMonthly: 14700 },
+  BUSINESS: { name: 'Business', credits: 15000, agents: 40, priceMonthly: 43900 },
 }
 
-const CYCLE_DISCOUNTS = { MONTHLY: 0, QUARTERLY: 5, SEMIANNUAL: 7, ANNUAL: 10 }
+const CYCLE_DISCOUNTS = { MONTHLY: 0, ANNUAL: 12 }
 
 async function getWorkspaceId(userId: string) {
   const member = await prisma.workspaceMember.findFirst({ where: { userId }, orderBy: { createdAt: 'asc' } })

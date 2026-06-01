@@ -698,14 +698,15 @@
       <!-- Toggle Mensal / Anual -->
       <div style="display:flex;justify-content:center;gap:8px;margin-bottom:40px">
         <button id="btn-mensal" onclick="setPlanCycle('mensal')" style="padding:8px 24px;border-radius:999px;border:2px solid #1565C0;background:#1565C0;color:white;font-weight:600;cursor:pointer;font-size:14px">Mensal</button>
-        <button id="btn-anual" onclick="setPlanCycle('anual')" style="padding:8px 24px;border-radius:999px;border:2px solid #e5e7eb;background:white;color:#374151;font-weight:600;cursor:pointer;font-size:14px">Anual <span style="color:#2E7D32;font-size:12px">-10%</span></button>
+        <button id="btn-anual" onclick="setPlanCycle('anual')" style="padding:8px 24px;border-radius:999px;border:2px solid #e5e7eb;background:white;color:#374151;font-weight:600;cursor:pointer;font-size:14px">Anual <span style="color:#2E7D32;font-size:12px">Pague 1x · Economize até R$ 624</span></button>
       </div>
 
       <div class="plans-grid">
         <div class="plan-card fade-up">
           <div class="plan-name">Starter</div>
-          <div class="plan-price" id="price-basic">R$ 59<span>,90</span></div>
-          <div style="font-size:13px;color:#6b7280;margin-top:-8px;margin-bottom:12px">/mês</div>
+          <div class="plan-price" id="price-basic">R$ 60<span>,00</span></div>
+          <div style="font-size:13px;color:#6b7280;margin-top:-8px;margin-bottom:4px" class="price-period">/mês</div>
+          <div class="price-saving" style="display:none;font-size:12px;color:#2E7D32;margin-bottom:8px;font-weight:600">≈ R$ 53,00/mês · economize R$ 84,00</div>
           <div class="plan-credits">
             <strong>2.000 créditos/mês</strong>
             <span>• Até 5 agentes</span>
@@ -723,11 +724,12 @@
         <div class="plan-card popular fade-up">
           <div class="popular-badge">⭐ Mais popular</div>
           <div class="plan-name">Pro</div>
-          <div class="plan-price" id="price-standard">R$ 149<span>,90</span></div>
-          <div style="font-size:13px;color:#6b7280;margin-top:-8px;margin-bottom:12px">/mês</div>
+          <div class="plan-price" id="price-standard">R$ 147<span>,00</span></div>
+          <div style="font-size:13px;color:#6b7280;margin-top:-8px;margin-bottom:4px" class="price-period">/mês</div>
+          <div class="price-saving" style="display:none;font-size:12px;color:#2E7D32;margin-bottom:8px;font-weight:600">≈ R$ 130,00/mês · economize R$ 204,00</div>
           <div class="plan-credits" style="background:linear-gradient(135deg,#E3F2FD,#E8F5E9)">
             <strong>5.000 créditos/mês</strong>
-            <span>• Até 20 agentes</span>
+            <span>• Até 15 agentes</span>
           </div>
           <ul class="plan-features">
             <li>WhatsApp, Instagram, Telegram</li>
@@ -741,11 +743,12 @@
         </div>
         <div class="plan-card fade-up">
           <div class="plan-name">Business</div>
-          <div class="plan-price" id="price-corporate">R$ 499<span>,90</span></div>
-          <div style="font-size:13px;color:#6b7280;margin-top:-8px;margin-bottom:12px">/mês</div>
+          <div class="plan-price" id="price-corporate">R$ 439<span>,00</span></div>
+          <div style="font-size:13px;color:#6b7280;margin-top:-8px;margin-bottom:4px" class="price-period">/mês</div>
+          <div class="price-saving" style="display:none;font-size:12px;color:#2E7D32;margin-bottom:8px;font-weight:600">≈ R$ 387,00/mês · economize R$ 624,00</div>
           <div class="plan-credits">
             <strong>15.000 créditos/mês</strong>
-            <span>• Até 50 agentes</span>
+            <span>• Até 40 agentes</span>
           </div>
           <ul class="plan-features">
             <li>WhatsApp, Instagram, Telegram</li>
@@ -766,13 +769,21 @@
 
   <script>
     const prices = {
-      mensal: { basic: 'R$ 59<span>,90</span>', standard: 'R$ 149<span>,90</span>', corporate: 'R$ 499<span>,90</span>' },
-      anual:  { basic: 'R$ 53<span>,91</span>', standard: 'R$ 134<span>,91</span>', corporate: 'R$ 449<span>,91</span>' }
+      mensal: { basic: 'R$ 60<span>,00</span>',  standard: 'R$ 147<span>,00</span>',  corporate: 'R$ 439<span>,00</span>'  },
+      anual:  { basic: 'R$ 636<span>,00</span>', standard: 'R$ 1.560<span>,00</span>', corporate: 'R$ 4.644<span>,00</span>' }
     }
     function setPlanCycle(cycle) {
       document.getElementById('price-basic').innerHTML = prices[cycle].basic
       document.getElementById('price-standard').innerHTML = prices[cycle].standard
       document.getElementById('price-corporate').innerHTML = prices[cycle].corporate
+      // Atualiza label /mês ou /ano
+      document.querySelectorAll('.price-period').forEach(el => {
+        el.textContent = cycle === 'anual' ? '/ano (à vista)' : '/mês'
+      })
+      // Mostra/oculta nota de economia anual
+      document.querySelectorAll('.price-saving').forEach(el => {
+        el.style.display = cycle === 'anual' ? 'block' : 'none'
+      })
       document.getElementById('btn-mensal').style.background = cycle === 'mensal' ? '#1565C0' : 'white'
       document.getElementById('btn-mensal').style.color = cycle === 'mensal' ? 'white' : '#374151'
       document.getElementById('btn-mensal').style.borderColor = cycle === 'mensal' ? '#1565C0' : '#e5e7eb'

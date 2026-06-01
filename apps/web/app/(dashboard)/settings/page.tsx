@@ -10,12 +10,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
 import { useAuthStore } from '@/store/auth.store'
-import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/utils'
 import {
   Plus, Trash2, Loader2, Eye, EyeOff, KeyRound,
-  User, CreditCard, Variable, Check, Coins, Zap, AlertTriangle, Plug,
+  User, CreditCard, Check, Coins, Zap, AlertTriangle, Plug, ExternalLink,
+  Radio, QrCode, Save,
 } from 'lucide-react'
+import { channelLabel, cn } from '@/lib/utils'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
@@ -121,37 +122,25 @@ function ProfileTab() {
 }
 
 // ─── ABA: FATURAMENTO ─────────────────────────────────────────────────────────
-const plans = [
-  {
-    id: 'BASIC', name: 'Starter', credits: 2000, agents: 5,
-    highlight: false,
-    prices: { MONTHLY: 5990, ANNUAL: 5391 },
-  },
-  {
-    id: 'STANDARD', name: 'Pro', credits: 5000, agents: 20,
-    highlight: true,
-    prices: { MONTHLY: 14990, ANNUAL: 13491 },
-  },
-  {
-    id: 'CORPORATE', name: 'Business', credits: 15000, agents: 50,
-    highlight: false,
-    prices: { MONTHLY: 49990, ANNUAL: 44991 },
-  },
+const BILLING_PLANS = [
+  { id: 'STARTER',  name: 'Starter',  credits: 2000,  agents: 5,  highlight: false, prices: { MONTHLY: 6000,  ANNUAL: 63600  } },
+  { id: 'PRO',      name: 'Pro',      credits: 5000,  agents: 15, highlight: true,  prices: { MONTHLY: 14700, ANNUAL: 156000 } },
+  { id: 'BUSINESS', name: 'Business', credits: 15000, agents: 40, highlight: false, prices: { MONTHLY: 43900, ANNUAL: 464400 } },
 ]
 
-const cycleOptions = [
-  { key: 'MONTHLY', label: 'Mensal', discount: 0 },
-  { key: 'ANNUAL', label: 'Anual', discount: 10 },
+const BILLING_CYCLES = [
+  { key: 'MONTHLY', label: 'Mensal',                  badge: ''                    },
+  { key: 'ANNUAL',  label: 'Anual (pague 1x por ano)', badge: 'Economize até R$ 624' },
 ]
 
-const planFeatures = [
-  'WhatsApp, Instagram, Telegram',
-  'Widget para sites',
-  'Intenções com webhook',
-  'Base de conhecimento',
-  'API completa',
-  'Analytics detalhado',
+const CREDIT_PACKS = [
+  { id: 'pack_500',   name: '500 créditos',    credits: 500,   priceLabel: 'R$ 9,90'   },
+  { id: 'pack_2000',  name: '2.000 créditos',  credits: 2000,  priceLabel: 'R$ 29,90'  },
+  { id: 'pack_5000',  name: '5.000 créditos',  credits: 5000,  priceLabel: 'R$ 59,90', popular: true },
+  { id: 'pack_15000', name: '15.000 créditos', credits: 15000, priceLabel: 'R$ 149,90' },
 ]
+
+const planFeatures = ['WhatsApp, Instagram, Telegram', 'Widget para sites', 'Intenções com webhook', 'Base de conhecimento', 'API completa', 'Analytics detalhado']
 
 function BillingTab() {
   const { workspace } = useAuthStore()
@@ -160,10 +149,23 @@ function BillingTab() {
   const paymentStatus = searchParams.get('payment')
   const [cycle, setCycle] = useState('MONTHLY')
 
+  const subscribeMutation = useMutation({
+    mutationFn: ({ plan, cycle }: { plan: string; cycle: string }) =>
+      api.post('/billing/subscribe', { plan, cycle }).then(r => r.data),
+    onSuccess: (data) => { if (data.url) window.location.href = data.url },
+    onError: () => toast({ title: 'Erro ao iniciar assinatura', variant: 'destructive' }),
+  })
+
   const checkoutMutation = useMutation({
     mutationFn: (packageId: string) => api.post('/billing/checkout', { packageId }).then(r => r.data),
     onSuccess: (data) => { if (data.url) window.location.href = data.url },
     onError: () => toast({ title: 'Erro ao processar pagamento', variant: 'destructive' }),
+  })
+
+  const portalMutation = useMutation({
+    mutationFn: () => api.post('/billing/portal').then(r => r.data),
+    onSuccess: (data) => { if (data.url) window.location.href = data.url },
+    onError: () => toast({ title: 'Erro ao abrir portal', variant: 'destructive' }),
   })
 
   const { data: invoices } = useQuery({
@@ -171,7 +173,7 @@ function BillingTab() {
     queryFn: () => api.get('/billing/invoices').then(r => r.data),
   })
 
-  const cycleDiscount = cycleOptions.find(c => c.key === cycle)?.discount || 0
+  const isBusy = subscribeMutation.isPending || checkoutMutation.isPending
 
   return (
     <div className="space-y-8 max-w-4xl">
@@ -187,12 +189,19 @@ function BillingTab() {
                 <div className="text-sm opacity-80 mt-1">Experimente todos os recursos por 14 dias</div>
               )}
             </div>
-            <div className="text-right">
-              <div className="flex items-center gap-2 text-2xl font-bold">
+            <div className="text-right space-y-2">
+              <div className="flex items-center gap-2 text-2xl font-bold justify-end">
                 <Coins className="w-6 h-6 opacity-80" />
                 {workspace?.credits?.toLocaleString() || '0'}
               </div>
               <div className="text-sm opacity-80">créditos disponíveis</div>
+              {workspace?.plan !== 'TRIAL' && (
+                <button onClick={() => portalMutation.mutate()} disabled={portalMutation.isPending}
+                  className="flex items-center gap-1 text-xs text-white/70 hover:text-white transition-colors">
+                  {portalMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <ExternalLink className="w-3 h-3" />}
+                  Gerenciar assinatura
+                </button>
+              )}
             </div>
           </div>
         </CardContent>
@@ -201,10 +210,7 @@ function BillingTab() {
       {paymentStatus === 'success' && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
           <Check className="w-5 h-5 text-green-600 shrink-0" />
-          <div>
-            <div className="font-medium text-green-800">Pagamento confirmado!</div>
-            <div className="text-sm text-green-600">Seus créditos foram adicionados à conta.</div>
-          </div>
+          <div><div className="font-medium text-green-800">Pagamento confirmado!</div><div className="text-sm text-green-600">Seus créditos foram adicionados à conta.</div></div>
         </div>
       )}
       {paymentStatus === 'cancelled' && (
@@ -216,23 +222,24 @@ function BillingTab() {
 
       {/* Planos */}
       <div>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
           <h2 className="text-lg font-semibold text-gray-900">Planos</h2>
           <div className="flex gap-1 bg-gray-100 rounded-full p-1">
-            {cycleOptions.map(opt => (
+            {BILLING_CYCLES.map(opt => (
               <button key={opt.key} onClick={() => setCycle(opt.key)}
                 className={cn('px-3 py-1 rounded-full text-xs font-medium transition-all', cycle === opt.key ? 'bg-white text-[#1565C0] shadow-sm' : 'text-gray-500 hover:text-gray-700')}>
                 {opt.label}
-                {opt.discount > 0 && <span className="ml-1 text-green-600">-{opt.discount}%</span>}
+                {opt.badge && <span className={cn('ml-1.5 font-semibold', cycle === opt.key ? 'text-green-600' : 'text-green-500')}>{opt.badge}</span>}
               </button>
             ))}
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {plans.map(plan => {
+          {BILLING_PLANS.map(plan => {
             const price = plan.prices[cycle as keyof typeof plan.prices]
             const isCurrent = workspace?.plan === plan.id
+            const isAnnual = cycle === 'ANNUAL'
 
             return (
               <div key={plan.id} className={cn('relative rounded-2xl border-2 p-6', plan.highlight ? 'border-[#1565C0] shadow-lg shadow-blue-100' : 'border-gray-200 bg-white')}>
@@ -245,35 +252,25 @@ function BillingTab() {
                   <h3 className="font-bold text-xl text-gray-900">{plan.name}</h3>
                   <div className="mt-2 flex items-end gap-1">
                     <span className="text-3xl font-bold text-gray-900">R$ {(price / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                    <span className="text-gray-400 text-sm mb-1">/mês</span>
+                    <span className="text-gray-400 text-sm mb-1">{isAnnual ? '/ano' : '/mês'}</span>
                   </div>
-                  {cycleDiscount > 0 && (
-                    <p className="text-xs text-green-600 mt-1">Economize {cycleDiscount}% no plano {cycleOptions.find(c => c.key === cycle)?.label.toLowerCase()}</p>
+                  {isAnnual && (
+                    <p className="text-xs text-green-600 mt-1">≈ R$ {(price / 100 / 12).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês · pago à vista</p>
                   )}
                 </div>
-
                 <div className="space-y-2 mb-6 text-sm text-gray-600">
                   <div className="flex items-center gap-2 font-semibold text-gray-900">
-                    <Coins className="w-4 h-4 text-[#1565C0]" />
-                    {plan.credits.toLocaleString()} créditos/mês
+                    <Coins className="w-4 h-4 text-[#1565C0]" />{plan.credits.toLocaleString()} créditos/mês
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-green-500" />
-                    Até {plan.agents} agentes
-                  </div>
+                  <div className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" />Até {plan.agents} agentes</div>
                   {planFeatures.map(f => (
-                    <div key={f} className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-green-500" />{f}
-                    </div>
+                    <div key={f} className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" />{f}</div>
                   ))}
                 </div>
-
-                <Button
-                  className="w-full"
-                  variant={plan.highlight ? 'default' : 'outline'}
-                  disabled={isCurrent}
-                  onClick={() => alert('Integração com Stripe em breve!')}
-                >
+                <Button className="w-full" variant={plan.highlight ? 'default' : 'outline'}
+                  disabled={isCurrent || isBusy}
+                  onClick={() => subscribeMutation.mutate({ plan: plan.id, cycle })}>
+                  {subscribeMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                   {isCurrent ? 'Plano atual' : 'Assinar agora'}
                 </Button>
               </div>
@@ -282,32 +279,28 @@ function BillingTab() {
         </div>
       </div>
 
-      {/* Crédito Avulso — opção única */}
+      {/* Créditos avulsos */}
       <div>
         <div className="flex items-center gap-2 mb-2">
           <Zap className="w-5 h-5 text-[#1565C0]" />
-          <h2 className="text-lg font-semibold text-gray-900">Crédito Avulso</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Créditos avulsos</h2>
         </div>
-        <p className="text-sm text-gray-500 mb-4">Adicione créditos à sua conta sem alterar seu plano. Ideal para picos de atendimento.</p>
-
-        <div className="max-w-xs">
-          <div className="rounded-2xl border-2 border-[#1565C0] p-6 bg-white shadow-md shadow-blue-100 text-center">
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <Coins className="w-6 h-6 text-[#1565C0]" />
-              <span className="text-3xl font-bold text-gray-900">1.000</span>
+        <p className="text-sm text-gray-500 mb-4">Recarregue a qualquer momento se os créditos acabarem antes do prazo.</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {CREDIT_PACKS.map(pkg => (
+            <div key={pkg.id} className={cn('relative rounded-xl border-2 p-4 text-center bg-white', (pkg as any).popular ? 'border-[#1565C0] shadow-md shadow-blue-100' : 'border-gray-200')}>
+              {(pkg as any).popular && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#1565C0] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">Popular</div>
+              )}
+              <div className="font-bold text-gray-900 text-sm mb-1">{pkg.name}</div>
+              <div className="text-xl font-bold text-gray-900 mb-3">{pkg.priceLabel}</div>
+              <Button size="sm" className="w-full text-xs" variant={(pkg as any).popular ? 'default' : 'outline'}
+                disabled={checkoutMutation.isPending}
+                onClick={() => checkoutMutation.mutate(pkg.id)}>
+                {checkoutMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Comprar'}
+              </Button>
             </div>
-            <div className="text-sm text-gray-500 mb-4">créditos</div>
-            <div className="text-4xl font-bold text-gray-900 mb-1">R$ 34,00</div>
-            <div className="text-xs text-gray-400 mb-5">pagamento único · sem renovação</div>
-            <Button
-              className="w-full hover:opacity-90"
-              disabled={checkoutMutation.isPending}
-              onClick={() => checkoutMutation.mutate('avulso-1000')}
-            >
-              {checkoutMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-              Comprar agora
-            </Button>
-          </div>
+          ))}
         </div>
       </div>
 
@@ -337,6 +330,173 @@ function BillingTab() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── ABA: CANAIS ─────────────────────────────────────────────────────────────
+const channelIcons: Record<string, string> = {
+  WHATSAPP: '📱', INSTAGRAM: '📸', FACEBOOK: '📘', TELEGRAM: '✈️', WIDGET: '💬', EMAIL: '📧', SMS: '📩',
+}
+
+const channelForms: Record<string, { label: string; fields: { key: string; label: string; placeholder?: string }[] }> = {
+  whatsapp: { label: 'WhatsApp', fields: [{ key: 'name', label: 'Nome da conexão', placeholder: 'Ex: WhatsApp Principal' }] },
+  telegram: { label: 'Telegram', fields: [{ key: 'name', label: 'Nome', placeholder: 'Ex: Bot de Suporte' }, { key: 'botToken', label: 'Bot Token', placeholder: 'Obtido no @BotFather' }] },
+  instagram: { label: 'Instagram', fields: [{ key: 'name', label: 'Nome', placeholder: 'Ex: Instagram da Loja' }, { key: 'pageAccessToken', label: 'Page Access Token' }, { key: 'pageId', label: 'Page ID' }] },
+  widget: { label: 'Widget para Sites', fields: [{ key: 'name', label: 'Nome', placeholder: 'Ex: Widget do Site' }, { key: 'welcomeMessage', label: 'Mensagem de boas-vindas', placeholder: 'Olá! Como posso ajudar?' }] },
+}
+
+function ChannelsTab() {
+  const { toast } = useToast()
+  const qc = useQueryClient()
+  const [showForm, setShowForm] = useState<string | null>(null)
+  const [formData, setFormData] = useState<any>({})
+  const [qrData, setQrData] = useState<Record<string, { qr: string; status: string }>>({})
+  const [selectedAgents, setSelectedAgents] = useState<Record<string, string>>({})
+
+  const { data: channels, isLoading } = useQuery({
+    queryKey: ['channels'],
+    queryFn: () => api.get('/channels').then(r => r.data),
+  })
+
+  const { data: agents } = useQuery({
+    queryKey: ['agents'],
+    queryFn: () => api.get('/agents').then(r => r.data),
+  })
+
+  const assignAgentMutation = useMutation({
+    mutationFn: ({ channelId, agentId }: { channelId: string; agentId: string }) =>
+      api.patch(`/channels/${channelId}/agents`, { agentIds: agentId ? [agentId] : [] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['channels'] }); toast({ title: 'Agente vinculado!' }) },
+    onError: () => toast({ title: 'Erro ao vincular agente', variant: 'destructive' }),
+  })
+
+  const createMutation = useMutation({
+    mutationFn: (data: any) => api.post(`/channels/${showForm}`, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['channels'] }); setShowForm(null); setFormData({}) },
+    onError: (err: any) => toast({ title: 'Erro', description: err.response?.data?.error || 'Erro ao conectar canal', variant: 'destructive' }),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/channels/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['channels'] }); toast({ title: 'Canal desconectado' }) },
+  })
+
+  const loadQR = async (channelId: string) => {
+    try {
+      const res = await api.get(`/channels/${channelId}/qr`)
+      setQrData(p => ({ ...p, [channelId]: { qr: res.data.qr, status: res.data.status } }))
+    } catch {
+      toast({ title: 'Erro ao carregar QR Code', variant: 'destructive' })
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <p className="text-sm text-gray-500">Conecte seus canais de atendimento e vincule agentes a cada um.</p>
+        <div className="flex gap-2 flex-wrap">
+          {Object.entries(channelForms).map(([key, form]) => (
+            <Button key={key} variant="outline" size="sm" onClick={() => setShowForm(key)}>
+              <Plus className="w-3 h-3 mr-1" />{form.label}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {showForm && channelForms[showForm] && (
+        <Card>
+          <CardHeader><CardTitle className="text-base">Conectar {channelForms[showForm].label}</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            {channelForms[showForm].fields.map((field) => (
+              <div key={field.key}>
+                <Label>{field.label}</Label>
+                <Input placeholder={field.placeholder} value={formData[field.key] || ''} onChange={e => setFormData((p: any) => ({ ...p, [field.key]: e.target.value }))} className="mt-1" />
+              </div>
+            ))}
+            <div className="flex gap-2">
+              <Button onClick={() => createMutation.mutate(formData)} className="bg-[#1565C0] hover:bg-[#0D47A1]" disabled={createMutation.isPending}>
+                {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Conectar
+              </Button>
+              <Button variant="ghost" onClick={() => { setShowForm(null); setFormData({}) }}>Cancelar</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {isLoading ? (
+        <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#1565C0]" /></div>
+      ) : !channels?.length ? (
+        <div className="text-center py-16">
+          <Plug className="w-16 h-16 text-gray-200 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-700 mb-2">Nenhum canal conectado</h3>
+          <p className="text-gray-400 text-sm">Use os botões acima para conectar seu primeiro canal</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {(channels || []).map((channel: any) => (
+            <Card key={channel.id}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{channelIcons[channel.type] || '📡'}</span>
+                    <div>
+                      <div className="font-semibold text-gray-900">{channel.name}</div>
+                      <Badge variant={channel.isActive ? 'success' : 'secondary'} className="text-xs mt-0.5">
+                        {channel.isActive ? 'Ativo' : 'Inativo'}
+                      </Badge>
+                    </div>
+                  </div>
+                  <span className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full">{channelLabel(channel.type)}</span>
+                </div>
+
+                {channel.type === 'WHATSAPP' && (
+                  <div className="mt-3">
+                    {qrData[channel.id] ? (
+                      qrData[channel.id].status === 'connected' ? (
+                        <div className="text-center text-sm text-green-600 font-medium py-2">✓ WhatsApp conectado</div>
+                      ) : qrData[channel.id].qr ? (
+                        <img src={qrData[channel.id].qr} alt="QR Code" className="w-40 h-40 mx-auto rounded-lg" />
+                      ) : (
+                        <div className="text-center text-sm text-gray-500 py-2">Aguardando QR Code...</div>
+                      )
+                    ) : (
+                      <Button variant="outline" size="sm" onClick={() => loadQR(channel.id)} className="w-full">
+                        <QrCode className="w-3 h-3 mr-2" />Ver QR Code
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
+                  <div>
+                    <Label className="text-xs text-gray-500">Agente vinculado</Label>
+                    <div className="flex gap-2 mt-1">
+                      <select
+                        className="flex-1 text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-700 bg-white"
+                        value={selectedAgents[channel.id] ?? (channel.agentChannels?.[0]?.agentId || '')}
+                        onChange={e => setSelectedAgents(p => ({ ...p, [channel.id]: e.target.value }))}
+                      >
+                        <option value="">Nenhum agente</option>
+                        {(agents || []).map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                      </select>
+                      <Button size="sm" variant="outline" className="shrink-0 h-7 px-2"
+                        disabled={assignAgentMutation.isPending}
+                        onClick={() => assignAgentMutation.mutate({ channelId: channel.id, agentId: selectedAgents[channel.id] ?? '' })}>
+                        {assignAgentMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                      </Button>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => deleteMutation.mutate(channel.id)} className="text-red-500 hover:text-red-700 hover:bg-red-50 w-full">
+                    <Trash2 className="w-3 h-3 mr-2" />Desconectar
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
     </div>
@@ -536,6 +696,124 @@ function ApiKeysTab() {
   )
 }
 
+// ─── CARD: ELEVENLABS ────────────────────────────────────────────────────────
+function ElevenLabsCard() {
+  const { toast } = useToast()
+  const qc = useQueryClient()
+  const [apiKey, setApiKey] = useState('')
+  const [voiceId, setVoiceId] = useState('')
+  const [showKey, setShowKey] = useState(false)
+  const [open, setOpen] = useState(false)
+
+  const { data: status, isLoading } = useQuery({
+    queryKey: ['elevenlabs-status'],
+    queryFn: () => api.get('/integrations/elevenlabs').then(r => r.data).catch(() => ({ connected: false })),
+  })
+
+  const saveMutation = useMutation({
+    mutationFn: () => api.post('/integrations/elevenlabs', { apiKey, voiceId }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['elevenlabs-status'] })
+      toast({ title: '✅ ElevenLabs configurado!' })
+      setApiKey(''); setVoiceId(''); setOpen(false)
+    },
+    onError: () => toast({ title: 'Erro ao salvar', variant: 'destructive' }),
+  })
+
+  const disconnectMutation = useMutation({
+    mutationFn: () => api.delete('/integrations/elevenlabs'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['elevenlabs-status'] }); toast({ title: 'ElevenLabs desconectado' }) },
+  })
+
+  const connected = status?.connected
+
+  return (
+    <Card className={connected ? 'border-green-200' : 'border-gray-200'}>
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-2xl shrink-0">🎙️</div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-gray-900">ElevenLabs</h3>
+                {isLoading ? null : connected ? (
+                  <span className="inline-flex items-center gap-1 text-xs bg-green-50 text-green-700 rounded-full px-2 py-0.5 font-medium">
+                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full" /> Conectado
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-xs bg-gray-50 text-gray-500 rounded-full px-2 py-0.5 font-medium">
+                    <span className="w-1.5 h-1.5 bg-gray-400 rounded-full" /> Não configurado
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-gray-500 mt-0.5">
+                {connected
+                  ? `Voice ID: ${status.voiceId || '—'} · Respostas em áudio com voz JARVIS`
+                  : 'Ative respostas em áudio com voz humanizada (JARVIS) no WhatsApp'}
+              </p>
+            </div>
+          </div>
+          <div className="shrink-0 flex gap-2">
+            {connected ? (
+              <>
+                <Button size="sm" variant="outline" onClick={() => setOpen(o => !o)} className="text-xs">Reconfigurar</Button>
+                <Button size="sm" variant="outline" onClick={() => disconnectMutation.mutate()} disabled={disconnectMutation.isPending}
+                  className="text-red-500 border-red-200 hover:bg-red-50 text-xs">
+                  {disconnectMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Desconectar'}
+                </Button>
+              </>
+            ) : (
+              <Button size="sm" onClick={() => setOpen(o => !o)} className="bg-[#1565C0] hover:bg-[#0D47A1] text-white text-xs">
+                Configurar
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {open && (
+          <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
+            <div>
+              <Label className="text-xs">API Key do ElevenLabs</Label>
+              <div className="relative mt-1">
+                <Input type={showKey ? 'text' : 'password'} value={apiKey} onChange={e => setApiKey(e.target.value)}
+                  placeholder="sk_..." className="font-mono text-xs pr-10" />
+                <button type="button" onClick={() => setShowKey(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Acesse elevenlabs.io → Profile → API Key</p>
+            </div>
+            <div>
+              <Label className="text-xs">Voice ID (voz JARVIS)</Label>
+              <Input value={voiceId} onChange={e => setVoiceId(e.target.value)}
+                placeholder="Ex: pNInz6obpgDQGcFmaJgB" className="font-mono text-xs mt-1" />
+              <p className="text-xs text-gray-400 mt-1">Vá em elevenlabs.io → Voice Library → copie o ID da voz escolhida</p>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => saveMutation.mutate()}
+                disabled={!apiKey.trim() || !voiceId.trim() || saveMutation.isPending}
+                className="bg-[#1565C0] hover:bg-[#0D47A1] text-xs">
+                {saveMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
+                Salvar
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setOpen(false)} className="text-xs">Cancelar</Button>
+            </div>
+          </div>
+        )}
+
+        {connected && !open && (
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <p className="text-xs text-gray-500">
+              Quando um contato escolher receber respostas em áudio, o agente usará esta voz automaticamente.
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 // ─── ABA: INTEGRAÇÕES ────────────────────────────────────────────────────────
 function IntegrationsTab() {
   const { toast } = useToast()
@@ -630,38 +908,18 @@ function IntegrationsTab() {
         </CardContent>
       </Card>
 
-      {/* Outros cards — em breve */}
-      {[
-        { name: 'ElevenLabs', desc: 'Respostas em voz humanizada', icon: '🎙️' },
-        { name: 'Shopify', desc: 'Catálogo e pedidos', icon: '🛍️' },
-        { name: 'Stripe', desc: 'Links de pagamento', icon: '💳' },
-      ].map(item => (
-        <Card key={item.name} className="opacity-60">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-2xl shrink-0">{item.icon}</div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-gray-900">{item.name}</h3>
-                  <Badge variant="secondary" className="text-xs">Em breve</Badge>
-                </div>
-                <p className="text-sm text-gray-400 mt-0.5">{item.desc}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+      {/* ElevenLabs — voz JARVIS */}
+      <ElevenLabsCard />
     </div>
   )
 }
 
 // ─── PÁGINA PRINCIPAL ─────────────────────────────────────────────────────────
 const tabs = [
-  { key: 'profile', label: 'Perfil', icon: User },
-  { key: 'billing', label: 'Planos e Pagamento', icon: CreditCard },
-  { key: 'integrations', label: 'Integrações', icon: Plug },
-  { key: 'env', label: 'Variáveis', icon: Variable },
-  { key: 'apikeys', label: 'Chaves de API', icon: KeyRound },
+  { key: 'profile',      label: 'Perfil',            icon: User      },
+  { key: 'billing',      label: 'Planos e Pagamento', icon: CreditCard },
+  { key: 'channels',     label: 'Canais',             icon: Radio     },
+  { key: 'integrations', label: 'Integrações',        icon: Plug      },
 ]
 
 function SettingsContent() {
@@ -694,11 +952,10 @@ function SettingsContent() {
       </div>
 
       <div>
-        {active === 'profile' && <ProfileTab />}
-        {active === 'billing' && <BillingTab />}
+        {active === 'profile'      && <ProfileTab />}
+        {active === 'billing'      && <BillingTab />}
+        {active === 'channels'     && <ChannelsTab />}
         {active === 'integrations' && <IntegrationsTab />}
-        {active === 'env' && <EnvTab />}
-        {active === 'apikeys' && <ApiKeysTab />}
       </div>
     </div>
   )

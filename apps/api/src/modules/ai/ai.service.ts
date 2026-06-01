@@ -6,6 +6,7 @@ import axios from 'axios'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
+import mammoth from 'mammoth'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
@@ -201,36 +202,62 @@ export async function transcribeAudio(audioUrl: string): Promise<string> {
   }
 }
 
-export async function describeImage(imageUrl: string): Promise<string> {
-  // Baixa a imagem e envia como base64
-  const tmpPath = await downloadToTempFile(imageUrl, '.jpg')
+export async function describeImage(imageUrl: string, mimetype?: string): Promise<string> {
+  const ext = mimetype?.includes('png') ? '.png' : mimetype?.includes('gif') ? '.gif' : mimetype?.includes('webp') ? '.webp' : '.jpg'
+  const mediaType = mimetype?.startsWith('image/') ? mimetype as any : 'image/jpeg'
+  const tmpPath = await downloadToTempFile(imageUrl, ext)
   try {
-    const fileData = fs.readFileSync(tmpPath)
-    const base64 = fileData.toString('base64')
+    const base64 = fs.readFileSync(tmpPath).toString('base64')
     const res = await (anthropic.messages.create as any)({
       model: 'claude-haiku-4-5',
-      max_tokens: 512,
+      max_tokens: 1024,
       messages: [{
         role: 'user',
         content: [
-          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } },
-          { type: 'text', text: 'Descreva em detalhes o conteúdo desta imagem enviada por um cliente no WhatsApp.' },
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+          {
+            type: 'text',
+            text: 'Analise esta imagem enviada por um cliente no WhatsApp. Se for um documento (contrato, comprovante, boleto, RG, CPF, etc.), extraia e liste todas as informações relevantes. Se for uma foto, descreva o conteúdo em detalhes. Responda em português.',
+          },
         ],
       }],
     })
     return res.content[0].type === 'text' ? res.content[0].text : 'Imagem recebida.'
   } finally {
-    fs.unlinkSync(tmpPath)
+    try { fs.unlinkSync(tmpPath) } catch {}
   }
 }
 
 export async function extractDocumentText(docUrl: string, mimetype?: string): Promise<string> {
+  const isWord = mimetype?.includes('word') || mimetype?.includes('docx') || mimetype?.includes('officedocument')
   const isPdf = !mimetype || mimetype.includes('pdf')
+
+  // Word (.docx) — extrai texto via mammoth
+  if (isWord) {
+    const tmpPath = await downloadToTempFile(docUrl, '.docx')
+    try {
+      const result = await mammoth.extractRawText({ path: tmpPath })
+      const text = result.value.trim().slice(0, 8000)
+      if (!text) return 'Documento Word recebido (sem conteúdo legível).'
+      const res = await (anthropic.messages.create as any)({
+        model: 'claude-haiku-4-5',
+        max_tokens: 1024,
+        messages: [{
+          role: 'user',
+          content: `O cliente enviou um documento Word com o seguinte conteúdo:\n\n${text}\n\nResuma e extraia as informações mais importantes deste documento.`,
+        }],
+      })
+      return res.content[0].type === 'text' ? res.content[0].text : text.slice(0, 500)
+    } finally {
+      try { fs.unlinkSync(tmpPath) } catch {}
+    }
+  }
+
+  // PDF — envia como base64 direto para o Claude (suporte nativo)
   if (isPdf) {
     const tmpPath = await downloadToTempFile(docUrl, '.pdf')
     try {
-      const fileData = fs.readFileSync(tmpPath)
-      const base64 = fileData.toString('base64')
+      const base64 = fs.readFileSync(tmpPath).toString('base64')
       const res = await (anthropic.messages.create as any)({
         model: 'claude-haiku-4-5',
         max_tokens: 2048,
@@ -238,33 +265,42 @@ export async function extractDocumentText(docUrl: string, mimetype?: string): Pr
           role: 'user',
           content: [
             { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-            { type: 'text', text: 'Extraia e resuma o conteúdo principal deste documento.' },
+            { type: 'text', text: 'Extraia e resuma o conteúdo principal deste documento enviado pelo cliente via WhatsApp. Liste os pontos mais relevantes de forma clara e objetiva. Responda em português.' },
           ],
         }],
       })
-      return res.content[0].type === 'text' ? res.content[0].text : 'Documento recebido.'
+      return res.content[0].type === 'text' ? res.content[0].text : 'PDF recebido.'
     } finally {
-      fs.unlinkSync(tmpPath)
+      try { fs.unlinkSync(tmpPath) } catch {}
     }
   }
+
+  // Outros formatos — tenta ler como texto
   try {
     const res = await axios.get(docUrl, { responseType: 'text', timeout: 15000 })
-    return `Conteúdo do documento:\n${String(res.data).slice(0, 3000)}`
+    const text = String(res.data).slice(0, 3000)
+    return `Documento recebido:\n${text}`
   } catch {
     return 'Documento recebido (formato não suportado para leitura automática).'
   }
 }
 
-export async function processIncomingMedia(mediaUrl: string, mediaType: 'audio' | 'image' | 'document' | 'video', mimetype?: string): Promise<string> {
+export async function processIncomingMedia(
+  mediaUrl: string,
+  mediaType: 'audio' | 'image' | 'document' | 'video',
+  mimetype?: string,
+): Promise<string> {
   try {
     if (mediaType === 'audio') return await transcribeAudio(mediaUrl)
-    if (mediaType === 'image') return await describeImage(mediaUrl)
+    if (mediaType === 'image') return await describeImage(mediaUrl, mimetype)
     if (mediaType === 'document') return await extractDocumentText(mediaUrl, mimetype)
-    return '[Vídeo recebido]'
-  } catch (err: any) {
+    if (mediaType === 'video') return '[Vídeo recebido — não é possível processar vídeos automaticamente.]'
+    return '[Mídia recebida]'
+  } catch {
     if (mediaType === 'audio') return '[Áudio recebido — não foi possível transcrever]'
     if (mediaType === 'image') return '[Imagem recebida — não foi possível analisar]'
-    return '[Documento recebido — não foi possível processar]'
+    if (mediaType === 'document') return '[Documento recebido — não foi possível processar]'
+    return '[Mídia recebida]'
   }
 }
 

@@ -58,6 +58,13 @@ export class UazApiProvider implements WhatsAppProvider {
     }, { headers: this.headers() })
   }
 
+  async sendAudioBase64(channelId: string, to: string, audioBase64: string) {
+    await axios.post(`${this.baseUrl}/message/sendAudio`, {
+      phone: to,
+      audioBase64,
+    }, { headers: this.headers() })
+  }
+
   async downloadMedia(messageId: string): Promise<{ fileURL?: string; transcription?: string; mimetype?: string }> {
     try {
       const res = await axios.post(`${this.baseUrl}/message/download`, {
