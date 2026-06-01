@@ -26,12 +26,9 @@ const PLAN_PRICES: Record<string, Record<string, number>> = {
   BUSINESS: { MONTHLY: 43900, ANNUAL: 38700 },
 }
 
-// Pacotes de créditos avulsos (recarregue a qualquer momento)
+// Pacote de créditos avulsos (recarga única)
 export const CREDIT_PACKAGES = [
-  { id: 'pack_500',   name: '500 créditos',    credits: 500,   price: 990,   priceLabel: 'R$ 9,90'   },
-  { id: 'pack_2000',  name: '2.000 créditos',  credits: 2000,  price: 2990,  priceLabel: 'R$ 29,90'  },
-  { id: 'pack_5000',  name: '5.000 créditos',  credits: 5000,  price: 5990,  priceLabel: 'R$ 59,90'  },
-  { id: 'pack_15000', name: '15.000 créditos', credits: 15000, price: 14990, priceLabel: 'R$ 149,90' },
+  { id: 'pack_1000', name: '1.000 créditos', credits: 1000, price: 3500, priceLabel: 'R$ 35,00' },
 ]
 
 async function getWorkspaceId(userId: string) {

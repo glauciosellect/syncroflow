@@ -12,10 +12,7 @@ import { useSearchParams } from 'next/navigation'
 import { useToast } from '@/components/ui/use-toast'
 
 const creditPackages = [
-  { id: 'pack_500',   name: '500 créditos',    credits: 500,   priceLabel: 'R$ 9,90',   popular: false },
-  { id: 'pack_2000',  name: '2.000 créditos',  credits: 2000,  priceLabel: 'R$ 29,90',  popular: false },
-  { id: 'pack_5000',  name: '5.000 créditos',  credits: 5000,  priceLabel: 'R$ 59,90',  popular: true  },
-  { id: 'pack_15000', name: '15.000 créditos', credits: 15000, priceLabel: 'R$ 149,90', popular: false },
+  { id: 'pack_1000', name: '1.000 créditos', credits: 1000, priceLabel: 'R$ 35,00', popular: true },
 ]
 
 const modelCosts: Record<string, { label: string; credits: number }> = {
