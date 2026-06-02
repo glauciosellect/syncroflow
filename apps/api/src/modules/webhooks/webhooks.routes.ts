@@ -13,13 +13,11 @@ function extractOwnerMessage(payload: any): string | null {
     return jid.replace('@s.whatsapp.net', '').replace('@g.us', '').replace(/\D/g, '') || null
   }
 
-  // UAZAPI: fromMe — pega o número do DESTINATÁRIO (chatid é para quem foi enviado)
-  // sender_pn é o número do dono — não queremos silenciar o dono, mas o contato que ele está atendendo
+  // UAZAPI: fromMe — ignora silêncio automático pois o UAZAPI dispara fromMe=true
+  // tanto para mensagens humanas quanto para mensagens enviadas pela API do Jarbas,
+  // tornando impossível distinguir sem campo confiável. Silêncio é controlado apenas
+  // via comando #jarbas off (enviado pelo operador humano com texto específico).
   if (payload?.message?.fromMe === true) {
-    const chatid: string = payload.message.chatid || ''
-    const phone = chatid.replace('@s.whatsapp.net', '').replace(/\D/g, '')
-    // Só silencia se for número real de contato (não grupo)
-    if (phone && !chatid.includes('@g.us')) return phone
     return null
   }
 
