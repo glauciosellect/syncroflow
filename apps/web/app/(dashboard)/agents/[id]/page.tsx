@@ -42,6 +42,8 @@ export default function AgentDetailPage() {
   const [showIntentionForm, setShowIntentionForm] = useState(false)
   const [intentionForm, setIntentionForm] = useState({ name: '', description: '', actionType: 'INTERNAL', fixedMessage: '' })
   const [editingIntention, setEditingIntention] = useState<any>(null)
+  const [viewingTraining, setViewingTraining] = useState<any>(null)
+  const [editingTrainingContent, setEditingTrainingContent] = useState('')
 
   const { data: agent, isLoading } = useQuery({
     queryKey: ['agent', id],
@@ -75,6 +77,17 @@ export default function AgentDetailPage() {
   const deleteTrainingMutation = useMutation({
     mutationFn: (trainingId: string) => api.delete(`/agents/${id}/trainings/${trainingId}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['agent', id] }),
+  })
+
+  const updateTrainingMutation = useMutation({
+    mutationFn: ({ trainingId, content }: { trainingId: string; content: string }) =>
+      api.patch(`/agents/${id}/trainings/${trainingId}`, { content, title: content.slice(0, 60) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['agent', id] })
+      setViewingTraining(null)
+      toast({ title: 'Treinamento atualizado!' })
+    },
+    onError: () => toast({ title: 'Erro ao atualizar', variant: 'destructive' }),
   })
 
   const createIntentionMutation = useMutation({
@@ -319,8 +332,8 @@ export default function AgentDetailPage() {
                 <div className="space-y-2">
                   {(agent.trainings || []).map((t: any) => (
                     <div key={t.id} className="flex items-center justify-between p-3 border border-gray-100 rounded-lg">
-                      <div>
-                        <div className="text-sm font-medium text-gray-700">{t.title || t.url || 'Sem título'}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-700 truncate">{t.title || t.url || 'Sem título'}</div>
                         <div className="flex items-center gap-2 mt-0.5">
                           <Badge variant="secondary" className="text-xs">{t.type}</Badge>
                           <Badge variant={t.status === 'DONE' ? 'success' : t.status === 'ERROR' ? 'destructive' : 'secondary'} className="text-xs">
@@ -329,9 +342,16 @@ export default function AgentDetailPage() {
                           {t.chunkCount > 0 && <span className="text-xs text-gray-400">{t.chunkCount} chunks</span>}
                         </div>
                       </div>
-                      <button onClick={() => deleteTrainingMutation.mutate(t.id)} className="p-1.5 hover:bg-red-50 rounded text-gray-400 hover:text-red-500">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center gap-1 ml-2">
+                        {t.type === 'TEXT' && (
+                          <button onClick={() => { setViewingTraining(t); setEditingTrainingContent(t.content || '') }} className="p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600">
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button onClick={() => deleteTrainingMutation.mutate(t.id)} className="p-1.5 hover:bg-red-50 rounded text-gray-400 hover:text-red-500">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -484,6 +504,38 @@ export default function AgentDetailPage() {
           </Card>
         )}
       </div>
+
+      {/* Modal de edição de treinamento */}
+      {viewingTraining && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl flex flex-col max-h-[80vh]">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="font-semibold text-gray-900">Editar Treinamento</h3>
+              <button onClick={() => setViewingTraining(null)} className="p-1 hover:bg-gray-100 rounded">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-4">
+              <textarea
+                className="w-full h-96 border border-input rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                value={editingTrainingContent}
+                onChange={e => setEditingTrainingContent(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2 p-4 border-t">
+              <Button
+                onClick={() => updateTrainingMutation.mutate({ trainingId: viewingTraining.id, content: editingTrainingContent })}
+                disabled={updateTrainingMutation.isPending}
+                className="bg-[#1565C0] hover:bg-[#0D47A1]"
+              >
+                {updateTrainingMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                Salvar
+              </Button>
+              <Button variant="ghost" onClick={() => setViewingTraining(null)}>Cancelar</Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Painel de teste */}
       {showTest && (
