@@ -340,9 +340,7 @@ const channelIcons: Record<string, string> = {
 
 const channelForms: Record<string, { label: string; fields: { key: string; label: string; placeholder?: string }[] }> = {
   whatsapp: { label: 'WhatsApp', fields: [{ key: 'name', label: 'Nome da conexão', placeholder: 'Ex: WhatsApp Principal' }] },
-  telegram: { label: 'Telegram', fields: [{ key: 'name', label: 'Nome', placeholder: 'Ex: Bot de Suporte' }, { key: 'botToken', label: 'Bot Token', placeholder: 'Obtido no @BotFather' }] },
-  instagram: { label: 'Instagram', fields: [{ key: 'name', label: 'Nome', placeholder: 'Ex: Instagram da Loja' }, { key: 'pageAccessToken', label: 'Page Access Token' }, { key: 'pageId', label: 'Page ID' }] },
-  widget: { label: 'Widget para Sites', fields: [{ key: 'name', label: 'Nome', placeholder: 'Ex: Widget do Site' }, { key: 'welcomeMessage', label: 'Mensagem de boas-vindas', placeholder: 'Olá! Como posso ajudar?' }] },
+  instagram: { label: 'Instagram / Facebook', fields: [{ key: 'name', label: 'Nome', placeholder: 'Ex: Instagram da Empresa' }, { key: 'pageAccessToken', label: 'Page Access Token' }, { key: 'pageId', label: 'Page ID' }, { key: 'verifyToken', label: 'Verify Token', placeholder: 'Crie uma senha qualquer para verificação' }] },
 }
 
 function ChannelsTab() {
