@@ -4,8 +4,11 @@ import { processAgentResponse, detectIntention, processIncomingMedia } from '../
 import { getWhatsAppProvider } from '../channels/whatsapp/provider.factory'
 import { emitNewMessage, emitConversationUpdated } from '../../lib/socket'
 import { redis } from '../../lib/redis'
-import { getValidToken, createCalendarEvent } from '../../lib/google'
+import { scheduleAppointment, listUpcomingAppointments, cancelAppointment, getAgendaContextForPrompt } from '../calendar/calendar.service'
+import { generateSpeech } from '../tts/tts.service'
 import axios from 'axios'
+
+const AUDIO_PREFERENCE_KEY = 'audioPreference' // chave dentro de contact.variables
 
 // Detecta se o remetente é um grupo do WhatsApp (@g.us)
 function isWhatsAppGroup(from: string): boolean {
@@ -45,6 +48,7 @@ export function startMessageWorker() {
 
       const MEDIA_CREDITS = 2
       let from: string, name: string, text: string | undefined
+      let incomingMediaType: string | undefined
 
       if (channelType === 'WHATSAPP') {
         const provider = getWhatsAppProvider()
@@ -53,6 +57,7 @@ export function startMessageWorker() {
         from = msg.from
         name = msg.name
         text = msg.text
+        incomingMediaType = msg.mediaType
 
         // Processar mídia: áudio (transcrição), imagem (visão), documento (extração)
         if (!text && msg.mediaUrl && msg.mediaType) {
@@ -69,7 +74,8 @@ export function startMessageWorker() {
             if (result.transcription) {
               text = result.transcription
             } else if (result.fileURL) {
-              text = await processIncomingMedia(result.fileURL, msg.mediaType)
+              // Passa o mimetype real retornado pelo UAZAPI para rotear corretamente
+              text = await processIncomingMedia(result.fileURL, msg.mediaType, result.mimetype)
             } else {
               text = msg.mediaType === 'audio'
                 ? '[Áudio recebido — não foi possível transcrever]'
@@ -77,10 +83,6 @@ export function startMessageWorker() {
             }
           } else {
             text = await processIncomingMedia(msg.mediaUrl, msg.mediaType)
-          }
-
-          if (msg.mediaType === 'audio' && text && !text.startsWith('[')) {
-            text += '\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Esta mensagem foi enviada como áudio. Antes de responder ao conteúdo, pergunte educadamente se o usuário prefere receber a resposta em texto ou em áudio.]'
           }
         }
 
@@ -118,13 +120,7 @@ export function startMessageWorker() {
       const agent = agentChannel.agent
 
       // Verificar créditos antes de processar
-      const workspace = await prisma.workspace.findUnique({
-        where: { id: channel.workspaceId },
-        select: {
-          id: true, credits: true, plan: true,
-          googleCalendarEnabled: true, googleCalendarId: true,
-        } as any,
-      }) as any
+      const workspace = await prisma.workspace.findUnique({ where: { id: channel.workspaceId } })
       if (!workspace) return
 
       const isMedia = !!(payload?.message?.mediaUrl || payload?.message?.fileUrl || payload?.message?.url)
@@ -178,16 +174,16 @@ export function startMessageWorker() {
         })
       }
 
-      // Carregar histórico ANTES de salvar a mensagem atual para evitar duplicata na chamada ao LLM
-      const history = await prisma.message.findMany({
-        where: { conversationId: conversation.id },
-        orderBy: { createdAt: 'asc' },
-        take: 20,
-      })
-
       const userMsg = await prisma.message.create({
         data: { conversationId: conversation.id, role: 'USER', content: text },
       })
+
+      // Incrementa não lidas (visível no chat interno para o operador humano)
+      await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: { unreadCount: { increment: 1 } },
+      })
+
       try { emitNewMessage(channel.workspaceId, conversation.id, userMsg) } catch {}
 
       if (conversation.status === 'HUMAN_ACTIVE' || conversation.status === 'WAITING_HUMAN') {
@@ -199,14 +195,63 @@ export function startMessageWorker() {
         return
       }
 
-      // Detectar intenção com proteção contra falha de API
-      let intention = null
-      try {
-        intention = await detectIntention(text, agent.intentions)
-      } catch {
-        intention = null
+      // ── Preferência de resposta em áudio ────────────────────────────────────
+      const contactVars = (contact.variables as Record<string, any>) || {}
+      const audioPreference: 'audio' | 'text' | undefined = contactVars[AUDIO_PREFERENCE_KEY]
+
+      // Detecta se a mensagem recebida veio de áudio (já transcrita)
+      const isAudioMessage = channelType === 'WHATSAPP' && incomingMediaType === 'audio'
+
+      // Se recebeu áudio e ainda não tem preferência salva → pergunta
+      if (isAudioMessage && !audioPreference && channelType === 'WHATSAPP') {
+        const pergunta = 'Recebi sua mensagem de voz! 🎙️ Prefere que eu responda em *áudio* ou *texto*? Responda "áudio" ou "texto".'
+        const provider = getWhatsAppProvider()
+        await provider.sendText(channelId, from, pergunta)
+        const askMsg = await prisma.message.create({
+          data: { conversationId: conversation.id, role: 'ASSISTANT', content: pergunta, creditsUsed: 0 },
+        })
+        try { emitNewMessage(channel.workspaceId, conversation.id, askMsg) } catch {}
+        return
       }
 
+      // Detecta resposta de preferência do usuário
+      const lowerText = text.trim().toLowerCase()
+      if (!audioPreference && (lowerText === 'áudio' || lowerText === 'audio' || lowerText === 'voz')) {
+        await prisma.contact.update({
+          where: { id: contact.id },
+          data: { variables: { ...contactVars, [AUDIO_PREFERENCE_KEY]: 'audio' } },
+        })
+        const confirmMsg = 'Ótimo! Vou responder em áudio a partir de agora. 🎧'
+        if (channelType === 'WHATSAPP') {
+          const provider = getWhatsAppProvider()
+          await provider.sendText(channelId, from, confirmMsg)
+        }
+        const cfmMsg = await prisma.message.create({
+          data: { conversationId: conversation.id, role: 'ASSISTANT', content: confirmMsg, creditsUsed: 0 },
+        })
+        try { emitNewMessage(channel.workspaceId, conversation.id, cfmMsg) } catch {}
+        return
+      }
+
+      if (!audioPreference && (lowerText === 'texto' || lowerText === 'text' || lowerText === 'escrito')) {
+        await prisma.contact.update({
+          where: { id: contact.id },
+          data: { variables: { ...contactVars, [AUDIO_PREFERENCE_KEY]: 'text' } },
+        })
+        const confirmMsg = 'Perfeito! Responderei sempre em texto. ✍️'
+        if (channelType === 'WHATSAPP') {
+          const provider = getWhatsAppProvider()
+          await provider.sendText(channelId, from, confirmMsg)
+        }
+        const cfmMsg = await prisma.message.create({
+          data: { conversationId: conversation.id, role: 'ASSISTANT', content: confirmMsg, creditsUsed: 0 },
+        })
+        try { emitNewMessage(channel.workspaceId, conversation.id, cfmMsg) } catch {}
+        return
+      }
+      // ────────────────────────────────────────────────────────────────────────
+
+      const intention = await detectIntention(text, agent.intentions)
       let responseText: string
       let creditsUsed = 0
 
@@ -214,6 +259,33 @@ export function startMessageWorker() {
         // Intenção interna — mensagem fixa, zero créditos de IA
         responseText = (intention.webhookBody as any)?.fixedMessage || intention.name
         creditsUsed = 0
+
+      } else if (intention && (intention.actionType as string) === 'CALENDAR') {
+        // Intenção de calendário — agendar, consultar ou cancelar consulta
+        const calendarAction = (intention as any).calendarAction || 'SCHEDULE'
+
+        if (calendarAction === 'LIST') {
+          const result = await listUpcomingAppointments(channel.workspaceId)
+          responseText = result.message
+        } else if (calendarAction === 'CANCEL') {
+          const result = await cancelAppointment({
+            workspaceId: channel.workspaceId,
+            userMessage: text,
+            contactName: contact.name ?? 'Cliente',
+          })
+          responseText = result.message
+        } else {
+          // SCHEDULE (padrão)
+          const result = await scheduleAppointment({
+            workspaceId: channel.workspaceId,
+            userMessage: text,
+            contactName: contact.name ?? 'Cliente',
+            contactPhone: channelType === 'WHATSAPP' ? from : undefined,
+          })
+          responseText = result.message
+        }
+        creditsUsed = 1
+
       } else if (intention && intention.webhookUrl) {
         try {
           const webhookRes = await axios({
@@ -253,61 +325,31 @@ export function startMessageWorker() {
           responseText = 'Desculpe, não consegui processar sua solicitação no momento.'
         }
       } else {
+        const history = await prisma.message.findMany({
+          where: { conversationId: conversation.id },
+          orderBy: { createdAt: 'asc' },
+          take: 20,
+        })
         const conversationHistory = history.map((m) => ({
           role: (m.role === 'USER' ? 'user' : 'assistant') as 'user' | 'assistant',
           content: m.content,
         }))
 
-        // Injetar contexto de novo contato vs. retorno para o agente adaptar a saudação
+        // Injetar contexto: novo contato vs retorno + disponibilidade da agenda
         const contactContext = isNewContact
           ? '\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Este é o PRIMEIRO contato desta pessoa. Apresente-se e faça uma saudação completa.]'
           : `\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Esta pessoa já entrou em contato antes. O nome dela é ${contact.name}. Use apenas uma saudação breve e direta, sem se reapresentar.]`
 
-        // Injetar capacidades do Google Calendar se habilitado no workspace
-        const calendarEnabled = workspace?.googleCalendarEnabled && workspace?.googleCalendarId
-        const calendarContext = calendarEnabled
-          ? '\n\n[CONTEXTO INTERNO — CAPACIDADE DE AGENDAMENTO: O Google Calendar está conectado. Quando o usuário solicitar agendar reunião ou evento, colete título, data/hora e duração. Quando tiver todas as informações necessárias, inclua exatamente ao final da resposta: <<AGENDAR>>{"titulo":"...","dataInicio":"YYYY-MM-DDTHH:MM:SS","duracao":60,"descricao":"..."}<<FIM_AGENDAR>>]'
-          : ''
+        const agendaContext = await getAgendaContextForPrompt(channel.workspaceId)
 
-        try {
-          const aiRes = await processAgentResponse({
-            agent: agent as any,
-            conversationHistory,
-            userMessage: text + contactContext + calendarContext,
-            agentId: agent.id,
-          })
-          responseText = aiRes.content
-          creditsUsed = aiRes.creditsUsed
-        } catch (err: any) {
-          responseText = 'Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente em instantes.'
-          creditsUsed = 0
-        }
-
-        // Executar agendamento no Google Calendar se o agente emitiu o bloco especial
-        if (calendarEnabled && responseText.includes('<<AGENDAR>>')) {
-          try {
-            const match = responseText.match(/<<AGENDAR>>([\s\S]*?)<<FIM_AGENDAR>>/)
-            if (match) {
-              const eventData = JSON.parse(match[1])
-              const accessToken = await getValidToken(channel.workspaceId)
-              if (accessToken) {
-                const startDate = new Date(eventData.dataInicio)
-                const endDate = new Date(startDate.getTime() + (eventData.duracao || 60) * 60000)
-                const timezone = config?.timezone || 'America/Sao_Paulo'
-                await createCalendarEvent(accessToken, workspace.googleCalendarId, {
-                  summary: eventData.titulo,
-                  description: eventData.descricao || '',
-                  start: { dateTime: startDate.toISOString(), timeZone: timezone },
-                  end: { dateTime: endDate.toISOString(), timeZone: timezone },
-                })
-              }
-              // Remove o bloco técnico da resposta final ao usuário
-              responseText = responseText.replace(/<<AGENDAR>>[\s\S]*?<<FIM_AGENDAR>>/, '').trim()
-            }
-          } catch {
-            // Falha silenciosa no agendamento — resposta de texto já foi gerada
-          }
-        }
+        const aiRes = await processAgentResponse({
+          agent: agent as any,
+          conversationHistory,
+          userMessage: text + contactContext + agendaContext,
+          agentId: agent.id,
+        })
+        responseText = aiRes.content
+        creditsUsed = aiRes.creditsUsed
       }
 
       if (config?.responseDelay && config.responseDelay > 0) {
@@ -334,12 +376,24 @@ export function startMessageWorker() {
       })
 
       if (channelType === 'WHATSAPP') {
-        const parts = config?.splitLongMessages && responseText.length > 800
-          ? responseText.match(/.{1,800}(?:\s|$)/g) || [responseText]
-          : [responseText]
         const provider = getWhatsAppProvider()
-        for (const part of parts) {
-          await provider.sendText(channelId, from, part.trim())
+
+        // Resposta em áudio (voz JARVIS) se o contato preferir
+        if (audioPreference === 'audio') {
+          const audioBuffer = await generateSpeech(responseText, channel.workspaceId)
+          if (audioBuffer && provider.sendAudioBase64) {
+            await provider.sendAudioBase64(channelId, from, audioBuffer.toString('base64'))
+          } else {
+            // Fallback para texto se TTS falhar
+            await provider.sendText(channelId, from, responseText)
+          }
+        } else {
+          const parts = config?.splitLongMessages && responseText.length > 800
+            ? responseText.match(/.{1,800}(?:\s|$)/g) || [responseText]
+            : [responseText]
+          for (const part of parts) {
+            await provider.sendText(channelId, from, part.trim())
+          }
         }
       } else if (channelType === 'TELEGRAM') {
         const botToken = (channel.config as any).botToken

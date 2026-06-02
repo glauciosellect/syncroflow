@@ -5,21 +5,18 @@ import api from '@/lib/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Check, Coins, Loader2, Zap, AlertTriangle } from 'lucide-react'
+import { Check, Coins, Loader2, Zap, AlertTriangle, ExternalLink, CreditCard } from 'lucide-react'
 import { useAuthStore } from '@/store/auth.store'
 import { formatDate } from '@/lib/utils'
 import { useSearchParams } from 'next/navigation'
 import { useToast } from '@/components/ui/use-toast'
 
 const creditPackages = [
-  { id: 'starter', name: 'Starter', credits: 2000, priceLabel: 'R$ 59,90', popular: false },
-  { id: 'pro', name: 'Pro', credits: 5000, priceLabel: 'R$ 149,90', popular: true },
-  { id: 'business', name: 'Business', credits: 15000, priceLabel: 'R$ 499,90', popular: false },
-  { id: 'enterprise', name: 'Enterprise', credits: 50000, priceLabel: 'R$ 1.499,90', popular: false },
+  { id: 'pack_1000', name: '1.000 créditos', credits: 1000, priceLabel: 'R$ 35,00', popular: true },
 ]
 
 const modelCosts: Record<string, { label: string; credits: number }> = {
-  'claude-3-5-haiku-20241022': { label: 'Haiku', credits: 1 },
+  'claude-haiku-4-5': { label: 'Haiku', credits: 1 },
   'claude-3-5-sonnet-20241022': { label: 'Sonnet', credits: 3 },
   'claude-opus-4-5': { label: 'Opus', credits: 10 },
   'gpt-4o-mini': { label: 'GPT-4o Mini', credits: 1 },
@@ -27,11 +24,23 @@ const modelCosts: Record<string, { label: string; credits: number }> = {
 }
 
 const cycleOptions = [
-  { key: 'MONTHLY', label: 'Mensal', discount: 0 },
-  { key: 'QUARTERLY', label: 'Trimestral', discount: 5 },
-  { key: 'SEMIANNUAL', label: 'Semestral', discount: 7 },
-  { key: 'ANNUAL', label: 'Anual', discount: 10 },
+  { key: 'MONTHLY', label: 'Mensal',                      badge: ''                   },
+  { key: 'ANNUAL',  label: 'Anual (pague 1x por ano)',    badge: 'Economize até R$ 624' },
 ]
+
+// Preços reais por plano (centavos)
+// MONTHLY = cobrado todo mês | ANNUAL = cobrado à vista 1x por ano
+const PLAN_PRICES: Record<string, Record<string, number>> = {
+  STARTER:  { MONTHLY: 6000,   ANNUAL: 63600  },
+  PRO:      { MONTHLY: 14700,  ANNUAL: 156000 },
+  BUSINESS: { MONTHLY: 43900,  ANNUAL: 464400 },
+}
+
+// Label do ciclo para exibição
+const CYCLE_LABELS: Record<string, string> = {
+  MONTHLY: '/mês',
+  ANNUAL:  '/ano',
+}
 
 const features = ['Widget para sites', 'Intenções avançadas', 'API completa', 'Suporte por email', 'Analytics avançado']
 
@@ -41,11 +50,32 @@ export default function BillingPage() {
   const { toast } = useToast()
   const searchParams = useSearchParams()
   const paymentStatus = searchParams.get('payment')
+  const paymentPlan = searchParams.get('plan')
 
+  const isTrialExpired = workspace?.plan === 'TRIAL' &&
+    workspace?.trialEndsAt &&
+    new Date(workspace.trialEndsAt) < new Date()
+
+  // Compra de créditos avulsos
   const checkoutMutation = useMutation({
     mutationFn: (packageId: string) => api.post('/billing/checkout', { packageId }).then(r => r.data),
     onSuccess: (data) => { if (data.url) window.location.href = data.url },
     onError: () => toast({ title: 'Erro ao processar pagamento', variant: 'destructive' }),
+  })
+
+  // Assinatura de plano
+  const subscribeMutation = useMutation({
+    mutationFn: ({ plan, cycle }: { plan: string; cycle: string }) =>
+      api.post('/billing/subscribe', { plan, cycle }).then(r => r.data),
+    onSuccess: (data) => { if (data.url) window.location.href = data.url },
+    onError: () => toast({ title: 'Erro ao iniciar assinatura', variant: 'destructive' }),
+  })
+
+  // Portal de gerenciamento (cancelar, trocar cartão)
+  const portalMutation = useMutation({
+    mutationFn: () => api.post('/billing/portal').then(r => r.data),
+    onSuccess: (data) => { if (data.url) window.location.href = data.url },
+    onError: () => toast({ title: 'Erro ao abrir portal de pagamento', variant: 'destructive' }),
   })
 
   const { data: plans, isLoading: plansLoading } = useQuery({
@@ -63,7 +93,8 @@ export default function BillingPage() {
     queryFn: () => api.get('/billing/invoices').then(r => r.data),
   })
 
-  const cycleDiscount = cycleOptions.find(c => c.key === cycle)?.discount || 0
+  const selectedCycleOpt = cycleOptions.find(c => c.key === cycle)
+  const isBusy = subscribeMutation.isPending || checkoutMutation.isPending
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -72,86 +103,71 @@ export default function BillingPage() {
         <p className="text-gray-500 text-sm mt-1">Gerencie sua assinatura e créditos</p>
       </div>
 
+      {/* Banner trial expirado */}
+      {isTrialExpired && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-semibold text-red-800">Seu período de teste expirou</p>
+            <p className="text-sm text-red-600 mt-0.5">Assine um plano abaixo para continuar usando o SyncroFlow.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Card status */}
       <Card className="text-white border-0" style={{ background: 'linear-gradient(135deg, #0D47A1, #1565C0 50%, #2E7D32)' }}>
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm opacity-80 mb-1">Sua assinatura</div>
               <div className="text-2xl font-bold">{workspace?.plan || 'Trial'}</div>
-              {billing?.trialEndsAt && (
-                <div className="text-sm opacity-80 mt-1">Trial até {formatDate(billing.trialEndsAt)}</div>
+              {billing?.trialEndsAt && workspace?.plan === 'TRIAL' && (
+                <div className="text-sm opacity-80 mt-1">
+                  Trial {new Date(billing.trialEndsAt) > new Date() ? `até ${formatDate(billing.trialEndsAt)}` : 'expirado'}
+                </div>
+              )}
+              {workspace?.plan !== 'TRIAL' && billing?.subscription && (
+                <div className="text-sm opacity-80 mt-1">
+                  Renova em {formatDate(billing.subscription.currentPeriodEnd)}
+                </div>
               )}
             </div>
-            <div className="text-right">
-              <div className="flex items-center gap-2 text-2xl font-bold">
+            <div className="text-right space-y-2">
+              <div className="flex items-center gap-2 text-2xl font-bold justify-end">
                 <Coins className="w-6 h-6 opacity-80" />
                 {billing?.credits?.toLocaleString() || '—'}
               </div>
               <div className="text-sm opacity-80">créditos disponíveis</div>
+              {workspace?.plan !== 'TRIAL' && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-white border-white/40 hover:bg-white/10 text-xs"
+                  onClick={() => portalMutation.mutate()}
+                  disabled={portalMutation.isPending}
+                >
+                  {portalMutation.isPending
+                    ? <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                    : <CreditCard className="w-3 h-3 mr-1" />
+                  }
+                  Gerenciar assinatura
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>
       </Card>
 
-      <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Escolha seu plano</h2>
-
-        <div className="flex gap-2 mb-6">
-          {cycleOptions.map((opt) => (
-            <button key={opt.key} onClick={() => setCycle(opt.key)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${cycle === opt.key ? 'bg-[#1565C0] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-              {opt.label}
-              {opt.discount > 0 && <span className="ml-1 text-xs opacity-80">-{opt.discount}%</span>}
-            </button>
-          ))}
-        </div>
-
-        {plansLoading ? (
-          <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-[#1565C0]" /></div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {(plans || []).map((plan: any) => {
-              const cycleData = plan.cycles?.find((c: any) => c.cycle === cycle)
-              const price = cycleData?.price || plan.priceMonthly
-              const isPopular = plan.id === 'STANDARD'
-              const isCurrent = workspace?.plan === plan.id
-
-              return (
-                <div key={plan.id} className={`relative rounded-2xl border-2 p-6 ${isPopular ? 'border-[#1565C0] shadow-lg shadow-blue-100' : 'border-gray-200'}`}>
-                  {isPopular && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#1565C0] text-white text-xs font-bold px-3 py-1 rounded-full">
-                      Mais popular
-                    </div>
-                  )}
-                  <div className="mb-4">
-                    <h3 className="font-bold text-xl text-gray-900">{plan.name}</h3>
-                    <div className="mt-2">
-                      <span className="text-3xl font-bold text-gray-900">R$ {(price / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                      <span className="text-gray-400 text-sm">/mês</span>
-                    </div>
-                    {cycleDiscount > 0 && <p className="text-xs text-green-600 mt-1">Economize {cycleDiscount}% no pagamento {cycle === 'ANNUAL' ? 'anual' : cycle === 'SEMIANNUAL' ? 'semestral' : 'trimestral'}</p>}
-                  </div>
-
-                  <div className="space-y-2 mb-6 text-sm text-gray-600">
-                    <div className="flex items-center gap-2"><Coins className="w-4 h-4 text-[#1565C0]" />{plan.credits?.toLocaleString()} créditos/mês</div>
-                    <div className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" />Até {plan.agents} agentes</div>
-                    {features.map((f) => (
-                      <div key={f} className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" />{f}</div>
-                    ))}
-                  </div>
-
-                  <Button className={`w-full ${isPopular ? 'hover:opacity-90' : ''}`} variant={isPopular ? 'default' : 'outline'} disabled={isCurrent}
-                    onClick={() => alert('Integração com Stripe em desenvolvimento. Configure a variável STRIPE_SECRET_KEY.')}>
-                    {isCurrent ? 'Plano atual' : 'Assinar agora'}
-                  </Button>
-                </div>
-              )
-            })}
+      {/* Alertas de pagamento */}
+      {paymentStatus === 'subscribed' && paymentPlan && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
+          <Check className="w-5 h-5 text-green-600 shrink-0" />
+          <div>
+            <div className="font-medium text-green-800">Assinatura ativada! Bem-vindo ao plano {paymentPlan}.</div>
+            <div className="text-sm text-green-600">Seus créditos foram adicionados à conta.</div>
           </div>
-        )}
-      </div>
-
-      {/* Alerta de pagamento */}
+        </div>
+      )}
       {paymentStatus === 'success' && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
           <Check className="w-5 h-5 text-green-600 shrink-0" />
@@ -168,7 +184,80 @@ export default function BillingPage() {
         </div>
       )}
 
-      {/* Pacotes de créditos avulsos */}
+      {/* Planos */}
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Escolha seu plano</h2>
+
+        <div className="flex gap-2 mb-6 flex-wrap">
+          {cycleOptions.map((opt) => (
+            <button key={opt.key} onClick={() => setCycle(opt.key)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${cycle === opt.key ? 'bg-[#1565C0] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+              {opt.label}
+              {opt.badge && <span className={`ml-2 text-xs font-semibold ${cycle === opt.key ? 'text-green-300' : 'text-green-600'}`}>{opt.badge}</span>}
+            </button>
+          ))}
+        </div>
+
+        {plansLoading ? (
+          <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-[#1565C0]" /></div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {(plans || []).map((plan: any) => {
+              const price = PLAN_PRICES[plan.id]?.[cycle] ?? plan.priceMonthly
+              const isPopular = plan.id === 'PRO'
+              const isCurrent = workspace?.plan === plan.id
+
+              return (
+                <div key={plan.id} className={`relative rounded-2xl border-2 p-6 ${isPopular ? 'border-[#1565C0] shadow-lg shadow-blue-100' : 'border-gray-200'}`}>
+                  {isPopular && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#1565C0] text-white text-xs font-bold px-3 py-1 rounded-full">
+                      Mais popular
+                    </div>
+                  )}
+                  <div className="mb-4">
+                    <h3 className="font-bold text-xl text-gray-900">{plan.name}</h3>
+                    <div className="mt-2">
+                      <span className="text-3xl font-bold text-gray-900">
+                        R$ {(price / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                      <span className="text-gray-400 text-sm">{CYCLE_LABELS[cycle]}</span>
+                    </div>
+                    {cycle === 'ANNUAL' && (
+                      <p className="text-xs text-green-600 mt-1">
+                        Equivale a R$ {(price / 100 / 12).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês · pago à vista
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 mb-6 text-sm text-gray-600">
+                    <div className="flex items-center gap-2"><Coins className="w-4 h-4 text-[#1565C0]" />{plan.credits?.toLocaleString()} créditos/mês</div>
+                    <div className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" />Até {plan.agents} agentes</div>
+                    {features.map((f) => (
+                      <div key={f} className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" />{f}</div>
+                    ))}
+                  </div>
+
+                  <Button
+                    className="w-full"
+                    variant={isPopular ? 'default' : 'outline'}
+                    disabled={isCurrent || isBusy}
+                    onClick={() => subscribeMutation.mutate({ plan: plan.id, cycle })}
+                  >
+                    {subscribeMutation.isPending
+                      ? <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      : isCurrent
+                      ? 'Plano atual'
+                      : 'Assinar agora'
+                    }
+                  </Button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Créditos avulsos */}
       <div>
         <div className="flex items-center gap-2 mb-2">
           <Zap className="w-5 h-5 text-[#1565C0]" />
@@ -176,9 +265,8 @@ export default function BillingPage() {
         </div>
         <p className="text-sm text-gray-500 mb-4">Adicione créditos à sua conta a qualquer momento, sem alterar seu plano.</p>
 
-        {/* Tabela de custo por modelo */}
         <div className="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-100">
-          <div className="text-xs font-semibold text-gray-500 uppercase mb-2">Custo por mensagem por modelo</div>
+          <div className="text-xs font-semibold text-gray-500 uppercase mb-2">Custo por mensagem</div>
           <div className="flex flex-wrap gap-3">
             {Object.entries(modelCosts).map(([, m]) => (
               <div key={m.label} className="flex items-center gap-1.5 text-xs bg-white border border-gray-200 rounded-lg px-2 py-1">
@@ -212,7 +300,7 @@ export default function BillingPage() {
               <div className="text-xl font-bold text-gray-900 mb-3">{pkg.priceLabel}</div>
               <Button
                 size="sm"
-                className={`w-full ${pkg.popular ? 'hover:opacity-90' : ''}`}
+                className="w-full"
                 variant={pkg.popular ? 'default' : 'outline'}
                 disabled={checkoutMutation.isPending}
                 onClick={() => checkoutMutation.mutate(pkg.id)}
@@ -224,6 +312,7 @@ export default function BillingPage() {
         </div>
       </div>
 
+      {/* Histórico de faturas */}
       {invoices && invoices.length > 0 && (
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Histórico de faturas</h2>
@@ -240,9 +329,13 @@ export default function BillingPage() {
                 {invoices.map((inv: any) => (
                   <tr key={inv.id}>
                     <td className="px-4 py-3 text-sm text-gray-600">{formatDate(inv.createdAt)}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">R$ {(inv.amount / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                      R$ {(inv.amount / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </td>
                     <td className="px-4 py-3">
-                      <Badge variant={inv.status === 'paid' ? 'success' : 'warning'}>{inv.status === 'paid' ? 'Pago' : inv.status}</Badge>
+                      <Badge variant={inv.status === 'paid' ? 'success' : inv.status === 'failed' ? 'destructive' : 'warning'}>
+                        {inv.status === 'paid' ? 'Pago' : inv.status === 'failed' ? 'Falhou' : inv.status}
+                      </Badge>
                     </td>
                   </tr>
                 ))}
@@ -251,8 +344,20 @@ export default function BillingPage() {
           </div>
         </div>
       )}
+
+      {/* Link Stripe Customer Portal */}
+      {workspace?.plan !== 'TRIAL' && (
+        <div className="text-center">
+          <button
+            onClick={() => portalMutation.mutate()}
+            disabled={portalMutation.isPending}
+            className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            Gerenciar cartão, cancelar ou ver faturas no portal Stripe
+          </button>
+        </div>
+      )}
     </div>
   )
 }
-
-

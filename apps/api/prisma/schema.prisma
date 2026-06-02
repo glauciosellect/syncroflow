@@ -44,6 +44,8 @@ model Workspace {
   googleAccessToken       String?
   googleRefreshToken      String?
   googleTokenExpiry       DateTime?
+  elevenLabsKey           String?
+  elevenLabsVoiceId       String?
   createdAt               DateTime          @default(now())
   updatedAt               DateTime          @default(now()) @updatedAt
   agents         Agent[]
@@ -219,6 +221,7 @@ model Intention {
   description     String?
   fields          Json?
   actionType      IntentionAction       @default(WEBHOOK)
+  calendarAction  String?
   webhookUrl      String?
   webhookMethod   String                @default("POST")
   webhookHeaders  Json?
@@ -292,6 +295,7 @@ model Conversation {
   interactionCount Int                @default(0)
   transferSummary  String?
   closedBy         String?
+  unreadCount      Int                @default(0)
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @default(now()) @updatedAt
   agent            Agent              @relation(fields: [agentId], references: [id])
@@ -400,9 +404,9 @@ model Invoice {
 
 enum Plan {
   TRIAL
-  BASIC
-  STANDARD
-  CORPORATE
+  STARTER
+  PRO
+  BUSINESS
   ENTERPRISE
 }
 
@@ -441,6 +445,7 @@ enum TrainingStatus {
 enum IntentionAction {
   WEBHOOK
   INTERNAL
+  CALENDAR
 }
 
 enum IntentionResponseMode {

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { prisma } from '../../lib/prisma'
+import { encrypt, decrypt } from '../../lib/crypto'
 
 async function getWorkspaceId(userId: string) {
   const member = await prisma.workspaceMember.findFirst({ where: { userId }, orderBy: { createdAt: 'asc' } })
@@ -12,6 +13,77 @@ const INTEGRATION_TYPES = ['ELEVEN_LABS', 'GOOGLE_CALENDAR', 'PLUG_CHAT', 'E_VEN
 
 export async function integrationRoutes(app: FastifyInstance) {
   app.addHook('onRequest', app.authenticate)
+
+  // ── Google Calendar (status do workspace) ─────────────────────────────────
+  app.get('/integrations/google', async (req, reply) => {
+    const { sub } = req.user as { sub: string }
+    const workspaceId = await getWorkspaceId(sub)
+    const ws = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: {
+        googleCalendarEnabled: true,
+        googleCalendarEmail: true,
+        googleTokenExpiry: true,
+      } as any,
+    }) as any
+    return reply.send({
+      connected: !!ws?.googleCalendarEnabled,
+      email: ws?.googleCalendarEmail ?? null,
+      tokenExpired: ws?.googleTokenExpiry ? new Date(ws.googleTokenExpiry) < new Date() : false,
+    })
+  })
+
+  app.delete('/integrations/google', async (req, reply) => {
+    const { sub } = req.user as { sub: string }
+    const workspaceId = await getWorkspaceId(sub)
+    await (prisma.workspace as any).update({
+      where: { id: workspaceId },
+      data: {
+        googleCalendarEnabled: false,
+        googleCalendarEmail: null,
+        googleCalendarId: null,
+        googleAccessToken: null,
+        googleRefreshToken: null,
+        googleTokenExpiry: null,
+      },
+    })
+    return reply.send({ ok: true })
+  })
+
+  // ── ElevenLabs (chave global do workspace) ────────────────────────────────
+  app.get('/integrations/elevenlabs', async (req, reply) => {
+    const { sub } = req.user as { sub: string }
+    const workspaceId = await getWorkspaceId(sub)
+    const ws = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { elevenLabsKey: true, elevenLabsVoiceId: true } as any,
+    }) as any
+    return reply.send({
+      connected: !!ws?.elevenLabsKey,
+      voiceId: ws?.elevenLabsVoiceId ?? null,
+    })
+  })
+
+  app.post('/integrations/elevenlabs', async (req, reply) => {
+    const { sub } = req.user as { sub: string }
+    const workspaceId = await getWorkspaceId(sub)
+    const { apiKey, voiceId } = z.object({ apiKey: z.string().min(1), voiceId: z.string().min(1) }).parse(req.body)
+    await (prisma.workspace as any).update({
+      where: { id: workspaceId },
+      data: { elevenLabsKey: encrypt(apiKey), elevenLabsVoiceId: voiceId },
+    })
+    return reply.send({ ok: true })
+  })
+
+  app.delete('/integrations/elevenlabs', async (req, reply) => {
+    const { sub } = req.user as { sub: string }
+    const workspaceId = await getWorkspaceId(sub)
+    await (prisma.workspace as any).update({
+      where: { id: workspaceId },
+      data: { elevenLabsKey: null, elevenLabsVoiceId: null },
+    })
+    return reply.send({ ok: true })
+  })
 
   app.get('/agents/:agentId/integrations', async (req, reply) => {
     const { sub } = req.user as { sub: string }

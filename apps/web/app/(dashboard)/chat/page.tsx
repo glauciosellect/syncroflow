@@ -14,6 +14,23 @@ import { cn } from '@/lib/utils'
 import { formatDateTime, channelLabel } from '@/lib/utils'
 import { useSocketConnect, useSocketEvent } from '@/hooks/use-socket'
 
+// Toca um beep suave ao chegar mensagem nova
+function playNotificationSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.frequency.setValueAtTime(880, ctx.currentTime)
+    osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.15)
+    gain.gain.setValueAtTime(0.3, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.3)
+  } catch {}
+}
+
 const statusColors: Record<string, string> = {
   AI_ACTIVE: 'bg-blue-100 text-blue-700',
   WAITING_HUMAN: 'bg-yellow-100 text-yellow-700',
@@ -311,8 +328,34 @@ export default function ChatPage() {
       if (exists) return old
       return { ...old, data: [...(old.data || []), data.message] }
     })
+
+    // Incrementa unreadCount localmente se a conversa não está selecionada
+    // e a mensagem é do usuário (não do agente/sistema)
+    if (data.message.role === 'USER') {
+      setSelected((prev: any) => {
+        const isOpen = prev?.id === data.conversationId
+        if (!isOpen) {
+          // Toca som de notificação
+          playNotificationSound()
+          // Incrementa na lista em cache
+          qc.setQueryData(['conversations', filter, search], (old: any) => {
+            if (!old) return old
+            return {
+              ...old,
+              data: old.data?.map((c: any) =>
+                c.id === data.conversationId
+                  ? { ...c, unreadCount: (c.unreadCount || 0) + 1 }
+                  : c
+              ),
+            }
+          })
+        }
+        return prev
+      })
+    }
+
     qc.invalidateQueries({ queryKey: ['conversations'] })
-  }, [qc])
+  }, [qc, filter, search])
 
   const handleConversationUpdated = useCallback((conv: any) => {
     qc.setQueryData(['conversations', filter, search], (old: any) => {
@@ -370,6 +413,22 @@ export default function ChatPage() {
     { key: 'HUMAN_ACTIVE', label: 'Meus' },
   ]
 
+  // Seleciona conversa e zera badge de não lidas localmente
+  const handleSelectConversation = useCallback((conv: any) => {
+    setSelected(conv)
+    if ((conv.unreadCount || 0) > 0) {
+      qc.setQueryData(['conversations', filter, search], (old: any) => {
+        if (!old) return old
+        return {
+          ...old,
+          data: old.data?.map((c: any) =>
+            c.id === conv.id ? { ...c, unreadCount: 0 } : c
+          ),
+        }
+      })
+    }
+  }, [qc, filter, search])
+
   return (
     <div className="h-full flex -m-6 bg-white rounded-lg overflow-hidden border border-gray-200">
 
@@ -398,17 +457,28 @@ export default function ChatPage() {
             </div>
           )}
           {(conversations?.data || []).map((conv: any) => (
-            <button key={conv.id} onClick={() => setSelected(conv)}
+            <button key={conv.id} onClick={() => handleSelectConversation(conv)}
               className={cn('w-full text-left p-3 border-b border-gray-50 hover:bg-gray-50 transition-colors', selected?.id === conv.id ? 'bg-blue-50 border-l-2 border-l-[#1565C0]' : '')}>
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <span className="font-medium text-sm text-gray-900 truncate">{conv.contact?.name || conv.contact?.phone || 'Desconhecido'}</span>
+                    <span className={cn('font-medium text-sm truncate', (conv.unreadCount || 0) > 0 ? 'text-gray-900 font-semibold' : 'text-gray-900')}>
+                      {conv.contact?.name || conv.contact?.phone || 'Desconhecido'}
+                    </span>
                     <span className="text-xs text-gray-400 shrink-0">{channelLabel(conv.channel?.type)}</span>
                   </div>
-                  <p className="text-xs text-gray-400 truncate">{conv.messages?.[0]?.content || 'Sem mensagens'}</p>
+                  <p className={cn('text-xs truncate', (conv.unreadCount || 0) > 0 ? 'text-gray-700 font-medium' : 'text-gray-400')}>
+                    {conv.messages?.[0]?.content || 'Sem mensagens'}
+                  </p>
                 </div>
-                <Badge className={cn('text-xs shrink-0 mt-0.5', statusColors[conv.status])}>{statusLabels[conv.status]}</Badge>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <Badge className={cn('text-xs', statusColors[conv.status])}>{statusLabels[conv.status]}</Badge>
+                  {(conv.unreadCount || 0) > 0 && (
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#1565C0] text-white text-[10px] font-bold">
+                      {conv.unreadCount > 9 ? '9+' : conv.unreadCount}
+                    </span>
+                  )}
+                </div>
               </div>
               <p className="text-xs text-gray-300 mt-1">{formatDateTime(conv.updatedAt)}</p>
             </button>
