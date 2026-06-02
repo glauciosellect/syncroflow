@@ -90,7 +90,8 @@ export async function webhookRoutes(app: FastifyInstance) {
   app.post('/webhooks/meta/:channelId', async (req, reply) => {
     const { channelId } = req.params as { channelId: string }
     const body = req.body as any
-    const channelType = body.object === 'instagram' ? 'META' : 'META'
+    console.log('[WEBHOOK META] Recebido canal:', channelId, 'object:', body.object, 'payload:', JSON.stringify(body).slice(0, 300))
+    const channelType = 'META'
     await messageQueue.add('process', { channelId, channelType, payload: body }, {
       attempts: 3,
       backoff: { type: 'exponential', delay: 1000 },

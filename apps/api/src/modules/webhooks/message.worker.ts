@@ -111,12 +111,16 @@ export function startMessageWorker() {
         name = payload.message?.from?.first_name || 'Usuário'
         text = payload.message?.text
         if (!text) return
-      } else if (channelType === 'META') {
+      } else if (channelType === 'META' || channelType === 'INSTAGRAM') {
         const messaging = payload.entry?.[0]?.messaging?.[0]
-        if (!messaging) return
+        if (!messaging) {
+          console.log('[WORKER META] Sem messaging no payload:', JSON.stringify(payload).slice(0, 200))
+          return
+        }
         from = messaging.sender.id
         name = 'Usuário'
         text = messaging.message?.text
+        console.log('[WORKER META] from:', from, 'text:', text?.slice(0, 80))
         if (!text) return
       } else {
         return
