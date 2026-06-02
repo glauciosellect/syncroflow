@@ -13,10 +13,14 @@ function extractOwnerMessage(payload: any): string | null {
     return jid.replace('@s.whatsapp.net', '').replace('@g.us', '').replace(/\D/g, '') || null
   }
 
-  // UAZAPI: fromMe
+  // UAZAPI: fromMe — pega o número do DESTINATÁRIO (chatid é para quem foi enviado)
+  // sender_pn é o número do dono — não queremos silenciar o dono, mas o contato que ele está atendendo
   if (payload?.message?.fromMe === true) {
-    const chatid: string = payload.message.chatid || payload.message.sender_pn || ''
-    return chatid.replace('@s.whatsapp.net', '').replace(/\D/g, '') || null
+    const chatid: string = payload.message.chatid || ''
+    const phone = chatid.replace('@s.whatsapp.net', '').replace(/\D/g, '')
+    // Só silencia se for número real de contato (não grupo)
+    if (phone && !chatid.includes('@g.us')) return phone
+    return null
   }
 
   // Z-API: fromMe

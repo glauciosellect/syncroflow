@@ -122,12 +122,17 @@ export function startMessageWorker() {
       }
 
       const agentChannel = channel.agentChannels[0]
-      if (!agentChannel) return
+      if (!agentChannel) {
+        console.log('[WORKER] Nenhum agente vinculado ao canal:', channelId)
+        return
+      }
       const agent = agentChannel.agent
+      console.log('[WORKER] Agente:', agent.name, '| from:', from, '| text:', text?.slice(0, 80))
 
       // Verificar créditos antes de processar
       const workspace = await prisma.workspace.findUnique({ where: { id: channel.workspaceId } })
       if (!workspace) return
+      console.log('[WORKER] Créditos:', workspace.credits)
 
       const isMedia = !!(payload?.message?.mediaUrl || payload?.message?.fileUrl || payload?.message?.url)
 
@@ -388,8 +393,11 @@ export function startMessageWorker() {
         data: { credits: { decrement: creditsUsed } },
       })
 
+      console.log('[WORKER] Resposta gerada:', responseText?.slice(0, 100), '| créditos:', creditsUsed)
+
       if (channelType === 'WHATSAPP') {
         const provider = getWhatsAppProvider()
+        console.log('[WORKER] Enviando resposta para:', from)
 
         // Resposta em áudio (voz JARVIS) se o contato preferir
         if (audioPreference === 'audio') {
