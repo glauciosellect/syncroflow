@@ -203,7 +203,7 @@ export async function cancelAppointment(opts: {
 
   await deleteCalendarEvent(accessToken, calendarId, match.id)
 
-  const dateStr = match.start.dateTime || match.start.date
+  const dateStr = match.start.dateTime || (match.start as any).date
   const dataFormatada = new Date(dateStr).toLocaleString('pt-BR', {
     timeZone: TZ, weekday: 'long', day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit',
   })
