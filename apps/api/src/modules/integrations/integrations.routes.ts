@@ -14,42 +14,6 @@ const INTEGRATION_TYPES = ['ELEVEN_LABS', 'GOOGLE_CALENDAR', 'PLUG_CHAT', 'E_VEN
 export async function integrationRoutes(app: FastifyInstance) {
   app.addHook('onRequest', app.authenticate)
 
-  // ── Google Calendar (status do workspace) ─────────────────────────────────
-  app.get('/integrations/google', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
-    const ws = await prisma.workspace.findUnique({
-      where: { id: workspaceId },
-      select: {
-        googleCalendarEnabled: true,
-        googleCalendarEmail: true,
-        googleTokenExpiry: true,
-      } as any,
-    }) as any
-    return reply.send({
-      connected: !!ws?.googleCalendarEnabled,
-      email: ws?.googleCalendarEmail ?? null,
-      tokenExpired: ws?.googleTokenExpiry ? new Date(ws.googleTokenExpiry) < new Date() : false,
-    })
-  })
-
-  app.delete('/integrations/google', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
-    await (prisma.workspace as any).update({
-      where: { id: workspaceId },
-      data: {
-        googleCalendarEnabled: false,
-        googleCalendarEmail: null,
-        googleCalendarId: null,
-        googleAccessToken: null,
-        googleRefreshToken: null,
-        googleTokenExpiry: null,
-      },
-    })
-    return reply.send({ ok: true })
-  })
-
   // ── ElevenLabs (chave global do workspace) ────────────────────────────────
   app.get('/integrations/elevenlabs', async (req, reply) => {
     const { sub } = req.user as { sub: string }
