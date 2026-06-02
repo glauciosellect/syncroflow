@@ -174,6 +174,13 @@ export function startMessageWorker() {
         })
       }
 
+      // Carregar histórico ANTES de salvar a mensagem atual para evitar duplicata no LLM
+      const history = await prisma.message.findMany({
+        where: { conversationId: conversation.id },
+        orderBy: { createdAt: 'asc' },
+        take: 20,
+      })
+
       const userMsg = await prisma.message.create({
         data: { conversationId: conversation.id, role: 'USER', content: text },
       })
@@ -251,7 +258,12 @@ export function startMessageWorker() {
       }
       // ────────────────────────────────────────────────────────────────────────
 
-      const intention = await detectIntention(text, agent.intentions)
+      let intention = null
+      try {
+        intention = await detectIntention(text, agent.intentions)
+      } catch {
+        intention = null
+      }
       let responseText: string
       let creditsUsed = 0
 
@@ -325,11 +337,6 @@ export function startMessageWorker() {
           responseText = 'Desculpe, não consegui processar sua solicitação no momento.'
         }
       } else {
-        const history = await prisma.message.findMany({
-          where: { conversationId: conversation.id },
-          orderBy: { createdAt: 'asc' },
-          take: 20,
-        })
         const conversationHistory = history.map((m) => ({
           role: (m.role === 'USER' ? 'user' : 'assistant') as 'user' | 'assistant',
           content: m.content,
