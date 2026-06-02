@@ -154,6 +154,12 @@ export async function googleRoutes(app: FastifyInstance) {
       )
       const calendarId = syncroflowCal?.id ?? 'primary'
 
+      // Busca o refresh token existente para não apagar caso o Google não retorne um novo
+      const existingWs = await (prisma.workspace as any).findUnique({
+        where: { id: workspaceId },
+        select: { googleRefreshToken: true },
+      })
+
       await (prisma.workspace as any).update({
         where: { id: workspaceId },
         data: {
@@ -161,7 +167,7 @@ export async function googleRoutes(app: FastifyInstance) {
           googleCalendarEmail: email,
           googleCalendarId: calendarId,
           googleAccessToken: tokens.access_token,
-          googleRefreshToken: tokens.refresh_token ?? null,
+          googleRefreshToken: tokens.refresh_token ?? existingWs?.googleRefreshToken ?? null,
           googleTokenExpiry: new Date(tokens.expiry_date),
         },
       })
