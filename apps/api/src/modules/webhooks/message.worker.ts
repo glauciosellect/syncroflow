@@ -4,6 +4,7 @@ import { processAgentResponse, detectIntention, processIncomingMedia } from '../
 import { getWhatsAppProvider } from '../channels/whatsapp/provider.factory'
 import { emitNewMessage, emitConversationUpdated } from '../../lib/socket'
 import { redis } from '../../lib/redis'
+import { getValidToken, createCalendarEvent } from '../../lib/google'
 import axios from 'axios'
 
 // Detecta se o remetente é um grupo do WhatsApp (@g.us)
@@ -77,6 +78,10 @@ export function startMessageWorker() {
           } else {
             text = await processIncomingMedia(msg.mediaUrl, msg.mediaType)
           }
+
+          if (msg.mediaType === 'audio' && text && !text.startsWith('[')) {
+            text += '\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Esta mensagem foi enviada como áudio. Antes de responder ao conteúdo, pergunte educadamente se o usuário prefere receber a resposta em texto ou em áudio.]'
+          }
         }
 
         if (!text) return
@@ -113,7 +118,13 @@ export function startMessageWorker() {
       const agent = agentChannel.agent
 
       // Verificar créditos antes de processar
-      const workspace = await prisma.workspace.findUnique({ where: { id: channel.workspaceId } })
+      const workspace = await prisma.workspace.findUnique({
+        where: { id: channel.workspaceId },
+        select: {
+          id: true, credits: true, plan: true,
+          googleCalendarEnabled: true, googleCalendarId: true,
+        } as any,
+      }) as any
       if (!workspace) return
 
       const isMedia = !!(payload?.message?.mediaUrl || payload?.message?.fileUrl || payload?.message?.url)
@@ -167,6 +178,13 @@ export function startMessageWorker() {
         })
       }
 
+      // Carregar histórico ANTES de salvar a mensagem atual para evitar duplicata na chamada ao LLM
+      const history = await prisma.message.findMany({
+        where: { conversationId: conversation.id },
+        orderBy: { createdAt: 'asc' },
+        take: 20,
+      })
+
       const userMsg = await prisma.message.create({
         data: { conversationId: conversation.id, role: 'USER', content: text },
       })
@@ -181,7 +199,14 @@ export function startMessageWorker() {
         return
       }
 
-      const intention = await detectIntention(text, agent.intentions)
+      // Detectar intenção com proteção contra falha de API
+      let intention = null
+      try {
+        intention = await detectIntention(text, agent.intentions)
+      } catch {
+        intention = null
+      }
+
       let responseText: string
       let creditsUsed = 0
 
@@ -228,11 +253,6 @@ export function startMessageWorker() {
           responseText = 'Desculpe, não consegui processar sua solicitação no momento.'
         }
       } else {
-        const history = await prisma.message.findMany({
-          where: { conversationId: conversation.id },
-          orderBy: { createdAt: 'asc' },
-          take: 20,
-        })
         const conversationHistory = history.map((m) => ({
           role: (m.role === 'USER' ? 'user' : 'assistant') as 'user' | 'assistant',
           content: m.content,
@@ -243,14 +263,51 @@ export function startMessageWorker() {
           ? '\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Este é o PRIMEIRO contato desta pessoa. Apresente-se e faça uma saudação completa.]'
           : `\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Esta pessoa já entrou em contato antes. O nome dela é ${contact.name}. Use apenas uma saudação breve e direta, sem se reapresentar.]`
 
-        const aiRes = await processAgentResponse({
-          agent: agent as any,
-          conversationHistory,
-          userMessage: text + contactContext,
-          agentId: agent.id,
-        })
-        responseText = aiRes.content
-        creditsUsed = aiRes.creditsUsed
+        // Injetar capacidades do Google Calendar se habilitado no workspace
+        const calendarEnabled = workspace?.googleCalendarEnabled && workspace?.googleCalendarId
+        const calendarContext = calendarEnabled
+          ? '\n\n[CONTEXTO INTERNO — CAPACIDADE DE AGENDAMENTO: O Google Calendar está conectado. Quando o usuário solicitar agendar reunião ou evento, colete título, data/hora e duração. Quando tiver todas as informações necessárias, inclua exatamente ao final da resposta: <<AGENDAR>>{"titulo":"...","dataInicio":"YYYY-MM-DDTHH:MM:SS","duracao":60,"descricao":"..."}<<FIM_AGENDAR>>]'
+          : ''
+
+        try {
+          const aiRes = await processAgentResponse({
+            agent: agent as any,
+            conversationHistory,
+            userMessage: text + contactContext + calendarContext,
+            agentId: agent.id,
+          })
+          responseText = aiRes.content
+          creditsUsed = aiRes.creditsUsed
+        } catch (err: any) {
+          responseText = 'Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente em instantes.'
+          creditsUsed = 0
+        }
+
+        // Executar agendamento no Google Calendar se o agente emitiu o bloco especial
+        if (calendarEnabled && responseText.includes('<<AGENDAR>>')) {
+          try {
+            const match = responseText.match(/<<AGENDAR>>([\s\S]*?)<<FIM_AGENDAR>>/)
+            if (match) {
+              const eventData = JSON.parse(match[1])
+              const accessToken = await getValidToken(channel.workspaceId)
+              if (accessToken) {
+                const startDate = new Date(eventData.dataInicio)
+                const endDate = new Date(startDate.getTime() + (eventData.duracao || 60) * 60000)
+                const timezone = config?.timezone || 'America/Sao_Paulo'
+                await createCalendarEvent(accessToken, workspace.googleCalendarId, {
+                  summary: eventData.titulo,
+                  description: eventData.descricao || '',
+                  start: { dateTime: startDate.toISOString(), timeZone: timezone },
+                  end: { dateTime: endDate.toISOString(), timeZone: timezone },
+                })
+              }
+              // Remove o bloco técnico da resposta final ao usuário
+              responseText = responseText.replace(/<<AGENDAR>>[\s\S]*?<<FIM_AGENDAR>>/, '').trim()
+            }
+          } catch {
+            // Falha silenciosa no agendamento — resposta de texto já foi gerada
+          }
+        }
       }
 
       if (config?.responseDelay && config.responseDelay > 0) {
