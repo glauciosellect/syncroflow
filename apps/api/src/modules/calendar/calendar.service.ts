@@ -214,8 +214,18 @@ export async function cancelAppointment(opts: {
 }
 
 // Retorna texto com a agenda dos próximos dias — injetado no system prompt do agente
+// Verifica se Google Calendar está ativo antes de fazer chamadas de rede
 export async function getAgendaContextForPrompt(workspaceId: string): Promise<string> {
-  const result = await listUpcomingAppointments(workspaceId, 7)
-  if (!result.available) return ''
-  return `\n\nAGENDA DOS PRÓXIMOS 7 DIAS:\n${result.message}\n\nPara agendar, pergunte a data e hora desejada. Para cancelar, confirme o nome do cliente.`
+  try {
+    const ws = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { googleCalendarEnabled: true } as any,
+    }) as any
+    if (!ws?.googleCalendarEnabled) return ''
+    const result = await listUpcomingAppointments(workspaceId, 7)
+    if (!result.available) return ''
+    return `\n\nAGENDA DOS PRÓXIMOS 7 DIAS:\n${result.message}\n\nPara agendar, pergunte a data e hora desejada. Para cancelar, confirme o nome do cliente.`
+  } catch {
+    return ''
+  }
 }

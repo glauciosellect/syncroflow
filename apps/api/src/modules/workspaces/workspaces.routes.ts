@@ -60,4 +60,45 @@ export async function workspaceRoutes(app: FastifyInstance) {
     await prisma.workspaceMember.delete({ where: { id } })
     return reply.send({ ok: true })
   })
+
+  // Endpoint de diagnóstico — lista todos os workspaces e agentes do usuário autenticado
+  app.get('/workspaces/debug', async (req, reply) => {
+    const { sub } = req.user as { sub: string }
+    const memberships = await prisma.workspaceMember.findMany({
+      where: { userId: sub },
+      include: {
+        workspace: {
+          include: {
+            agents: { select: { id: true, name: true, isActive: true, workspaceId: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    })
+    return reply.send({
+      userId: sub,
+      workspaces: memberships.map((m) => ({
+        workspaceId: m.workspaceId,
+        workspaceName: m.workspace.name,
+        role: m.role,
+        memberCreatedAt: m.createdAt,
+        agents: m.workspace.agents,
+      })),
+    })
+  })
+
+  // Reassocia agente ao workspace correto (por ID do agente) — não deleta nada
+  app.patch('/workspaces/fix-agent/:agentId', async (req, reply) => {
+    const { sub } = req.user as { sub: string }
+    const { agentId } = req.params as { agentId: string }
+    const { workspace } = await getWorkspace(sub)
+    const agent = await prisma.agent.findUnique({ where: { id: agentId } })
+    if (!agent) return reply.status(404).send({ error: 'Agente não encontrado' })
+    if (agent.workspaceId === workspace.id) return reply.send({ ok: true, message: 'Agente já está no workspace correto' })
+    const updated = await prisma.agent.update({
+      where: { id: agentId },
+      data: { workspaceId: workspace.id },
+    })
+    return reply.send({ ok: true, message: 'Agente reassociado com sucesso', agent: updated })
+  })
 }

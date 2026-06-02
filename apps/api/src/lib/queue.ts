@@ -1,11 +1,17 @@
 import { Queue, Worker, Job } from 'bullmq'
+import IORedis from 'ioredis'
 
-const connection = {
-  url: process.env.REDIS_URL || 'redis://localhost:6379',
-}
+const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379'
+const isTLS = redisUrl.startsWith('rediss://')
 
-export const messageQueue = new Queue('messages', { connection })
-export const trainingQueue = new Queue('training', { connection })
+export const redisConnection = new IORedis(redisUrl, {
+  maxRetriesPerRequest: null,
+  tls: isTLS ? {} : undefined,
+  enableReadyCheck: false,
+})
+
+export const messageQueue = new Queue('messages', { connection: redisConnection })
+export const trainingQueue = new Queue('training', { connection: redisConnection })
 
 export type MessageJobData = {
   channelId: string
@@ -24,5 +30,5 @@ export function createWorker<T>(
   processor: (job: Job<T>) => Promise<void>,
   concurrency = 5
 ) {
-  return new Worker<T>(queueName, processor, { connection, concurrency })
+  return new Worker<T>(queueName, processor, { connection: redisConnection, concurrency })
 }
