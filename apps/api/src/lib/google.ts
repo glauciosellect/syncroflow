@@ -150,6 +150,7 @@ export async function createCalendarEvent(
     }
   )
   const data = await res.json() as any
+  if (!data.id) console.error('[Google Calendar] Erro ao criar evento:', JSON.stringify(data))
   return data.id ?? null
 }
 
