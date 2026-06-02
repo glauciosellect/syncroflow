@@ -38,6 +38,7 @@ export function startMessageWorker() {
   return createWorker<{ channelId: string; channelType: string; payload: any }>(
     'messages',
     async (job) => {
+      try {
       const { channelId, channelType, payload } = job.data
 
       console.log('[WORKER] Processando job — canal:', channelId, 'tipo:', channelType)
@@ -428,6 +429,14 @@ export function startMessageWorker() {
           recipient: { id: from },
           message: { text: responseText },
         }, { headers: { Authorization: `Bearer ${pageToken}` } })
+      }
+
+      console.log('[WORKER] Job concluído com sucesso para:', from)
+
+      } catch (err: any) {
+        console.error('[WORKER] ERRO no job:', err?.message || err)
+        console.error('[WORKER] Stack:', err?.stack?.slice(0, 500))
+        throw err // re-throw para BullMQ registrar como falha e fazer retry
       }
     },
     5
