@@ -278,6 +278,7 @@ export function startMessageWorker() {
 
       const scheduleKeywords = /\bagendar\b|\bagend(e|ar|amento)\b|\bmarcar\b|\breservar\b|\bconsulta\b|\breunião\b|\bhorário\b|\bvaga\b|\bdisponível\b|\bdisponibilidade\b/i
       const cancelKeywords = /\bcancelar\b|\bdesmarcar\b|\bcancelamento\b/i
+      const rescheduleKeywords = /\bremarcar\b|\bmudar\s*(o\s*)?(horário|consulta|reunião)\b|\btrocar\s*(o\s*)?(horário|consulta)\b|\boutro\s*horário\b|\bnão\s*posso\s*(nesse|neste)\s*horário\b/i
       const listKeywords = /\bver agenda\b|\bconsultar agenda\b|\bmeus agendamentos\b|\bpróximas consultas\b|\bhorários marcados\b/i
       const hasDateTime = /amanhã|hoje|segunda|terça|quarta|quinta|sexta|sábado|domingo|\d{1,2}[\/\-]\d{1,2}|\d{1,2}\s*h\b|\d{1,2}:\d{2}|próxim|semana/i.test(text)
 
@@ -285,8 +286,15 @@ export function startMessageWorker() {
       let responseText: string = ''
       let creditsUsed = 0
 
-      if (wsForCalendar?.googleCalendarEnabled && scheduleKeywords.test(text)) {
-        if (cancelKeywords.test(text)) {
+      if (wsForCalendar?.googleCalendarEnabled) {
+        if (rescheduleKeywords.test(text) && hasDateTime) {
+          // Remarcar = cancelar o existente + agendar novo
+          await cancelAppointment({ workspaceId: channel.workspaceId, userMessage: text, contactName: contact.name ?? 'Cliente' })
+          const result = await scheduleAppointment({ workspaceId: channel.workspaceId, userMessage: text, contactName: contact.name ?? 'Cliente', contactPhone: channelType === 'WHATSAPP' ? from : undefined })
+          responseText = result.success ? `✅ Consulta remarcada!\n${result.message.replace('✅ Consulta agendada com sucesso!\n', '')}` : result.message
+          creditsUsed = 1
+          calendarHandled = true
+        } else if (cancelKeywords.test(text)) {
           const result = await cancelAppointment({ workspaceId: channel.workspaceId, userMessage: text, contactName: contact.name ?? 'Cliente' })
           responseText = result.message
           creditsUsed = 1
@@ -296,7 +304,7 @@ export function startMessageWorker() {
           responseText = result.message
           creditsUsed = 1
           calendarHandled = true
-        } else if (hasDateTime) {
+        } else if (scheduleKeywords.test(text) && hasDateTime) {
           const result = await scheduleAppointment({ workspaceId: channel.workspaceId, userMessage: text, contactName: contact.name ?? 'Cliente', contactPhone: channelType === 'WHATSAPP' ? from : undefined })
           responseText = result.message
           creditsUsed = 1
