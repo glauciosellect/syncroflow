@@ -15,7 +15,7 @@ const intentionSchema = z.object({
   webhookParams: z.any().optional().nullable(),
   webhookBody: z.any().optional().nullable(),
   outputVariables: z.any().optional().nullable(),
-  responseMode: z.enum(['INTERPRET_API', 'FIXED_MESSAGE', 'API_RAW', 'AI_SUMMARY']).optional(),
+  responseMode: z.enum(['INTERPRET_API', 'FIXED_MESSAGE', 'API_RAW']).optional(),
   isActive: z.boolean().optional(),
 })
 

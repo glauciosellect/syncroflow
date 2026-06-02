@@ -119,7 +119,7 @@ export default function AgentDetailPage() {
   const handleSaveIntention = () => {
     const { name, description, actionType, fixedMessage, calendarAction } = intentionForm
     const payload = actionType === 'CALENDAR'
-      ? { name, description: description || null, actionType: 'CALENDAR', calendarAction, responseMode: 'AI_SUMMARY', webhookBody: null }
+      ? { name, description: description || null, actionType: 'CALENDAR', calendarAction, responseMode: 'FIXED_MESSAGE', webhookBody: null }
       : { name, description: description || null, actionType: 'INTERNAL', responseMode: 'FIXED_MESSAGE', webhookBody: fixedMessage ? { fixedMessage } : null }
     if (editingIntention) {
       updateIntentionMutation.mutate({ intentId: editingIntention.id, data: payload })
