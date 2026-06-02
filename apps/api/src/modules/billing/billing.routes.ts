@@ -56,10 +56,6 @@ export async function billingRoutes(app: FastifyInstance) {
     return reply.send(invoices)
   })
 
-  app.post('/billing/subscribe', async (req, reply) => {
-    return reply.send({ message: 'Integração com gateway de pagamento pendente. Configure Stripe no ambiente.' })
-  })
-
   app.post('/billing/cancel', async (req, reply) => {
     const { sub } = req.user as { sub: string }
     const workspaceId = await getWorkspaceId(sub)
