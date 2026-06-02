@@ -270,16 +270,52 @@ export function startMessageWorker() {
       }
       // ────────────────────────────────────────────────────────────────────────
 
-      let intention = null
-      try {
-        intention = await detectIntention(text, agent.intentions)
-      } catch {
-        intention = null
-      }
-      let responseText: string
+      // Verificar Google Calendar ANTES das intenções para ter prioridade
+      const wsForCalendar = await prisma.workspace.findUnique({
+        where: { id: channel.workspaceId },
+        select: { googleCalendarEnabled: true } as any,
+      }) as any
+
+      const scheduleKeywords = /\bagendar\b|\bagend(e|ar|amento)\b|\bmarcar\b|\breservar\b|\bconsulta\b|\breunião\b|\bhorário\b|\bvaga\b|\bdisponível\b|\bdisponibilidade\b/i
+      const cancelKeywords = /\bcancelar\b|\bdesmarcar\b|\bcancelamento\b/i
+      const listKeywords = /\bver agenda\b|\bconsultar agenda\b|\bmeus agendamentos\b|\bpróximas consultas\b|\bhorários marcados\b/i
+      const hasDateTime = /amanhã|hoje|segunda|terça|quarta|quinta|sexta|sábado|domingo|\d{1,2}[\/\-]\d{1,2}|\d{1,2}\s*h\b|\d{1,2}:\d{2}|próxim|semana/i.test(text)
+
+      let calendarHandled = false
+      let responseText: string = ''
       let creditsUsed = 0
 
-      if (intention && intention.actionType === 'INTERNAL') {
+      if (wsForCalendar?.googleCalendarEnabled && scheduleKeywords.test(text)) {
+        if (cancelKeywords.test(text)) {
+          const result = await cancelAppointment({ workspaceId: channel.workspaceId, userMessage: text, contactName: contact.name ?? 'Cliente' })
+          responseText = result.message
+          creditsUsed = 1
+          calendarHandled = true
+        } else if (listKeywords.test(text)) {
+          const result = await listUpcomingAppointments(channel.workspaceId)
+          responseText = result.message
+          creditsUsed = 1
+          calendarHandled = true
+        } else if (hasDateTime) {
+          const result = await scheduleAppointment({ workspaceId: channel.workspaceId, userMessage: text, contactName: contact.name ?? 'Cliente', contactPhone: channelType === 'WHATSAPP' ? from : undefined })
+          responseText = result.message
+          creditsUsed = 1
+          calendarHandled = true
+        }
+      }
+
+      let intention = null
+      if (!calendarHandled) {
+        try {
+          intention = await detectIntention(text, agent.intentions)
+        } catch {
+          intention = null
+        }
+      }
+
+      if (calendarHandled) {
+        // já processado acima
+      } else if (intention && intention.actionType === 'INTERNAL') {
         // Intenção interna — mensagem fixa, zero créditos de IA
         responseText = (intention.webhookBody as any)?.fixedMessage || intention.name
         creditsUsed = 0
@@ -349,90 +385,23 @@ export function startMessageWorker() {
           responseText = 'Desculpe, não consegui processar sua solicitação no momento.'
         }
       } else {
+        // Fluxo padrão — resposta via IA
         const conversationHistory = history.map((m) => ({
           role: (m.role === 'USER' ? 'user' : 'assistant') as 'user' | 'assistant',
           content: m.content,
         }))
-
-        // Detecção automática de agendamento (quando Google Calendar está ativo)
-        const ws = await prisma.workspace.findUnique({
-          where: { id: channel.workspaceId },
-          select: { googleCalendarEnabled: true } as any,
-        }) as any
-
-        if (ws?.googleCalendarEnabled) {
-          const scheduleKeywords = /agendar|agende|marcar|reservar|consulta|reunião|horário|disponível|agenda|quando posso|próxima vaga/i
-          const cancelKeywords = /cancelar|desmarcar|cancelamento/i
-          const listKeywords = /ver agenda|consultar agenda|meus agendamentos|próximas consultas|horários marcados/i
-
-          if (cancelKeywords.test(text)) {
-            const result = await cancelAppointment({
-              workspaceId: channel.workspaceId,
-              userMessage: text,
-              contactName: contact.name ?? 'Cliente',
-            })
-            responseText = result.message
-            creditsUsed = 1
-          } else if (listKeywords.test(text)) {
-            const result = await listUpcomingAppointments(channel.workspaceId)
-            responseText = result.message
-            creditsUsed = 1
-          } else if (scheduleKeywords.test(text)) {
-            // Verifica se a mensagem tem data/hora suficiente para agendar
-            const hasDateTime = /\d{1,2}[\/\-]\d{1,2}|\damanhã|hoje|segunda|terça|quarta|quinta|sexta|sábado|domingo|\d{1,2}h|\d{1,2}:\d{2}|próxim/i.test(text)
-            if (hasDateTime) {
-              const result = await scheduleAppointment({
-                workspaceId: channel.workspaceId,
-                userMessage: text,
-                contactName: contact.name ?? 'Cliente',
-                contactPhone: channelType === 'WHATSAPP' ? from : undefined,
-              })
-              responseText = result.message
-              creditsUsed = 1
-            } else {
-              // Sem data/hora — deixa a IA responder e perguntar
-              const agendaContext = await getAgendaContextForPrompt(channel.workspaceId)
-              const contactContext = isNewContact
-                ? '\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Este é o PRIMEIRO contato desta pessoa. Apresente-se e faça uma saudação completa.]'
-                : `\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Esta pessoa já entrou em contato antes. O nome dela é ${contact.name}. Use apenas uma saudação breve e direta, sem se reapresentar.]`
-              const aiRes = await processAgentResponse({
-                agent: agent as any,
-                conversationHistory,
-                userMessage: text + contactContext + agendaContext,
-                agentId: agent.id,
-              })
-              responseText = aiRes.content
-              creditsUsed = aiRes.creditsUsed
-            }
-          } else {
-            // Mensagem normal — processa com IA
-            const agendaContext = await getAgendaContextForPrompt(channel.workspaceId)
-            const contactContext = isNewContact
-              ? '\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Este é o PRIMEIRO contato desta pessoa. Apresente-se e faça uma saudação completa.]'
-              : `\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Esta pessoa já entrou em contato antes. O nome dela é ${contact.name}. Use apenas uma saudação breve e direta, sem se reapresentar.]`
-            const aiRes = await processAgentResponse({
-              agent: agent as any,
-              conversationHistory,
-              userMessage: text + contactContext + agendaContext,
-              agentId: agent.id,
-            })
-            responseText = aiRes.content
-            creditsUsed = aiRes.creditsUsed
-          }
-        } else {
-          // Sem Google Calendar — fluxo normal com IA
-          const contactContext = isNewContact
-            ? '\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Este é o PRIMEIRO contato desta pessoa. Apresente-se e faça uma saudação completa.]'
-            : `\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Esta pessoa já entrou em contato antes. O nome dela é ${contact.name}. Use apenas uma saudação breve e direta, sem se reapresentar.]`
-          const aiRes = await processAgentResponse({
-            agent: agent as any,
-            conversationHistory,
-            userMessage: text + contactContext,
-            agentId: agent.id,
-          })
-          responseText = aiRes.content
-          creditsUsed = aiRes.creditsUsed
-        }
+        const contactContext = isNewContact
+          ? '\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Este é o PRIMEIRO contato desta pessoa. Apresente-se e faça uma saudação completa.]'
+          : `\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Esta pessoa já entrou em contato antes. O nome dela é ${contact.name}. Use apenas uma saudação breve e direta, sem se reapresentar.]`
+        const agendaContext = await getAgendaContextForPrompt(channel.workspaceId)
+        const aiRes = await processAgentResponse({
+          agent: agent as any,
+          conversationHistory,
+          userMessage: text + contactContext + agendaContext,
+          agentId: agent.id,
+        })
+        responseText = aiRes.content
+        creditsUsed = aiRes.creditsUsed
       }
 
       if (config?.responseDelay && config.responseDelay > 0) {
