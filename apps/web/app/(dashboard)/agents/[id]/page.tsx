@@ -40,7 +40,7 @@ export default function AgentDetailPage() {
   const [trainingText, setTrainingText] = useState('')
   const [trainingUrl, setTrainingUrl] = useState('')
   const [showIntentionForm, setShowIntentionForm] = useState(false)
-  const [intentionForm, setIntentionForm] = useState({ name: '', description: '', actionType: 'INTERNAL', fixedMessage: '' })
+  const [intentionForm, setIntentionForm] = useState({ name: '', description: '', actionType: 'INTERNAL', fixedMessage: '', calendarAction: 'SCHEDULE' })
   const [editingIntention, setEditingIntention] = useState<any>(null)
   const [viewingTraining, setViewingTraining] = useState<any>(null)
   const [editingTrainingContent, setEditingTrainingContent] = useState('')
@@ -117,13 +117,10 @@ export default function AgentDetailPage() {
   })
 
   const handleSaveIntention = () => {
-    const payload = {
-      name: intentionForm.name,
-      description: intentionForm.description || null,
-      actionType: 'INTERNAL',
-      responseMode: 'FIXED_MESSAGE',
-      webhookBody: intentionForm.fixedMessage ? { fixedMessage: intentionForm.fixedMessage } : null,
-    }
+    const { name, description, actionType, fixedMessage, calendarAction } = intentionForm
+    const payload = actionType === 'CALENDAR'
+      ? { name, description: description || null, actionType: 'CALENDAR', calendarAction, responseMode: 'AI_SUMMARY', webhookBody: null }
+      : { name, description: description || null, actionType: 'INTERNAL', responseMode: 'FIXED_MESSAGE', webhookBody: fixedMessage ? { fixedMessage } : null }
     if (editingIntention) {
       updateIntentionMutation.mutate({ intentId: editingIntention.id, data: payload })
     } else {
@@ -137,6 +134,7 @@ export default function AgentDetailPage() {
       description: intention.description || '',
       actionType: intention.actionType || 'INTERNAL',
       fixedMessage: intention.webhookBody?.fixedMessage || '',
+      calendarAction: (intention as any).calendarAction || 'SCHEDULE',
     })
     setEditingIntention(intention)
     setShowIntentionForm(true)
@@ -381,26 +379,57 @@ export default function AgentDetailPage() {
                 <CardContent className="space-y-4">
                   <div>
                     <Label>Nome da intenção</Label>
-                    <Input className="mt-1" placeholder="Ex: Solicitar demonstração" value={intentionForm.name} onChange={e => setIntentionForm(p => ({ ...p, name: e.target.value }))} />
+                    <Input className="mt-1" placeholder="Ex: Agendar reunião" value={intentionForm.name} onChange={e => setIntentionForm(p => ({ ...p, name: e.target.value }))} />
                   </div>
                   <div>
-                    <Label>Descrição <span className="text-gray-400 text-xs">(quando o agente deve acionar esta intenção)</span></Label>
+                    <Label>Tipo de ação</Label>
+                    <div className="flex gap-2 mt-1">
+                      {[
+                        { value: 'INTERNAL', label: '💬 Mensagem fixa' },
+                        { value: 'CALENDAR', label: '📅 Google Calendar' },
+                      ].map(opt => (
+                        <button key={opt.value} type="button"
+                          onClick={() => setIntentionForm(p => ({ ...p, actionType: opt.value }))}
+                          className={cn('flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-colors',
+                            intentionForm.actionType === opt.value ? 'border-[#1565C0] bg-blue-50 text-[#1565C0]' : 'border-gray-200 text-gray-600 hover:border-gray-300')}>
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Quando acionar <span className="text-gray-400 text-xs">(palavras-chave ou situações)</span></Label>
                     <textarea
                       className="w-full mt-1 border border-input rounded-md px-3 py-2 text-sm h-20 resize-none focus:outline-none focus:ring-2 focus:ring-ring"
-                      placeholder="Ex: Cliente pergunta sobre preços, planos ou quer saber quanto custa"
+                      placeholder="Ex: cliente quer agendar reunião demonstração marcar horário"
                       value={intentionForm.description}
                       onChange={e => setIntentionForm(p => ({ ...p, description: e.target.value }))}
                     />
                   </div>
+                  {intentionForm.actionType === 'CALENDAR' && (
+                    <div>
+                      <Label>Ação no calendário</Label>
+                      <select className="mt-1 w-full border border-input rounded-md px-3 py-2 text-sm"
+                        value={intentionForm.calendarAction}
+                        onChange={e => setIntentionForm(p => ({ ...p, calendarAction: e.target.value }))}>
+                        <option value="SCHEDULE">Agendar evento</option>
+                        <option value="LIST">Consultar agenda</option>
+                        <option value="CANCEL">Cancelar agendamento</option>
+                      </select>
+                      <p className="text-xs text-gray-400 mt-1">O agente vai extrair data/hora da conversa e criar o evento automaticamente no Google Calendar.</p>
+                    </div>
+                  )}
+                  {intentionForm.actionType === 'INTERNAL' && (
                   <div>
                     <Label>Mensagem de resposta</Label>
                     <textarea
                       className="w-full mt-1 border border-input rounded-md px-3 py-2 text-sm h-28 resize-none focus:outline-none focus:ring-2 focus:ring-ring"
-                      placeholder="Ex: Temos planos para todos os tamanhos de operação. Pode me informar quantos atendimentos sua empresa realiza por mês?"
+                      placeholder="Ex: Temos planos para todos os tamanhos de operação..."
                       value={intentionForm.fixedMessage}
                       onChange={e => setIntentionForm(p => ({ ...p, fixedMessage: e.target.value }))}
                     />
                   </div>
+                  )}
                   <div className="flex gap-2">
                     <Button onClick={handleSaveIntention} disabled={!intentionForm.name.trim() || createIntentionMutation.isPending || updateIntentionMutation.isPending} className="bg-[#1565C0] hover:bg-[#0D47A1]">
                       {(createIntentionMutation.isPending || updateIntentionMutation.isPending) ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}

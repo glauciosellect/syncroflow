@@ -7,14 +7,15 @@ const intentionSchema = z.object({
   name: z.string().min(1).max(255),
   description: z.string().max(512).optional().nullable(),
   fields: z.any().optional().nullable(),
-  actionType: z.enum(['WEBHOOK', 'INTERNAL']).optional(),
+  actionType: z.enum(['WEBHOOK', 'INTERNAL', 'CALENDAR']).optional(),
+  calendarAction: z.enum(['SCHEDULE', 'LIST', 'CANCEL']).optional().nullable(),
   webhookUrl: z.string().url().optional().nullable(),
   webhookMethod: z.string().optional(),
   webhookHeaders: z.any().optional().nullable(),
   webhookParams: z.any().optional().nullable(),
   webhookBody: z.any().optional().nullable(),
   outputVariables: z.any().optional().nullable(),
-  responseMode: z.enum(['INTERPRET_API', 'FIXED_MESSAGE', 'API_RAW']).optional(),
+  responseMode: z.enum(['INTERPRET_API', 'FIXED_MESSAGE', 'API_RAW', 'AI_SUMMARY']).optional(),
   isActive: z.boolean().optional(),
 })
 
