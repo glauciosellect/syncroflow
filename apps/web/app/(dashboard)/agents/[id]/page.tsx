@@ -95,7 +95,7 @@ export default function AgentDetailPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['agent', id] })
       setShowIntentionForm(false)
-      setIntentionForm({ name: '', description: '', actionType: 'INTERNAL', fixedMessage: '' })
+      setIntentionForm({ name: '', description: '', actionType: 'INTERNAL', fixedMessage: '', calendarAction: 'SCHEDULE' })
       toast({ title: 'Intenção criada!' })
     },
     onError: () => toast({ title: 'Erro ao criar intenção', variant: 'destructive' }),
@@ -367,7 +367,7 @@ export default function AgentDetailPage() {
                 <p className="text-xs text-gray-400 mt-0.5">Ações automáticas quando o agente detecta uma intenção do cliente</p>
               </div>
               {!showIntentionForm && (
-                <Button onClick={() => { setEditingIntention(null); setIntentionForm({ name: '', description: '', actionType: 'INTERNAL', fixedMessage: '' }); setShowIntentionForm(true) }} className="bg-[#1565C0] hover:bg-[#0D47A1]" size="sm">
+                <Button onClick={() => { setEditingIntention(null); setIntentionForm({ name: '', description: '', actionType: 'INTERNAL', fixedMessage: '', calendarAction: 'SCHEDULE' }); setShowIntentionForm(true) }} className="bg-[#1565C0] hover:bg-[#0D47A1]" size="sm">
                   <Plus className="w-3 h-3 mr-1" /> Nova Intenção
                 </Button>
               )}
