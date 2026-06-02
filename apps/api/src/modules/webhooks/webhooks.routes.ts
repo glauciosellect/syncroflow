@@ -30,15 +30,22 @@ function extractOwnerMessage(payload: any): string | null {
 export async function webhookRoutes(app: FastifyInstance) {
   app.post('/webhooks/whatsapp/:channelId', async (req, reply) => {
     const { channelId } = req.params as { channelId: string }
+
+    // Log para debug — remover após confirmar funcionamento
+    console.log('[WEBHOOK] Recebido para canal:', channelId)
+    console.log('[WEBHOOK] Payload:', JSON.stringify(req.body).slice(0, 500))
+
     const channel = await prisma.channel.findUnique({ where: { id: channelId } })
-    if (!channel) return reply.status(404).send()
+    if (!channel) {
+      console.log('[WEBHOOK] Canal não encontrado:', channelId)
+      return reply.status(404).send()
+    }
 
     // Se o dono do número enviou mensagem, verifica se é comando especial ou silencia por 1h
     const ownerTo = extractOwnerMessage(req.body)
     if (ownerTo) {
       const silenceKey = `silence:${channelId}:${ownerTo}`
 
-      // Comando #jarbas on — reativa o agente imediatamente para esse contato
       const body = req.body as any
       const ownerText: string =
         body?.message?.text ||
@@ -48,13 +55,16 @@ export async function webhookRoutes(app: FastifyInstance) {
 
       if (ownerText.trim().toLowerCase() === '#jarbas on') {
         await redis.del(silenceKey)
+        console.log('[WEBHOOK] #jarbas on — silêncio removido para:', ownerTo)
       } else {
         await redis.set(silenceKey, '1', 'EX', OWNER_SILENCE_TTL)
+        console.log('[WEBHOOK] Mensagem do dono — silenciando:', ownerTo)
       }
 
       return reply.send({ ok: true })
     }
 
+    console.log('[WEBHOOK] Enfileirando job para canal:', channelId)
     await messageQueue.add('process', { channelId, channelType: 'WHATSAPP', payload: req.body }, {
       attempts: 3,
       backoff: { type: 'exponential', delay: 1000 },

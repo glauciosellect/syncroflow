@@ -40,11 +40,16 @@ export function startMessageWorker() {
     async (job) => {
       const { channelId, channelType, payload } = job.data
 
+      console.log('[WORKER] Processando job — canal:', channelId, 'tipo:', channelType)
+
       const channel = await prisma.channel.findUnique({
         where: { id: channelId },
         include: { agentChannels: { include: { agent: { include: { config: true, intentions: true } } } } },
       })
-      if (!channel) return
+      if (!channel) {
+        console.log('[WORKER] Canal não encontrado:', channelId)
+        return
+      }
 
       const MEDIA_CREDITS = 2
       let from: string, name: string, text: string | undefined
@@ -53,6 +58,7 @@ export function startMessageWorker() {
       if (channelType === 'WHATSAPP') {
         const provider = getWhatsAppProvider()
         const msg = provider.parseWebhook(payload)
+        console.log('[WORKER] parseWebhook resultado:', msg ? `from=${msg.from} text=${msg.text?.slice(0, 50)}` : 'null')
         if (!msg) return
         from = msg.from
         name = msg.name
