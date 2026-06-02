@@ -871,18 +871,29 @@ function IntegrationsTab() {
                 </p>
               </div>
             </div>
-            <div className="shrink-0">
+            <div className="shrink-0 flex gap-2">
               {googleStatus?.connected ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => disconnectMutation.mutate()}
-                  disabled={disconnectMutation.isPending}
-                  className="text-red-500 border-red-200 hover:bg-red-50"
-                >
-                  {disconnectMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
-                  Desconectar
-                </Button>
+                <>
+                  {googleStatus?.tokenExpired && (
+                    <Button
+                      size="sm"
+                      onClick={() => { window.location.href = `${API_URL}/integrations/google/connect?token=${token}` }}
+                      className="bg-[#4285F4] hover:bg-[#3367D6] text-white"
+                    >
+                      Reconectar
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => disconnectMutation.mutate()}
+                    disabled={disconnectMutation.isPending}
+                    className="text-red-500 border-red-200 hover:bg-red-50"
+                  >
+                    {disconnectMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
+                    Desconectar
+                  </Button>
+                </>
               ) : (
                 <Button
                   size="sm"
