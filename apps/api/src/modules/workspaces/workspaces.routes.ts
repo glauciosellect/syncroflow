@@ -61,8 +61,9 @@ export async function workspaceRoutes(app: FastifyInstance) {
     return reply.send({ ok: true })
   })
 
-  // Endpoint de diagnóstico — lista todos os workspaces e agentes do usuário autenticado
+  // Endpoint de diagnóstico — apenas em desenvolvimento
   app.get('/workspaces/debug', async (req, reply) => {
+    if (process.env.NODE_ENV === 'production') return reply.status(404).send()
     const { sub } = req.user as { sub: string }
     const memberships = await prisma.workspaceMember.findMany({
       where: { userId: sub },

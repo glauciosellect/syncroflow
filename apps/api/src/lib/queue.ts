@@ -33,6 +33,7 @@ export type TrainingJobData = {
   trainingId: string
   type: 'TEXT' | 'WEBSITE' | 'VIDEO' | 'DOCUMENT'
   agentId: string
+  extra?: Record<string, any>
 }
 
 export function createWorker<T>(

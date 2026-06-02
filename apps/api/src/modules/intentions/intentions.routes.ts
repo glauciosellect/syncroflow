@@ -66,9 +66,10 @@ export async function intentionRoutes(app: FastifyInstance) {
     const agent = await prisma.agent.findFirst({ where: { id: agentId, workspaceId } })
     if (!agent) return reply.status(404).send({ error: 'Agente não encontrado' })
     const data = intentionSchema.partial().parse(req.body)
-    const intention = await prisma.intention.updateMany({ where: { id: intentId, agentId }, data })
-    if (intention.count === 0) return reply.status(404).send({ error: 'Intenção não encontrada' })
-    return reply.send(await prisma.intention.findUnique({ where: { id: intentId } }))
+    const existing = await prisma.intention.findFirst({ where: { id: intentId, agentId } })
+    if (!existing) return reply.status(404).send({ error: 'Intenção não encontrada' })
+    const intention = await prisma.intention.update({ where: { id: intentId }, data })
+    return reply.send(intention)
   })
 
   app.delete('/agents/:agentId/intentions/:intentId', async (req, reply) => {

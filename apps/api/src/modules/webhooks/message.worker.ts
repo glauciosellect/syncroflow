@@ -361,9 +361,13 @@ export function startMessageWorker() {
           } else if (intention.responseMode === 'FIXED_MESSAGE') {
             responseText = (intention.webhookBody as any)?.fixedMessage || 'Sua solicitação foi processada com sucesso.'
           } else {
+            const conversationHistoryForWebhook = history.map((m) => ({
+              role: (m.role === 'USER' ? 'user' : 'assistant') as 'user' | 'assistant',
+              content: m.content,
+            }))
             const aiRes = await processAgentResponse({
               agent: agent as any,
-              conversationHistory: [],
+              conversationHistory: conversationHistoryForWebhook,
               userMessage: `O usuário solicitou: "${text}". A API retornou: ${JSON.stringify(webhookRes.data)}. Responda naturalmente ao usuário.`,
               agentId: agent.id,
             })
@@ -405,7 +409,8 @@ export function startMessageWorker() {
       }
 
       if (config?.responseDelay && config.responseDelay > 0) {
-        await new Promise((r) => setTimeout(r, config.responseDelay * 1000))
+        const safeDelay = Math.min(config.responseDelay, 300) // máximo 5 minutos
+        await new Promise((r) => setTimeout(r, safeDelay * 1000))
       }
 
       const aiMsg = await prisma.message.create({
