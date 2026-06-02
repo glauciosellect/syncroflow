@@ -93,7 +93,21 @@ export async function trainingRoutes(app: FastifyInstance) {
     const workspaceId = await getWorkspaceId(sub)
     const { agentId, trainingId } = req.params as { agentId: string; trainingId: string }
     await verifyAgent(agentId, workspaceId)
+    await prisma.trainingChunk.deleteMany({ where: { trainingId } })
     await prisma.training.deleteMany({ where: { id: trainingId, agentId } })
     return reply.send({ ok: true })
+  })
+
+  // Limpa todos os chunks de um agente (para reprocessamento completo)
+  app.delete('/agents/:agentId/trainings', async (req, reply) => {
+    const { sub } = req.user as { sub: string }
+    const workspaceId = await getWorkspaceId(sub)
+    const { agentId } = req.params as { agentId: string }
+    await verifyAgent(agentId, workspaceId)
+    const trainings = await prisma.training.findMany({ where: { agentId }, select: { id: true } })
+    const ids = trainings.map(t => t.id)
+    await prisma.trainingChunk.deleteMany({ where: { trainingId: { in: ids } } })
+    await prisma.training.deleteMany({ where: { agentId } })
+    return reply.send({ ok: true, deleted: ids.length })
   })
 }
