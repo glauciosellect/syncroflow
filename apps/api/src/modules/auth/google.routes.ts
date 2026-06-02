@@ -115,16 +115,23 @@ export async function googleRoutes(app: FastifyInstance) {
 
   // ── GOOGLE CALENDAR — conectar workspace ─────────────────────────────────
   // Aceita token via query param pois é um redirect de browser (sem header Authorization)
+  // Tenta access token (15min) e também refresh token (7d) para não falhar se access expirou
   app.get('/integrations/google/connect', async (req, reply) => {
     const { token } = req.query as Record<string, string>
     if (!token) return reply.status(401).send({ error: 'Não autorizado' })
 
     let userId: string
     try {
-      const decoded = app.jwt.verify(token) as { sub: string }
+      const decoded = app.jwt.verify(token) as { sub: string; type?: string }
       userId = decoded.sub
     } catch {
-      return reply.status(401).send({ error: 'Token inválido' })
+      // access token expirado — tenta verificar como refresh token
+      try {
+        const decoded = app.jwt.verify(token, { key: process.env.JWT_REFRESH_SECRET || '' }) as { sub: string }
+        userId = decoded.sub
+      } catch {
+        return reply.status(401).send({ error: 'Token inválido' })
+      }
     }
 
     const member = await prisma.workspaceMember.findFirst({ where: { userId } })
