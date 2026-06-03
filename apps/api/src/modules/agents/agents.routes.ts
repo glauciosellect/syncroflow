@@ -8,7 +8,7 @@ const agentSchema = z.object({
   companyName: z.string().max(100).optional().nullable(),
   companyWebsite: z.string().url().or(z.literal('')).optional().nullable(),
   companyDesc: z.string().max(2000).optional().nullable(),
-  behavior: z.string().max(3000).optional().nullable(),
+  behavior: z.string().max(6000).optional().nullable(),
   communicationStyle: z.enum(['FORMAL', 'NORMAL', 'CASUAL']).optional(),
   llmModel: z.string().optional(),
   avatarUrl: z.string().optional().nullable(),

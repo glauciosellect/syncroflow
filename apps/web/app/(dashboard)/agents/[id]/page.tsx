@@ -257,11 +257,11 @@ export default function AgentDetailPage() {
                 </div>
               </div>
               <div>
-                <Label>Comportamento <span className="text-gray-400 text-xs">({(f.behavior || '').length}/3000)</span></Label>
+                <Label>Comportamento <span className="text-gray-400 text-xs">({(f.behavior || '').length}/6000)</span></Label>
                 <textarea
                   className="w-full mt-1 border border-input rounded-md px-3 py-2 text-sm h-40 resize-none focus:outline-none focus:ring-2 focus:ring-ring"
                   placeholder="Descreva como o agente deve se comportar, tom de voz, regras especiais..."
-                  maxLength={3000}
+                  maxLength={6000}
                   value={f.behavior ?? ''}
                   onChange={e => setForm((p: any) => ({ ...(p || agent), behavior: e.target.value }))}
                 />
