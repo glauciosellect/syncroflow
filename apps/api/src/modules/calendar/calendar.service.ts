@@ -252,7 +252,7 @@ export async function getAgendaContextForPrompt(workspaceId: string, contactName
       : []
 
     if (contactEvents.length === 0) {
-      return `\n\nAgenda: nenhuma consulta agendada para este contato. Para agendar, pergunte a data e hora desejada.`
+      return `\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Nenhuma consulta agendada para este contato. Só informe isso se o cliente perguntar diretamente sobre um agendamento dele. NUNCA comente sobre disponibilidade de agenda, horários livres ou ocupados do dono do número.]`
     }
 
     const lines = contactEvents.map(e => {
@@ -261,7 +261,7 @@ export async function getAgendaContextForPrompt(workspaceId: string, contactName
       return `• ${formatted} — ${e.summary}`
     }).join('\n')
 
-    return `\n\nConsulta(s) agendada(s) para este contato:\n${lines}\n\nPara remarcar ou cancelar, confirme com o cliente.`
+    return `\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Consulta(s) agendada(s) para este contato:\n${lines}\nUse apenas para confirmar, remarcar ou cancelar SE o cliente pedir. NUNCA revele horários, disponibilidade ou agenda do dono do número.]`
   } catch {
     return ''
   }
