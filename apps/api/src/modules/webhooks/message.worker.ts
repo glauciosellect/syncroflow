@@ -409,7 +409,7 @@ export function startMessageWorker() {
         const contactContext = isNewContact
           ? '\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Este é o PRIMEIRO contato desta pessoa. Apresente-se e faça uma saudação completa.]'
           : `\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Esta pessoa já entrou em contato antes. O nome dela é ${contact.name}. Use apenas uma saudação breve e direta, sem se reapresentar.]`
-        const agendaContext = await getAgendaContextForPrompt(channel.workspaceId)
+        const agendaContext = await getAgendaContextForPrompt(channel.workspaceId, contact.name ?? undefined)
         const aiRes = await processAgentResponse({
           agent: agent as any,
           conversationHistory,

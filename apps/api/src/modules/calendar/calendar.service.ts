@@ -226,18 +226,42 @@ export async function cancelAppointment(opts: {
   }
 }
 
-// Retorna texto com a agenda dos próximos dias — injetado no system prompt do agente
-// Verifica se Google Calendar está ativo antes de fazer chamadas de rede
-export async function getAgendaContextForPrompt(workspaceId: string): Promise<string> {
+// Retorna contexto de agenda filtrado pelo contato atual — evita vazar dados de outros clientes
+export async function getAgendaContextForPrompt(workspaceId: string, contactName?: string): Promise<string> {
   try {
     const ws = await prisma.workspace.findUnique({
       where: { id: workspaceId },
       select: { googleCalendarEnabled: true } as any,
     }) as any
     if (!ws?.googleCalendarEnabled) return ''
-    const result = await listUpcomingAppointments(workspaceId, 7)
-    if (!result.available) return ''
-    return `\n\nAGENDA DOS PRÓXIMOS 7 DIAS:\n${result.message}\n\nPara agendar, pergunte a data e hora desejada. Para cancelar, confirme o nome do cliente.`
+
+    const accessToken = await getValidToken(workspaceId)
+    if (!accessToken) return ''
+
+    const calendarId = (ws as any).googleCalendarId || 'primary'
+    const timeMin = new Date().toISOString()
+    const timeMax = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+    const events = await listCalendarEvents(accessToken, calendarId, timeMin, timeMax)
+
+    // Filtra apenas eventos deste contato para não vazar dados de outros clientes
+    const contactEvents = contactName
+      ? events.filter(e =>
+          e.summary?.toLowerCase().includes(contactName.toLowerCase()) ||
+          e.description?.toLowerCase().includes(contactName.toLowerCase())
+        )
+      : []
+
+    if (contactEvents.length === 0) {
+      return `\n\nAgenda: nenhuma consulta agendada para este contato. Para agendar, pergunte a data e hora desejada.`
+    }
+
+    const lines = contactEvents.map(e => {
+      const dt = e.start.dateTime || (e.start as any).date
+      const formatted = new Date(dt).toLocaleString('pt-BR', { timeZone: TZ, weekday: 'long', day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' })
+      return `• ${formatted} — ${e.summary}`
+    }).join('\n')
+
+    return `\n\nConsulta(s) agendada(s) para este contato:\n${lines}\n\nPara remarcar ou cancelar, confirme com o cliente.`
   } catch {
     return ''
   }

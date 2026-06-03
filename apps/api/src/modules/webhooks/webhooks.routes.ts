@@ -13,12 +13,13 @@ function extractOwnerMessage(payload: any): string | null {
     return jid.replace('@s.whatsapp.net', '').replace('@g.us', '').replace(/\D/g, '') || null
   }
 
-  // UAZAPI: fromMe — ignora silêncio automático pois o UAZAPI dispara fromMe=true
-  // tanto para mensagens humanas quanto para mensagens enviadas pela API do Jarbas,
-  // tornando impossível distinguir sem campo confiável. Silêncio é controlado apenas
-  // via comando #jarbas off (enviado pelo operador humano com texto específico).
+  // UAZAPI: fromMe=true para mensagens do dono. fromApi=true indica que foi enviada via API (Jarbas).
+  // Se fromMe=true e fromApi=false → operador humano digitou → silencia.
+  // Se fromMe=true e fromApi=true → foi o Jarbas → ignora.
   if (payload?.message?.fromMe === true) {
-    return null
+    if (payload?.message?.fromApi === true) return null // foi o Jarbas, ignora
+    const chatid: string = payload?.message?.chatid || payload?.message?.sender_pn || ''
+    return chatid.replace(/\D/g, '') || null
   }
 
   // Z-API: fromMe
