@@ -282,9 +282,9 @@ export function startMessageWorker() {
 
       const scheduleKeywords = /\bagendar\b|\bagend(e|ar|amento)\b|\bmarcar\b|\breservar\b|\bconsulta\b|\breunião\b|\bhorário\b|\bvaga\b|\bdisponível\b|\bdisponibilidade\b/i
       const cancelKeywords = /\bcancelar\b|\bdesmarcar\b|\bcancelamento\b/i
-      const rescheduleKeywords = /\bremarcar\b|\bmudar\s*(o\s*)?(horário|consulta|reunião)\b|\btrocar\s*(o\s*)?(horário|consulta)\b|\boutro\s*horário\b|\bnão\s*posso\s*(nesse|neste)\s*horário\b/i
+      const rescheduleKeywords = /\bremarcar\b|\bmudar\s*(o\s*)?(horário|consulta|reunião|data)\b|\btrocar\s*(o\s*)?(horário|consulta|data)\b|\boutro\s*(horário|dia|momento)\b|\bnão\s*posso\s*(nesse|neste)\s*horário\b|\bmudar\s*para\b|\bmudar\s*o\s*dia\b|\btrocar\s*para\b|\bremarcar\s*para\b|\bpode\s*ser\s*(às?|as)\b|\bquero\s*(mudar|trocar|remarcar)\b|\bnão\s*vou\s*poder\b|\bnão\s*consigo\s*(nesse|neste|naquele)\b/i
       const listKeywords = /\bver agenda\b|\bconsultar agenda\b|\bmeus agendamentos\b|\bpróximas consultas\b|\bhorários marcados\b/i
-      const hasDateTime = /amanhã|hoje|segunda|terça|quarta|quinta|sexta|sábado|domingo|\d{1,2}[\/\-]\d{1,2}|\d{1,2}\s*h\b|\d{1,2}:\d{2}|próxim|semana/i.test(text)
+      const hasDateTime = /amanhã|hoje|segunda|terça|quarta|quinta|sexta|sábado|domingo|\d{1,2}[\/\-]\d{1,2}|\d{1,2}\s*h\b|\d{1,2}:\d{2}|próxim|semana|\btarde\b|\bmanhã\b|\bnoite\b|\bde\s*manhã\b|\bà\s*tarde\b/i.test(text)
 
       let calendarHandled = false
       let responseText: string = ''

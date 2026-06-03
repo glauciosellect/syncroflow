@@ -10,6 +10,18 @@ import { callLLM } from '../ai/ai.service'
 
 const TZ = 'America/Sao_Paulo'
 
+// Converte Date para string ISO local (sem Z) no fuso America/Sao_Paulo
+// Necessário porque Google Calendar interpreta dateTime+timeZone como horário local,
+// mas toISOString() retorna UTC (com Z), fazendo o Google ignorar o timeZone e salvar errado.
+function toLocalISOString(date: Date): string {
+  const formatter = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: TZ,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  })
+  return formatter.format(date).replace(' ', 'T')
+}
+
 // Extrai dados de agendamento da mensagem do usuário usando IA
 async function extractEventData(userMessage: string, contactName: string): Promise<{
   summary: string
@@ -89,8 +101,8 @@ export async function scheduleAppointment(opts: {
       extracted.description || '',
       contactPhone ? `WhatsApp: ${contactPhone}` : '',
     ].filter(Boolean).join('\n'),
-    start: { dateTime: startDate.toISOString(), timeZone: TZ },
-    end: { dateTime: endDate.toISOString(), timeZone: TZ },
+    start: { dateTime: toLocalISOString(startDate), timeZone: TZ },
+    end: { dateTime: toLocalISOString(endDate), timeZone: TZ },
     attendees: extracted.attendeeEmail ? [{ email: extracted.attendeeEmail }] : undefined,
   }
 
