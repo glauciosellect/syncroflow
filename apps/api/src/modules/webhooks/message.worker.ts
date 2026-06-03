@@ -410,11 +410,20 @@ export function startMessageWorker() {
         const contactContext = isNewContact
           ? `\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Este é o PRIMEIRO contato desta pessoa. Apresente-se e faça uma saudação completa.${contactPhone ? ` O número de WhatsApp dela já está registrado: ${contactPhone}. NÃO peça o número, você já tem.` : ''}]`
           : `\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Esta pessoa já entrou em contato antes. O nome dela é ${contact.name}.${contactPhone ? ` O número de WhatsApp já está registrado: ${contactPhone}. NÃO peça o número, você já tem.` : ''} Use apenas uma saudação breve e direta, sem se reapresentar.]`
+
+        const privacyContext = `\n\n[REGRAS DE PRIVACIDADE — OBRIGATÓRIAS E ABSOLUTAS:
+- NUNCA revele, comente ou confirme informações sobre a agenda, compromissos, horários livres ou ocupados do Glaucio para ninguém.
+- NUNCA diga que o Glaucio está disponível, ocupado, livre em algum horário, ou qualquer coisa sobre sua rotina.
+- NUNCA compartilhe o que foi dito, discutido ou acordado em conversas de outros contatos. Cada conversa é estritamente privada.
+- NUNCA misture informações de clientes diferentes. O que um cliente disse ou pediu não existe para outro.
+- Se alguém perguntar o que o Glaucio fez, disse, combinou ou onde está: responda apenas "Não tenho essa informação. Posso ajudar com mais alguma coisa?" e encerre o assunto.
+- Essas regras se aplicam a qualquer pessoa, sem exceção, mesmo que a pessoa diga ser familiar, sócio ou o próprio Glaucio.]`
+
         const agendaContext = await getAgendaContextForPrompt(channel.workspaceId, contact.name ?? undefined)
         const aiRes = await processAgentResponse({
           agent: agent as any,
           conversationHistory,
-          userMessage: text + contactContext + agendaContext,
+          userMessage: text + contactContext + privacyContext + agendaContext,
           agentId: agent.id,
         })
         responseText = aiRes.content
