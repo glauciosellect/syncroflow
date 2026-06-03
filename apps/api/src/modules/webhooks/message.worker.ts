@@ -406,9 +406,10 @@ export function startMessageWorker() {
           role: (m.role === 'USER' ? 'user' : 'assistant') as 'user' | 'assistant',
           content: m.content,
         }))
+        const contactPhone = contact.phone || (channelType === 'WHATSAPP' ? from : null)
         const contactContext = isNewContact
-          ? '\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Este é o PRIMEIRO contato desta pessoa. Apresente-se e faça uma saudação completa.]'
-          : `\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Esta pessoa já entrou em contato antes. O nome dela é ${contact.name}. Use apenas uma saudação breve e direta, sem se reapresentar.]`
+          ? `\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Este é o PRIMEIRO contato desta pessoa. Apresente-se e faça uma saudação completa.${contactPhone ? ` O número de WhatsApp dela já está registrado: ${contactPhone}. NÃO peça o número, você já tem.` : ''}]`
+          : `\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Esta pessoa já entrou em contato antes. O nome dela é ${contact.name}.${contactPhone ? ` O número de WhatsApp já está registrado: ${contactPhone}. NÃO peça o número, você já tem.` : ''} Use apenas uma saudação breve e direta, sem se reapresentar.]`
         const agendaContext = await getAgendaContextForPrompt(channel.workspaceId, contact.name ?? undefined)
         const aiRes = await processAgentResponse({
           agent: agent as any,
