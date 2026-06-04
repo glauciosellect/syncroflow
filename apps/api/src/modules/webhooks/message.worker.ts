@@ -233,7 +233,7 @@ export function startMessageWorker() {
 
           if (config.firstContactFileUrl && channelType === 'WHATSAPP') {
             const provider = getWhatsAppProvider()
-            await provider.sendMedia(channelId, from!, config.firstContactFileUrl, 'document', config.firstContactFileName || undefined)
+            await provider.sendMedia(channelId, from!, config.firstContactFileUrl, config.firstContactFileName || undefined)
           }
 
           // Registrar mensagem no histórico
