@@ -11,7 +11,7 @@ function AcceptInviteContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const token = searchParams.get('token')
-  const { accessToken } = useAuthStore()
+  const { token: accessToken } = useAuthStore()
 
   const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'auth_required'>('loading')
   const [errorMsg, setErrorMsg] = useState('')

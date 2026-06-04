@@ -237,6 +237,7 @@ export default function AgentDetailPage() {
 
         {/* ABA: PERFIL */}
         {activeTab === 'Perfil' && (
+          <>
           <Card>
             <CardHeader><CardTitle className="text-base">Perfil do Agente</CardTitle></CardHeader>
             <CardContent className="space-y-4">
@@ -400,6 +401,7 @@ export default function AgentDetailPage() {
               </Button>
             </CardContent>
           </Card>
+          </>
         )}
 
         {/* ABA: TREINAMENTOS */}
