@@ -302,29 +302,24 @@ export function startMessageWorker() {
       const contactVars = (contact.variables as Record<string, any>) || {}
       let audioPreference: 'audio' | 'text' | undefined = contactVars[AUDIO_PREFERENCE_KEY]
 
-      // Detecta se a mensagem recebida veio de áudio (já transcrita)
+      // Se recebeu áudio e não tem preferência → define áudio automaticamente (sem perguntar)
       const isAudioMessage = channelType === 'WHATSAPP' && incomingMediaType === 'audio'
-
-      // Se recebeu áudio e ainda não tem preferência salva → pergunta
-      if (isAudioMessage && !audioPreference && channelType === 'WHATSAPP') {
-        const pergunta = 'Recebi sua mensagem de voz! 🎙️ Prefere que eu responda em *áudio* ou *texto*? Responda "áudio" ou "texto".'
-        const provider = getWhatsAppProvider()
-        await provider.sendText(channelId, from, pergunta)
-        const askMsg = await prisma.message.create({
-          data: { conversationId: conversation.id, role: 'ASSISTANT', content: pergunta, creditsUsed: 0 },
-        })
-        try { emitNewMessage(channel.workspaceId, conversation.id, askMsg) } catch {}
-        return
-      }
-
-      // Detecta resposta de preferência do usuário
-      const lowerText = text.trim().toLowerCase()
-      if (!audioPreference && (lowerText === 'áudio' || lowerText === 'audio' || lowerText === 'voz')) {
+      if (isAudioMessage && !audioPreference) {
+        audioPreference = 'audio'
         await prisma.contact.update({
           where: { id: contact.id },
           data: { variables: { ...contactVars, [AUDIO_PREFERENCE_KEY]: 'audio' } },
         })
-        const confirmMsg = 'Ótimo! Vou responder em áudio a partir de agora. 🎧'
+      }
+
+      // Comando #texto: usuário pode mudar para respostas em texto
+      const lowerText = text.trim().toLowerCase()
+      if (lowerText === '#texto') {
+        await prisma.contact.update({
+          where: { id: contact.id },
+          data: { variables: { ...contactVars, [AUDIO_PREFERENCE_KEY]: 'text' } },
+        })
+        const confirmMsg = 'Perfeito! Responderei sempre em texto. ✍️'
         if (channelType === 'WHATSAPP') {
           const provider = getWhatsAppProvider()
           await provider.sendText(channelId, from, confirmMsg)
@@ -336,12 +331,13 @@ export function startMessageWorker() {
         return
       }
 
-      if (!audioPreference && (lowerText === 'texto' || lowerText === 'text' || lowerText === 'escrito')) {
+      // Comando #audio: usuário pode voltar para respostas em áudio
+      if (lowerText === '#audio' || lowerText === '#áudio') {
         await prisma.contact.update({
           where: { id: contact.id },
-          data: { variables: { ...contactVars, [AUDIO_PREFERENCE_KEY]: 'text' } },
+          data: { variables: { ...contactVars, [AUDIO_PREFERENCE_KEY]: 'audio' } },
         })
-        const confirmMsg = 'Perfeito! Responderei sempre em texto. ✍️'
+        const confirmMsg = 'Ótimo! Vou responder em áudio. 🎧'
         if (channelType === 'WHATSAPP') {
           const provider = getWhatsAppProvider()
           await provider.sendText(channelId, from, confirmMsg)
