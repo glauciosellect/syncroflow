@@ -113,8 +113,10 @@ export async function retrieveContext(message: string, agentId: string, topK = 5
       ORDER BY similarity DESC
       LIMIT ${topK}
     `)
+    console.log('[AI] retrieveContext agentId:', agentId, '| chunks encontrados:', chunks.length, '| similaridades:', chunks.map(c => c.similarity.toFixed(2)).join(', '))
     return chunks.map((c) => c.content).join('\n\n')
-  } catch {
+  } catch (err: any) {
+    console.error('[AI] retrieveContext ERRO:', err?.message)
     return ''
   }
 }
@@ -148,6 +150,7 @@ export async function processAgentResponse(opts: {
 
   const knowledgeContext = await retrieveContext(userMessage, agentId)
   const systemPrompt = buildSystemPrompt(agent, agent.config, knowledgeContext)
+  console.log('[AI] systemPrompt (primeiros 300 chars):', systemPrompt.slice(0, 300))
 
   const messages = [...conversationHistory, { role: 'user' as const, content: userMessage }]
 
