@@ -43,25 +43,27 @@ export class UazApiProvider implements WhatsAppProvider {
   }
 
   async sendMedia(channelId: string, to: string, mediaUrl: string, caption?: string) {
-    await axios.post(`${this.baseUrl}/message/sendMedia`, {
-      phone: to,
-      mediaUrl,
-      caption: caption || '',
-      mediaType: 'image',
+    await axios.post(`${this.baseUrl}/send/media`, {
+      number: to,
+      type: 'image',
+      file: mediaUrl,
+      text: caption || '',
     }, { headers: this.headers() })
   }
 
   async sendAudio(channelId: string, to: string, audioUrl: string) {
-    await axios.post(`${this.baseUrl}/message/sendAudio`, {
-      phone: to,
-      audioUrl,
+    await axios.post(`${this.baseUrl}/send/media`, {
+      number: to,
+      type: 'ptt',
+      file: audioUrl,
     }, { headers: this.headers() })
   }
 
   async sendAudioBase64(channelId: string, to: string, audioBase64: string) {
-    await axios.post(`${this.baseUrl}/message/sendAudio`, {
-      phone: to,
-      audioBase64,
+    await axios.post(`${this.baseUrl}/send/media`, {
+      number: to,
+      type: 'ptt',
+      file: `data:audio/mp3;base64,${audioBase64}`,
     }, { headers: this.headers() })
   }
 
