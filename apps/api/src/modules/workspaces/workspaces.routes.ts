@@ -1,6 +1,8 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
+import crypto from 'crypto'
 import { prisma } from '../../lib/prisma'
+import { sendEmail, workspaceInviteEmail } from '../../lib/mailer'
 
 async function getWorkspace(userId: string) {
   const member = await prisma.workspaceMember.findFirst({
@@ -57,7 +59,65 @@ export async function workspaceRoutes(app: FastifyInstance) {
     const { workspace, role } = await getWorkspace(sub)
     if (role !== 'OWNER' && role !== 'ADMIN') return reply.status(403).send({ error: 'Sem permissão' })
     const { id } = req.params as { id: string }
+    const target = await prisma.workspaceMember.findUnique({ where: { id } })
+    if (target?.role === 'OWNER') return reply.status(403).send({ error: 'Não é possível remover o proprietário' })
     await prisma.workspaceMember.delete({ where: { id } })
+    return reply.send({ ok: true })
+  })
+
+  // —— Convites ——————————————————————————————————————————————————————
+
+  app.get('/workspaces/me/invites', async (req, reply) => {
+    const { sub } = req.user as { sub: string }
+    const { workspace } = await getWorkspace(sub)
+    const invites = await prisma.workspaceInvite.findMany({
+      where: { workspaceId: workspace.id, acceptedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: 'desc' },
+    })
+    return reply.send(invites)
+  })
+
+  app.post('/workspaces/me/members/invite', async (req, reply) => {
+    const { sub } = req.user as { sub: string }
+    const { workspace, role } = await getWorkspace(sub)
+    if (role !== 'OWNER' && role !== 'ADMIN') return reply.status(403).send({ error: 'Sem permissão' })
+
+    const { email, role: inviteRole } = z.object({
+      email: z.string().email(),
+      role: z.enum(['ADMIN', 'AGENT']).default('AGENT'),
+    }).parse(req.body)
+
+    const inviter = await prisma.user.findUnique({ where: { id: sub }, select: { name: true } })
+
+    const existingUser = await prisma.user.findUnique({ where: { email } })
+    if (existingUser) {
+      const alreadyMember = await prisma.workspaceMember.findUnique({
+        where: { userId_workspaceId: { userId: existingUser.id, workspaceId: workspace.id } },
+      })
+      if (alreadyMember) return reply.status(409).send({ error: 'Este usuário já é membro do workspace' })
+    }
+
+    const token = crypto.randomBytes(32).toString('hex')
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+
+    await prisma.workspaceInvite.upsert({
+      where: { email_workspaceId: { email, workspaceId: workspace.id } },
+      update: { token, role: inviteRole, expiresAt, acceptedAt: null },
+      create: { workspaceId: workspace.id, email, role: inviteRole, token, expiresAt },
+    })
+
+    const acceptUrl = `${process.env.FRONTEND_URL}/accept-invite?token=${token}`
+    await sendEmail(email, `Convite para ${workspace.name} — SyncroFlow`, workspaceInviteEmail(inviter?.name || 'Alguém', workspace.name, inviteRole, acceptUrl))
+
+    return reply.status(201).send({ ok: true })
+  })
+
+  app.delete('/workspaces/me/invites/:id', async (req, reply) => {
+    const { sub } = req.user as { sub: string }
+    const { workspace, role } = await getWorkspace(sub)
+    if (role !== 'OWNER' && role !== 'ADMIN') return reply.status(403).send({ error: 'Sem permissão' })
+    const { id } = req.params as { id: string }
+    await prisma.workspaceInvite.deleteMany({ where: { id, workspaceId: workspace.id } })
     return reply.send({ ok: true })
   })
 

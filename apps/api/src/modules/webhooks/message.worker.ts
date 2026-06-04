@@ -190,8 +190,25 @@ export function startMessageWorker() {
         })
       }
 
-      // ── Primeiro Atendimento ────────────────────────────────────────────────
+      // ── Auto-criar Lead ──────────────────────────────────────────────────────
       const config = agent.config
+      if (isNewContact && config?.autoCreateLead) {
+        try {
+          await prisma.lead.create({
+            data: {
+              workspaceId: channel.workspaceId,
+              name: name || from!,
+              phone: channelType === 'WHATSAPP' ? from : undefined,
+              source: channelType,
+              stageId: (config as any).autoLeadStageId || null,
+              contactId: contact.id,
+              agentId: agent.id,
+            },
+          })
+        } catch {}
+      }
+
+      // ── Primeiro Atendimento ────────────────────────────────────────────────
       if (isNewContact && config?.firstContactEnabled && (config.firstContactText || config.firstContactVideoUrl || config.firstContactFileUrl)) {
         const sentKey = `firstContactSent_${agent.id}`
         const contactVarsCheck = (contact.variables as Record<string, any>) || {}

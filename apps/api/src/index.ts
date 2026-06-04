@@ -26,6 +26,7 @@ import { integrationRoutes } from './modules/integrations/integrations.routes'
 import { apiKeyRoutes } from './modules/auth/apikeys.routes'
 import { envVariableRoutes } from './modules/auth/env-variables.routes'
 import { webhookRoutes } from './modules/webhooks/webhooks.routes'
+import { comercialRoutes } from './modules/comercial/comercial.routes'
 import { startTrainingWorker } from './modules/ai/training.worker'
 import { startMessageWorker } from './modules/webhooks/message.worker'
 import { initSocket } from './lib/socket'
@@ -97,6 +98,7 @@ async function bootstrap() {
   await app.register(apiKeyRoutes)
   await app.register(envVariableRoutes)
   await app.register(webhookRoutes)
+  await app.register(comercialRoutes)
 
   app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }))
 

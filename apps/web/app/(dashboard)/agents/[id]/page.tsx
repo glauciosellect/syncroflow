@@ -291,6 +291,45 @@ export default function AgentDetailPage() {
             </CardContent>
           </Card>
 
+          {/* Lead Automático */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Lead Automático</CardTitle>
+              <p className="text-sm text-gray-500">Cria um lead no pipeline comercial automaticamente quando um novo contato entra em conversa</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label>Criar lead ao primeiro contato</Label>
+                <button
+                  type="button"
+                  onClick={() => setConfigForm((p: any) => ({ ...(p ?? agent.config ?? {}), autoCreateLead: !(p ?? agent.config ?? {}).autoCreateLead }))}
+                  className={cn('relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none', (configForm ?? agent.config ?? {}).autoCreateLead ? 'bg-[#1565C0]' : 'bg-gray-200')}
+                >
+                  <span className={cn('inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow', (configForm ?? agent.config ?? {}).autoCreateLead ? 'translate-x-6' : 'translate-x-1')} />
+                </button>
+              </div>
+              {(configForm ?? agent.config ?? {}).autoCreateLead && (
+                <div>
+                  <Label>ID da etapa inicial <span className="text-gray-400 text-xs">opcional — cole o ID da etapa do pipeline</span></Label>
+                  <Input
+                    className="mt-1"
+                    placeholder="ID da etapa (deixe vazio para sem etapa)"
+                    value={(configForm ?? agent.config ?? {}).autoLeadStageId ?? ''}
+                    onChange={e => setConfigForm((p: any) => ({ ...(p ?? agent.config ?? {}), autoLeadStageId: e.target.value || null }))}
+                  />
+                </div>
+              )}
+              <Button
+                onClick={() => configMutation.mutate(configForm ?? agent.config ?? {})}
+                disabled={configMutation.isPending}
+                className="bg-[#1565C0] hover:bg-[#0D47A1]"
+              >
+                {configMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                Salvar
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* Primeiro Atendimento */}
           <Card>
             <CardHeader>

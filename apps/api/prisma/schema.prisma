@@ -58,6 +58,10 @@ model Workspace {
   knowledgeBases KnowledgeBase[]
   subscriptions  Subscription[]
   members        WorkspaceMember[]
+  invites        WorkspaceInvite[]
+  leads          Lead[]
+  pipelineStages PipelineStage[]
+  followUps      FollowUp[]
 }
 
 model WorkspaceMember {
@@ -70,6 +74,20 @@ model WorkspaceMember {
   workspace   Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([userId, workspaceId])
+}
+
+model WorkspaceInvite {
+  id          String     @id @default(cuid())
+  workspaceId String
+  email       String
+  role        MemberRole @default(AGENT)
+  token       String     @unique
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime   @default(now())
+  workspace   Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([email, workspaceId])
 }
 
 model Session {
@@ -136,6 +154,8 @@ model AgentConfig {
   webhookEvents          Json?
   transferRules          Json?
   inactivityActions      Json?
+  autoCreateLead         Boolean  @default(false)
+  autoLeadStageId        String?
   firstContactEnabled    Boolean  @default(false)
   firstContactText       String?
   firstContactVideoUrl   String?
@@ -407,6 +427,54 @@ model Invoice {
   workspace   Workspace @relation(fields: [workspaceId], references: [id])
 }
 
+model Lead {
+  id          String         @id @default(cuid())
+  workspaceId String
+  name        String
+  phone       String?
+  email       String?
+  source      String?
+  notes       String?
+  tags        String[]       @default([])
+  stageId     String?
+  contactId   String?
+  agentId     String?
+  value       Float?
+  lostReason  String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @default(now()) @updatedAt
+  workspace   Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  stage       PipelineStage? @relation(fields: [stageId], references: [id])
+  followUps   FollowUp[]
+}
+
+model PipelineStage {
+  id          String    @id @default(cuid())
+  workspaceId String
+  name        String
+  color       String    @default("#1565C0")
+  order       Int       @default(0)
+  createdAt   DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  leads       Lead[]
+}
+
+model FollowUp {
+  id          String         @id @default(cuid())
+  workspaceId String
+  leadId      String?
+  contactId   String?
+  title       String
+  notes       String?
+  scheduledAt DateTime
+  doneAt      DateTime?
+  status      FollowUpStatus @default(PENDING)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @default(now()) @updatedAt
+  workspace   Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  lead        Lead?          @relation(fields: [leadId], references: [id], onDelete: SetNull)
+}
+
 enum Plan {
   TRIAL
   STARTER
@@ -481,6 +549,12 @@ enum MessageRole {
   ASSISTANT
   HUMAN
   SYSTEM
+}
+
+enum FollowUpStatus {
+  PENDING
+  DONE
+  CANCELLED
 }
 
 enum IntegrationType {

@@ -91,6 +91,35 @@ export async function authRoutes(app: FastifyInstance) {
     return reply.send(safeUser)
   })
 
+  app.post('/auth/invite/accept', { onRequest: [app.authenticate] }, async (req, reply) => {
+    const { sub } = req.user as { sub: string }
+    const { prisma } = await import('../../lib/prisma')
+    const { token } = z.object({ token: z.string() }).parse(req.body)
+
+    const invite = await prisma.workspaceInvite.findUnique({ where: { token } })
+    if (!invite || invite.acceptedAt || invite.expiresAt < new Date()) {
+      return reply.status(400).send({ error: 'Convite inválido ou expirado' })
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: sub } })
+    if (!user) return reply.status(404).send({ error: 'Usuário não encontrado' })
+    if (user.email !== invite.email) {
+      return reply.status(403).send({ error: `Este convite é para ${invite.email}. Faça login com a conta correta.` })
+    }
+
+    const alreadyMember = await prisma.workspaceMember.findUnique({
+      where: { userId_workspaceId: { userId: sub, workspaceId: invite.workspaceId } },
+    })
+    if (!alreadyMember) {
+      await prisma.workspaceMember.create({
+        data: { userId: sub, workspaceId: invite.workspaceId, role: invite.role },
+      })
+    }
+
+    await prisma.workspaceInvite.update({ where: { id: invite.id }, data: { acceptedAt: new Date() } })
+    return reply.send({ ok: true, workspaceId: invite.workspaceId })
+  })
+
   app.patch('/auth/me', { onRequest: [app.authenticate] }, async (req, reply) => {
     const { sub } = req.user as { sub: string }
     const { prisma } = await import('../../lib/prisma')

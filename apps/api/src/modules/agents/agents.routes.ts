@@ -30,6 +30,8 @@ const configSchema = z.object({
   webhookEvents: z.any().optional(),
   transferRules: z.any().optional(),
   inactivityActions: z.any().optional(),
+  autoCreateLead: z.boolean().optional(),
+  autoLeadStageId: z.string().optional().nullable(),
   firstContactEnabled: z.boolean().optional(),
   firstContactText: z.string().max(4000).optional().nullable(),
   firstContactVideoUrl: z.string().url().optional().nullable(),
