@@ -17,9 +17,16 @@ function extractOwnerMessage(payload: any): string | null {
   // Se fromMe=true e fromApi=false → operador humano digitou → silencia.
   // Se fromMe=true e fromApi=true → foi o Jarbas → ignora.
   if (payload?.message?.fromMe === true) {
+    console.log('[WEBHOOK] fromMe=true detectado — fromApi:', payload?.message?.fromApi, '| type:', payload?.message?.type, '| chatid:', payload?.message?.chatid)
     if (payload?.message?.fromApi === true) return null // foi o Jarbas, ignora
-    const chatid: string = payload?.message?.chatid || payload?.message?.sender_pn || ''
-    return chatid.replace(/\D/g, '') || null
+    if (payload?.message?.fromApi === false) {
+      // só silencia se realmente foi operador humano (tem texto ou é tipo text)
+      const chatid: string = payload?.message?.chatid || payload?.message?.sender_pn || ''
+      return chatid.replace(/\D/g, '') || null
+    }
+    // fromApi undefined/null — mensagem enviada por outro meio, não silencia para não bloquear respostas
+    console.log('[WEBHOOK] fromMe=true mas fromApi undefined — ignorando para não silenciar')
+    return null
   }
 
   // Z-API: fromMe
