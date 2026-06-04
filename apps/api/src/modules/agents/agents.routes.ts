@@ -30,6 +30,11 @@ const configSchema = z.object({
   webhookEvents: z.any().optional(),
   transferRules: z.any().optional(),
   inactivityActions: z.any().optional(),
+  firstContactEnabled: z.boolean().optional(),
+  firstContactText: z.string().max(4000).optional().nullable(),
+  firstContactVideoUrl: z.string().url().optional().nullable(),
+  firstContactFileUrl: z.string().optional().nullable(),
+  firstContactFileName: z.string().optional().nullable(),
 })
 
 async function getWorkspaceId(userId: string) {

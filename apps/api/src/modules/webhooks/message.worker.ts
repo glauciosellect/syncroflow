@@ -190,6 +190,65 @@ export function startMessageWorker() {
         })
       }
 
+      // ── Primeiro Atendimento ────────────────────────────────────────────────
+      const config = agent.config
+      if (isNewContact && config?.firstContactEnabled && (config.firstContactText || config.firstContactVideoUrl || config.firstContactFileUrl)) {
+        const sentKey = `firstContactSent_${agent.id}`
+        const contactVarsCheck = (contact.variables as Record<string, any>) || {}
+        if (!contactVarsCheck[sentKey]) {
+          const msgs: string[] = []
+
+          if (config.firstContactText) {
+            if (channelType === 'WHATSAPP') {
+              const provider = getWhatsAppProvider()
+              await provider.sendText(channelId, from!, config.firstContactText)
+            } else if (channelType === 'TELEGRAM') {
+              const botToken = (channel.config as any).botToken
+              await axios.post(`https://api.telegram.org/bot${botToken}/sendMessage`, { chat_id: from, text: config.firstContactText })
+            }
+            msgs.push(config.firstContactText)
+          }
+
+          if (config.firstContactVideoUrl && channelType === 'WHATSAPP') {
+            const provider = getWhatsAppProvider()
+            await provider.sendMedia(channelId, from!, config.firstContactVideoUrl, 'video')
+          }
+
+          if (config.firstContactFileUrl && channelType === 'WHATSAPP') {
+            const provider = getWhatsAppProvider()
+            await provider.sendMedia(channelId, from!, config.firstContactFileUrl, 'document', config.firstContactFileName || undefined)
+          }
+
+          // Registrar mensagem no histórico
+          const fullContent = [config.firstContactText, config.firstContactVideoUrl ? `[Vídeo: ${config.firstContactVideoUrl}]` : null, config.firstContactFileUrl ? `[Arquivo: ${config.firstContactFileName || config.firstContactFileUrl}]` : null].filter(Boolean).join('\n')
+
+          const conv = await prisma.conversation.findFirst({
+            where: { channelId, contactId: contact.id, status: { not: 'CLOSED' } },
+          }) ?? await prisma.conversation.create({
+            data: { workspaceId: channel.workspaceId, agentId: agent.id, channelId, contactId: contact.id, status: 'AI_ACTIVE' },
+          })
+
+          const fcMsg = await prisma.message.create({
+            data: { conversationId: conv.id, role: 'ASSISTANT', content: fullContent, creditsUsed: 0 },
+          })
+          try { emitNewMessage(channel.workspaceId, conv.id, fcMsg) } catch {}
+
+          // Marcar como enviado para este agente
+          await prisma.contact.update({
+            where: { id: contact.id },
+            data: { variables: { ...contactVarsCheck, [sentKey]: new Date().toISOString() } },
+          })
+
+          // Salvar a mensagem do lead e retornar — IA responderá quando o lead escrever de volta
+          const userMsgForFC = await prisma.message.create({
+            data: { conversationId: conv.id, role: 'USER', content: text },
+          })
+          await prisma.conversation.update({ where: { id: conv.id }, data: { unreadCount: { increment: 1 } } })
+          try { emitNewMessage(channel.workspaceId, conv.id, userMsgForFC) } catch {}
+          return
+        }
+      }
+
       // Carregar histórico ANTES de salvar a mensagem atual para evitar duplicata no LLM
       const history = await prisma.message.findMany({
         where: { conversationId: conversation.id },
@@ -213,7 +272,6 @@ export function startMessageWorker() {
         return
       }
 
-      const config = agent.config
       if (config?.maxInteractionsPerChat && conversation.interactionCount >= config.maxInteractionsPerChat) {
         return
       }

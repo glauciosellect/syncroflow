@@ -290,6 +290,77 @@ export default function AgentDetailPage() {
               </Button>
             </CardContent>
           </Card>
+
+          {/* Primeiro Atendimento */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Primeiro Atendimento</CardTitle>
+              <p className="text-sm text-gray-500">Conteúdo enviado automaticamente quando um lead entra em contato pela primeira vez</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label>Ativar primeiro atendimento</Label>
+                <button
+                  type="button"
+                  onClick={() => setConfigForm((p: any) => ({ ...(p ?? agent.config ?? {}), firstContactEnabled: !(p ?? agent.config ?? {}).firstContactEnabled }))}
+                  className={cn('relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none', (configForm ?? agent.config ?? {}).firstContactEnabled ? 'bg-[#1565C0]' : 'bg-gray-200')}
+                >
+                  <span className={cn('inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow', (configForm ?? agent.config ?? {}).firstContactEnabled ? 'translate-x-6' : 'translate-x-1')} />
+                </button>
+              </div>
+              {(configForm ?? agent.config ?? {}).firstContactEnabled && (
+                <>
+                  <div>
+                    <Label>Mensagem de texto <span className="text-gray-400 text-xs">opcional</span></Label>
+                    <textarea
+                      className="w-full mt-1 border border-input rounded-md px-3 py-2 text-sm h-28 resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                      placeholder="Olá! Bem-vindo(a)! Sou o assistente virtual da empresa. Aqui está nosso material de apresentação..."
+                      maxLength={4000}
+                      value={(configForm ?? agent.config ?? {}).firstContactText ?? ''}
+                      onChange={e => setConfigForm((p: any) => ({ ...(p ?? agent.config ?? {}), firstContactText: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label>URL do vídeo <span className="text-gray-400 text-xs">opcional — YouTube, Vimeo, etc.</span></Label>
+                    <Input
+                      className="mt-1"
+                      placeholder="https://youtu.be/..."
+                      value={(configForm ?? agent.config ?? {}).firstContactVideoUrl ?? ''}
+                      onChange={e => setConfigForm((p: any) => ({ ...(p ?? agent.config ?? {}), firstContactVideoUrl: e.target.value }))}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>URL do arquivo <span className="text-gray-400 text-xs">opcional</span></Label>
+                      <Input
+                        className="mt-1"
+                        placeholder="https://..."
+                        value={(configForm ?? agent.config ?? {}).firstContactFileUrl ?? ''}
+                        onChange={e => setConfigForm((p: any) => ({ ...(p ?? agent.config ?? {}), firstContactFileUrl: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <Label>Nome do arquivo</Label>
+                      <Input
+                        className="mt-1"
+                        placeholder="apresentacao.pdf"
+                        value={(configForm ?? agent.config ?? {}).firstContactFileName ?? ''}
+                        onChange={e => setConfigForm((p: any) => ({ ...(p ?? agent.config ?? {}), firstContactFileName: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+              <Button
+                onClick={() => configMutation.mutate(configForm ?? agent.config ?? {})}
+                disabled={configMutation.isPending}
+                className="bg-[#1565C0] hover:bg-[#0D47A1]"
+              >
+                {configMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                Salvar
+              </Button>
+            </CardContent>
+          </Card>
         )}
 
         {/* ABA: TREINAMENTOS */}
