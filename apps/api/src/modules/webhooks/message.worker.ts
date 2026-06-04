@@ -98,18 +98,18 @@ export function startMessageWorker() {
           }
         }
 
-        if (!text) return
+        if (!text) { console.log('[WORKER] STOP: text vazio após processamento de mídia'); return }
 
         // Ignorar mensagens de grupos do WhatsApp
-        if (isWhatsAppGroup(from)) return
+        if (isWhatsAppGroup(from)) { console.log('[WORKER] STOP: grupo WhatsApp'); return }
 
         // Ignorar mensagens que parecem ser de outra IA (evita loop infinito)
-        if (isBotMessage(text)) return
+        if (isBotMessage(text)) { console.log('[WORKER] STOP: isBotMessage', text.slice(0, 80)); return }
 
         // Verificar se o dono do número enviou mensagem para este contato recentemente (silêncio de 1h)
         const silenceKey = `silence:${channelId}:${from}`
         const isSilenced = await redis.get(silenceKey)
-        if (isSilenced) return
+        if (isSilenced) { console.log('[WORKER] STOP: silenciado'); return }
 
       } else if (channelType === 'TELEGRAM') {
         from = String(payload.message?.from?.id || payload.message?.chat?.id)
