@@ -58,8 +58,12 @@ export function startMessageWorker() {
 
       if (channelType === 'WHATSAPP') {
         const provider = getWhatsAppProvider()
+        if (payload?.message) {
+          const m = payload.message
+          console.log('[WORKER] payload.message debug — type:', m.type, '| mimetype:', m.mimetype || m.Mimetype, '| PTT:', m.PTT, '| content?.PTT:', m.content?.PTT, '| content?.mimetype:', m.content?.mimetype, '| text:', m.text, '| messageid:', m.messageid || m.id)
+        }
         const msg = provider.parseWebhook(payload)
-        console.log('[WORKER] parseWebhook resultado:', msg ? `from=${msg.from} text=${msg.text?.slice(0, 50)}` : 'null')
+        console.log('[WORKER] parseWebhook resultado:', msg ? `from=${msg.from} text=${msg.text?.slice(0, 50)} mediaType=${msg.mediaType} mediaUrl=${msg.mediaUrl}` : 'null')
         if (!msg) return
         from = msg.from
         name = msg.name
@@ -77,6 +81,7 @@ export function startMessageWorker() {
           if (msg.mediaUrl.startsWith('uazapi:') && provider.downloadMedia) {
             const messageId = msg.mediaUrl.replace('uazapi:', '')
             const result = await provider.downloadMedia(messageId)
+            console.log('[WORKER] downloadMedia result — transcription:', result.transcription?.slice(0, 80), '| fileURL:', result.fileURL?.slice(0, 80), '| mimetype:', result.mimetype)
 
             if (result.transcription) {
               text = result.transcription
@@ -295,7 +300,7 @@ export function startMessageWorker() {
 
       // ── Preferência de resposta em áudio ────────────────────────────────────
       const contactVars = (contact.variables as Record<string, any>) || {}
-      const audioPreference: 'audio' | 'text' | undefined = contactVars[AUDIO_PREFERENCE_KEY]
+      let audioPreference: 'audio' | 'text' | undefined = contactVars[AUDIO_PREFERENCE_KEY]
 
       // Detecta se a mensagem recebida veio de áudio (já transcrita)
       const isAudioMessage = channelType === 'WHATSAPP' && incomingMediaType === 'audio'
@@ -537,11 +542,13 @@ export function startMessageWorker() {
 
         // Resposta em áudio (voz JARVIS) se o contato preferir
         if (audioPreference === 'audio') {
+          console.log('[WORKER] Gerando áudio TTS para resposta...')
           const audioBuffer = await generateSpeech(responseText, channel.workspaceId)
           if (audioBuffer && provider.sendAudioBase64) {
+            console.log('[WORKER] Áudio gerado, enviando via sendAudioBase64, tamanho:', audioBuffer.length)
             await provider.sendAudioBase64(channelId, from, audioBuffer.toString('base64'))
           } else {
-            // Fallback para texto se TTS falhar
+            console.warn('[WORKER] TTS retornou null ou provider sem sendAudioBase64 — fallback para texto')
             await provider.sendText(channelId, from, responseText)
           }
         } else {

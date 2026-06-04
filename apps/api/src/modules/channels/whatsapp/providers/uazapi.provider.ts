@@ -60,15 +60,22 @@ export class UazApiProvider implements WhatsAppProvider {
   }
 
   async sendAudioBase64(channelId: string, to: string, audioBase64: string) {
-    await axios.post(`${this.baseUrl}/send/media`, {
-      number: to,
-      type: 'ptt',
-      file: `data:audio/mp3;base64,${audioBase64}`,
-    }, { headers: this.headers() })
+    try {
+      const res = await axios.post(`${this.baseUrl}/send/media`, {
+        number: to,
+        type: 'ptt',
+        file: `data:audio/mp3;base64,${audioBase64}`,
+      }, { headers: this.headers() })
+      console.log('[UAZAPI] sendAudioBase64 OK:', res.status, JSON.stringify(res.data)?.slice(0, 200))
+    } catch (err: any) {
+      console.error('[UAZAPI] sendAudioBase64 ERRO:', err?.response?.status, JSON.stringify(err?.response?.data)?.slice(0, 300))
+      throw err
+    }
   }
 
   async downloadMedia(messageId: string): Promise<{ fileURL?: string; transcription?: string; mimetype?: string }> {
     try {
+      console.log('[UAZAPI] downloadMedia messageId:', messageId)
       const res = await axios.post(`${this.baseUrl}/message/download`, {
         id: messageId,
         return_link: true,
@@ -76,8 +83,10 @@ export class UazApiProvider implements WhatsAppProvider {
         transcribe: true,
         openai_apikey: process.env.OPENAI_API_KEY,
       }, { headers: this.headers(), timeout: 30000 })
+      console.log('[UAZAPI] downloadMedia resposta:', JSON.stringify(res.data)?.slice(0, 300))
       return res.data || {}
-    } catch {
+    } catch (err: any) {
+      console.error('[UAZAPI] downloadMedia ERRO:', err?.response?.status, JSON.stringify(err?.response?.data)?.slice(0, 300), err?.message)
       return {}
     }
   }

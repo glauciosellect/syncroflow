@@ -70,7 +70,8 @@ export async function generateSpeech(text: string, workspaceId?: string): Promis
         },
       )
       return Buffer.from(res.data)
-    } catch {
+    } catch (err: any) {
+      console.error('[TTS] ElevenLabs falhou:', err?.response?.status, err?.response?.data ? Buffer.from(err.response.data).toString() : err?.message)
       // Fallback para OpenAI se ElevenLabs falhar
     }
   }
@@ -86,7 +87,8 @@ export async function generateSpeech(text: string, workspaceId?: string): Promis
     })
     const buffer = Buffer.from(await response.arrayBuffer())
     return buffer
-  } catch {
+  } catch (err: any) {
+    console.error('[TTS] OpenAI TTS falhou:', err?.message, err?.status)
     return null
   }
 }
