@@ -1,6 +1,6 @@
 'use client'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/components/ui/use-toast'
-import { ArrowLeft, Save, Loader2, Bot, Send, X, Plus, Trash2, Pencil, Volume2 } from 'lucide-react'
+import { ArrowLeft, Save, Loader2, Bot, Send, X, Plus, Trash2, Pencil, Volume2, PlayCircle, StopCircle } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 
@@ -44,6 +44,8 @@ export default function AgentDetailPage() {
   const [editingIntention, setEditingIntention] = useState<any>(null)
   const [viewingTraining, setViewingTraining] = useState<any>(null)
   const [editingTrainingContent, setEditingTrainingContent] = useState('')
+  const [previewingVoice, setPreviewingVoice] = useState<string | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
 
   const { data: agent, isLoading } = useQuery({
     queryKey: ['agent', id],
@@ -67,11 +69,13 @@ export default function AgentDetailPage() {
   const trainingTextMutation = useMutation({
     mutationFn: (content: string) => api.post(`/agents/${id}/trainings/text`, { content, title: content.slice(0, 60) }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['agent', id] }); setTrainingText(''); toast({ title: 'Treinamento adicionado!' }) },
+    onError: (err: any) => toast({ title: 'Erro ao salvar treinamento', description: err?.response?.data?.error || 'Tente novamente', variant: 'destructive' }),
   })
 
   const trainingUrlMutation = useMutation({
     mutationFn: (url: string) => api.post(`/agents/${id}/trainings/website`, { url }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['agent', id] }); setTrainingUrl(''); toast({ title: 'Site adicionado para processamento!' }) },
+    onError: (err: any) => toast({ title: 'Erro ao adicionar site', description: err?.response?.data?.error || 'Tente novamente', variant: 'destructive' }),
   })
 
   const deleteTrainingMutation = useMutation({
@@ -411,11 +415,13 @@ export default function AgentDetailPage() {
               <CardHeader><CardTitle className="text-base">Adicionar Texto</CardTitle></CardHeader>
               <CardContent>
                 <textarea
-                  className="w-full border border-input rounded-md px-3 py-2 text-sm h-28 resize-none focus:outline-none focus:ring-2 focus:ring-ring mb-3"
-                  placeholder="Cole aqui um texto, FAQ, informações sobre produtos, políticas..."
+                  className="w-full border border-input rounded-md px-3 py-2 text-sm h-36 resize-y focus:outline-none focus:ring-2 focus:ring-ring mb-1"
+                  placeholder="Cole aqui um texto, FAQ, contrato, informações sobre serviços, políticas..."
                   value={trainingText}
                   onChange={e => setTrainingText(e.target.value)}
+                  maxLength={50000}
                 />
+                <div className="text-xs text-gray-400 text-right mb-3">{trainingText.length}/50.000 caracteres</div>
                 <Button onClick={() => trainingTextMutation.mutate(trainingText)} disabled={!trainingText.trim() || trainingTextMutation.isPending} className="bg-[#1565C0] hover:bg-[#0D47A1]">
                   {trainingTextMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
                   Adicionar Texto
@@ -655,6 +661,30 @@ export default function AgentDetailPage() {
                   ].map(v => {
                     const selected = (c.ttsVoice ?? 'onyx') === v.value
                     const isFemale = v.gender === 'F'
+                    const isPlaying = previewingVoice === v.value
+
+                    const handlePreview = async (e: React.MouseEvent) => {
+                      e.stopPropagation()
+                      if (isPlaying) {
+                        audioRef.current?.pause()
+                        setPreviewingVoice(null)
+                        return
+                      }
+                      setPreviewingVoice(v.value)
+                      try {
+                        const res = await api.post('/integrations/tts/preview', { voice: v.value })
+                        const { audio, mimeType } = res.data
+                        if (audioRef.current) audioRef.current.pause()
+                        const blob = new Blob([Uint8Array.from(atob(audio), c => c.charCodeAt(0))], { type: mimeType })
+                        const url = URL.createObjectURL(blob)
+                        const a = new Audio(url)
+                        audioRef.current = a
+                        a.onended = () => { setPreviewingVoice(null); URL.revokeObjectURL(url) }
+                        a.onerror = () => setPreviewingVoice(null)
+                        await a.play()
+                      } catch { setPreviewingVoice(null) }
+                    }
+
                     return (
                       <button
                         key={v.value}
@@ -662,9 +692,7 @@ export default function AgentDetailPage() {
                         onClick={() => setConfigForm((p: any) => ({ ...(p || c), ttsVoice: v.value }))}
                         className={cn(
                           'flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left transition-all',
-                          selected
-                            ? 'border-[#1565C0] bg-blue-50 text-[#1565C0]'
-                            : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                          selected ? 'border-[#1565C0] bg-blue-50 text-[#1565C0]' : 'border-gray-200 hover:border-gray-300 text-gray-700'
                         )}
                       >
                         <span className={cn(
@@ -673,11 +701,26 @@ export default function AgentDetailPage() {
                         )}>
                           {v.gender}
                         </span>
-                        <div>
+                        <div className="flex-1">
                           <div className="text-sm font-medium">{v.label}</div>
                           <div className="text-xs text-gray-400">{v.desc}</div>
                         </div>
-                        {selected && <div className="ml-auto w-2 h-2 rounded-full bg-[#1565C0] shrink-0" />}
+                        <button
+                          type="button"
+                          onClick={handlePreview}
+                          title={isPlaying ? 'Parar' : 'Ouvir voz'}
+                          className={cn(
+                            'w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-colors',
+                            isPlaying
+                              ? 'bg-red-100 text-red-500 hover:bg-red-200'
+                              : 'bg-gray-100 text-gray-500 hover:bg-blue-100 hover:text-[#1565C0]'
+                          )}
+                        >
+                          {isPlaying
+                            ? <StopCircle className="w-4 h-4" />
+                            : <PlayCircle className="w-4 h-4" />}
+                        </button>
+                        {selected && <div className="w-2 h-2 rounded-full bg-[#1565C0] shrink-0" />}
                       </button>
                     )
                   })}

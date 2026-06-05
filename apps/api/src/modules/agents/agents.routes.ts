@@ -37,6 +37,7 @@ const configSchema = z.object({
   firstContactVideoUrl: z.string().url().optional().nullable(),
   firstContactFileUrl: z.string().optional().nullable(),
   firstContactFileName: z.string().optional().nullable(),
+  ttsVoice: z.string().optional(),
 })
 
 async function getWorkspaceId(userId: string) {

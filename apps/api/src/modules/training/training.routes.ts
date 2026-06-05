@@ -38,7 +38,7 @@ export async function trainingRoutes(app: FastifyInstance) {
     const workspaceId = await getWorkspaceId(sub)
     const { agentId } = req.params as { agentId: string }
     await verifyAgent(agentId, workspaceId)
-    const { content, title } = z.object({ content: z.string().min(1).max(10000), title: z.string().optional() }).parse(req.body)
+    const { content, title } = z.object({ content: z.string().min(1).max(50000), title: z.string().optional() }).parse(req.body)
     const training = await prisma.training.create({
       data: { agentId, type: 'TEXT', content, title: title || content.slice(0, 60), status: 'PENDING' },
     })
@@ -77,7 +77,7 @@ export async function trainingRoutes(app: FastifyInstance) {
     const workspaceId = await getWorkspaceId(sub)
     const { agentId, trainingId } = req.params as { agentId: string; trainingId: string }
     await verifyAgent(agentId, workspaceId)
-    const { content, title } = z.object({ content: z.string().min(1).max(10000), title: z.string().optional() }).parse(req.body)
+    const { content, title } = z.object({ content: z.string().min(1).max(50000), title: z.string().optional() }).parse(req.body)
     // Deleta chunks antigos e reprocessa
     await prisma.trainingChunk.deleteMany({ where: { trainingId } })
     const training = await prisma.training.update({

@@ -39,6 +39,19 @@ export async function integrationRoutes(app: FastifyInstance) {
     return reply.send({ ok: true })
   })
 
+  // Preview de voz — retorna áudio MP3 em base64 para ouvir no browser
+  app.post('/integrations/tts/preview', async (req, reply) => {
+    const { sub } = req.user as { sub: string }
+    const workspaceId = await getWorkspaceId(sub)
+    const { voice } = z.object({ voice: z.string().min(1) }).parse(req.body)
+    const { generateSpeech } = await import('../tts/tts.service')
+    // Texto fixo de demonstração
+    const sampleText = 'Olá! Eu sou seu assistente virtual. Como posso ajudar você hoje?'
+    const buffer = await generateSpeech(sampleText, workspaceId, voice)
+    if (!buffer) return reply.status(500).send({ error: 'Não foi possível gerar o áudio' })
+    return reply.send({ audio: buffer.toString('base64'), mimeType: 'audio/mpeg' })
+  })
+
   app.delete('/integrations/elevenlabs', async (req, reply) => {
     const { sub } = req.user as { sub: string }
     const workspaceId = await getWorkspaceId(sub)
