@@ -1,3 +1,31 @@
+'use client'
+import { useEffect, useState } from 'react'
+import { Download } from 'lucide-react'
+
+function PwaInstallBanner() {
+  const [prompt, setPrompt] = useState<any>(null)
+  const [installed, setInstalled] = useState(false)
+
+  useEffect(() => {
+    const handler = (e: any) => { e.preventDefault(); setPrompt(e) }
+    window.addEventListener('beforeinstallprompt', handler)
+    window.addEventListener('appinstalled', () => setInstalled(true))
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, [])
+
+  if (installed || !prompt) return null
+
+  return (
+    <button
+      onClick={async () => { prompt.prompt(); const { outcome } = await prompt.userChoice; if (outcome === 'accepted') setInstalled(true) }}
+      className="flex items-center gap-2 w-full mt-4 px-4 py-2.5 rounded-xl border border-blue-200 bg-blue-50 text-[#1565C0] text-sm font-medium hover:bg-blue-100 transition-colors"
+    >
+      <Download className="w-4 h-4 shrink-0" />
+      <span>Instalar SyncroFlow no seu dispositivo</span>
+    </button>
+  )
+}
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex">
@@ -54,7 +82,10 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </div>
       </div>
       <div className="flex-1 flex items-center justify-center p-8 bg-white">
-        {children}
+        <div className="w-full max-w-md">
+          {children}
+          <PwaInstallBanner />
+        </div>
       </div>
     </div>
   )

@@ -1,30 +1,36 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Bot, Users, MessageSquare, Contact, Settings, TrendingUp } from 'lucide-react'
+import { LayoutDashboard, Bot, Users, MessageSquare, Contact, Settings, TrendingUp, CalendarDays, X, Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth.store'
 import { planLabel } from '@/lib/utils'
+import { useState, useEffect } from 'react'
 
 const navItems = [
   { section: 'VISÃO GERAL', items: [{ href: '/dashboard', label: 'Dashboards', icon: LayoutDashboard }] },
   { section: 'CADASTROS', items: [{ href: '/agents', label: 'Agentes', icon: Bot }, { href: '/team', label: 'Equipe', icon: Users }] },
   { section: 'COMERCIAL', items: [{ href: '/comercial', label: 'Comercial', icon: TrendingUp }] },
   { section: 'COMUNICAÇÃO', items: [{ href: '/chat', label: 'Chat', icon: MessageSquare }, { href: '/contacts', label: 'Contatos', icon: Contact }] },
+  { section: 'AGENDA', items: [{ href: '/agenda', label: 'Agenda', icon: CalendarDays }] },
   { section: 'SISTEMA', items: [{ href: '/settings', label: 'Configurações', icon: Settings }] },
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
   const { workspace } = useAuthStore()
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   const isTrialing = workspace?.plan === 'TRIAL'
   const trialEnds = workspace?.trialEndsAt ? new Date(workspace.trialEndsAt) : null
   const daysLeft = trialEnds ? Math.max(0, Math.ceil((trialEnds.getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : 0
 
-  return (
-    <aside className="w-64 bg-white border-r border-gray-200 flex flex-col h-full">
-      <div className="p-4 border-b border-gray-100">
+  // Fecha o menu ao navegar (mobile)
+  useEffect(() => { setMobileOpen(false) }, [pathname])
+
+  const SidebarContent = () => (
+    <>
+      <div className="p-4 border-b border-gray-100 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <svg width="32" height="32" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M8 32C8 24 14 16 24 14C34 12 42 18 42 28C42 36 36 42 26 42L14 44L16 34C11 31 8 28 8 32Z" fill="url(#sbgrad)"/>
@@ -40,6 +46,13 @@ export function Sidebar() {
           </svg>
           <span className="font-bold text-lg" style={{ background: 'linear-gradient(135deg, #2E7D32, #1565C0)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>SyncroFlow</span>
         </div>
+        {/* Botão fechar no mobile */}
+        <button
+          className="md:hidden p-1 rounded-md text-gray-400 hover:text-gray-600"
+          onClick={() => setMobileOpen(false)}
+        >
+          <X className="w-5 h-5" />
+        </button>
       </div>
 
       <div className="p-3 border-b border-gray-100">
@@ -83,6 +96,40 @@ export function Sidebar() {
         )}
         <div className="text-xs text-gray-400 text-center">{planLabel(workspace?.plan || '')} · {workspace?.credits?.toLocaleString()} créditos</div>
       </div>
-    </aside>
+    </>
+  )
+
+  return (
+    <>
+      {/* Botão hamburger — só aparece no mobile */}
+      <button
+        className="md:hidden fixed top-3 left-3 z-50 p-2 bg-white rounded-lg shadow-md border border-gray-200"
+        onClick={() => setMobileOpen(true)}
+        aria-label="Abrir menu"
+      >
+        <Menu className="w-5 h-5 text-gray-600" />
+      </button>
+
+      {/* Overlay mobile */}
+      {mobileOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-40 bg-black/40"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Sidebar desktop — sempre visível */}
+      <aside className="hidden md:flex w-64 bg-white border-r border-gray-200 flex-col h-full shrink-0">
+        <SidebarContent />
+      </aside>
+
+      {/* Sidebar mobile — desliza da esquerda */}
+      <aside className={cn(
+        'md:hidden fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-gray-200 flex flex-col h-full transition-transform duration-300 ease-in-out',
+        mobileOpen ? 'translate-x-0' : '-translate-x-full'
+      )}>
+        <SidebarContent />
+      </aside>
+    </>
   )
 }

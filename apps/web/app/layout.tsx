@@ -8,6 +8,15 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'SyncroFlow — Atendimento Omnichannel com IA',
   description: 'Plataforma SaaS de atendimento omnichannel com agentes de IA. WhatsApp, Instagram, Telegram e mais.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'SyncroFlow',
+  },
+  other: {
+    'mobile-web-app-capable': 'yes',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

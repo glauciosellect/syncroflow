@@ -536,10 +536,11 @@ export function startMessageWorker() {
         const provider = getWhatsAppProvider()
         console.log('[WORKER] Enviando resposta para:', from)
 
-        // Resposta em áudio (voz JARVIS) se o contato preferir
+        // Resposta em áudio — usa a voz configurada no agente
         if (audioPreference === 'audio') {
-          console.log('[WORKER] Gerando áudio TTS para resposta...')
-          const audioBuffer = await generateSpeech(responseText, channel.workspaceId)
+          const agentVoice = (config as any)?.ttsVoice || 'onyx'
+          console.log('[WORKER] Gerando áudio TTS para resposta — voz:', agentVoice)
+          const audioBuffer = await generateSpeech(responseText, channel.workspaceId, agentVoice)
           if (audioBuffer && provider.sendAudioBase64) {
             console.log('[WORKER] Áudio gerado, enviando via sendAudioBase64, tamanho:', audioBuffer.length)
             await provider.sendAudioBase64(channelId, from, audioBuffer.toString('base64'))

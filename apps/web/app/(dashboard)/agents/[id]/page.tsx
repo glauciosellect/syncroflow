@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/components/ui/use-toast'
-import { ArrowLeft, Save, Loader2, Bot, Send, X, Plus, Trash2, Pencil } from 'lucide-react'
+import { ArrowLeft, Save, Loader2, Bot, Send, X, Plus, Trash2, Pencil, Volume2 } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 
@@ -635,6 +635,56 @@ export default function AgentDetailPage() {
                   <option value={10}>10 segundos</option>
                   <option value={30}>30 segundos</option>
                 </select>
+              </div>
+
+              {/* Seletor de voz para respostas em áudio */}
+              <div>
+                <Label className="flex items-center gap-2 mb-2">
+                  <Volume2 className="w-4 h-4 text-[#1565C0]" />
+                  Voz para respostas em áudio
+                </Label>
+                <p className="text-xs text-gray-400 mb-3">Escolha a voz que este agente vai usar quando responder em áudio no WhatsApp.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {[
+                    { value: 'onyx',    label: 'Onyx',    desc: 'Homem — Grave e sóbrio', gender: 'M' },
+                    { value: 'echo',    label: 'Echo',    desc: 'Homem — Jovem e claro',  gender: 'M' },
+                    { value: 'fable',   label: 'Fable',   desc: 'Homem — Caloroso',       gender: 'M' },
+                    { value: 'alloy',   label: 'Alloy',   desc: 'Mulher — Neutra e profissional', gender: 'F' },
+                    { value: 'nova',    label: 'Nova',    desc: 'Mulher — Jovem e animada', gender: 'F' },
+                    { value: 'shimmer', label: 'Shimmer', desc: 'Mulher — Suave e elegante', gender: 'F' },
+                  ].map(v => {
+                    const selected = (c.ttsVoice ?? 'onyx') === v.value
+                    const isFemale = v.gender === 'F'
+                    return (
+                      <button
+                        key={v.value}
+                        type="button"
+                        onClick={() => setConfigForm((p: any) => ({ ...(p || c), ttsVoice: v.value }))}
+                        className={cn(
+                          'flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left transition-all',
+                          selected
+                            ? 'border-[#1565C0] bg-blue-50 text-[#1565C0]'
+                            : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                        )}
+                      >
+                        <span className={cn(
+                          'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0',
+                          isFemale ? 'bg-pink-100 text-pink-600' : 'bg-blue-100 text-blue-600'
+                        )}>
+                          {v.gender}
+                        </span>
+                        <div>
+                          <div className="text-sm font-medium">{v.label}</div>
+                          <div className="text-xs text-gray-400">{v.desc}</div>
+                        </div>
+                        {selected && <div className="ml-auto w-2 h-2 rounded-full bg-[#1565C0] shrink-0" />}
+                      </button>
+                    )
+                  })}
+                </div>
+                <p className="text-xs text-gray-400 mt-2">
+                  * Se o ElevenLabs estiver configurado, ele usa a voz do ElevenLabs e ignora esta opção.
+                </p>
               </div>
 
               <Button onClick={() => configMutation.mutate(configForm || c)} disabled={configMutation.isPending} className="bg-[#1565C0] hover:bg-[#0D47A1]">

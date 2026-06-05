@@ -194,14 +194,25 @@ export async function googleRoutes(app: FastifyInstance) {
 
     const ws = await (prisma.workspace as any).findUnique({
       where: { id: member.workspaceId },
-      select: { googleCalendarEnabled: true, googleCalendarEmail: true, googleCalendarId: true, googleTokenExpiry: true },
+      select: { googleCalendarEnabled: true, googleCalendarEmail: true, googleCalendarId: true, googleTokenExpiry: true, googleRefreshToken: true },
     })
 
-    const tokenExpired = ws?.googleTokenExpiry ? new Date(ws.googleTokenExpiry) < new Date() : false
+    if (!ws?.googleCalendarEnabled) {
+      return reply.send({ connected: false, email: null, calendarId: null, tokenExpired: false })
+    }
+
+    // Tenta renovar o token automaticamente se estiver expirado ou prestes a expirar
+    let tokenExpired = false
+    const accessToken = await getValidToken(member.workspaceId)
+    if (!accessToken) {
+      // Renovação falhou — refresh token inválido ou ausente → requer reconexão
+      tokenExpired = true
+    }
+
     return reply.send({
-      connected: !!ws?.googleCalendarEnabled,
-      email: ws?.googleCalendarEmail ?? null,
-      calendarId: ws?.googleCalendarId ?? null,
+      connected: true,
+      email: ws.googleCalendarEmail ?? null,
+      calendarId: ws.googleCalendarId ?? null,
       tokenExpired,
     })
   })

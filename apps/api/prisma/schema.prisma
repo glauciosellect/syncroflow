@@ -161,6 +161,7 @@ model AgentConfig {
   firstContactVideoUrl   String?
   firstContactFileUrl    String?
   firstContactFileName   String?
+  ttsVoice               String   @default("onyx")
   createdAt              DateTime @default(now())
   updatedAt              DateTime @default(now()) @updatedAt
   agent                  Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)

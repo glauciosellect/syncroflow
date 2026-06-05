@@ -100,7 +100,7 @@ function LoginContent() {
   }
 
   return (
-    <div className="w-full max-w-md">
+    <div className="w-full">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Entrar na sua conta</h1>
         <p className="text-gray-500 mt-2">Bem-vindo de volta ao SyncroFlow</p>

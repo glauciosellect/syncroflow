@@ -29,7 +29,19 @@ async function getElevenLabsConfig(workspaceId?: string): Promise<{ apiKey: stri
   }
 }
 
-export async function generateSpeech(text: string, workspaceId?: string): Promise<Buffer | null> {
+// Vozes OpenAI disponíveis para seleção pelo usuário
+export const TTS_VOICES = {
+  onyx:   { label: 'Homem — Grave e sóbrio (padrão)',   gender: 'male' },
+  echo:   { label: 'Homem — Jovem e claro',              gender: 'male' },
+  fable:  { label: 'Homem — Caloroso e narrativo',       gender: 'male' },
+  alloy:  { label: 'Mulher — Neutra e profissional',     gender: 'female' },
+  nova:   { label: 'Mulher — Jovem e animada',           gender: 'female' },
+  shimmer:{ label: 'Mulher — Suave e elegante',          gender: 'female' },
+} as const
+
+export type TtsVoice = keyof typeof TTS_VOICES
+
+export async function generateSpeech(text: string, workspaceId?: string, voice?: string): Promise<Buffer | null> {
   // Limpa markdown e emojis para soar melhor em áudio
   const cleanText = text
     .replace(/[*_~`#]/g, '')
@@ -76,11 +88,12 @@ export async function generateSpeech(text: string, workspaceId?: string): Promis
     }
   }
 
-  // OpenAI TTS — voz "onyx": masculina, grave, sóbria (a mais próxima do JARVIS)
+  // OpenAI TTS — usa a voz configurada no agente (padrão: onyx — masculina, grave)
+  const selectedVoice = (voice && voice in TTS_VOICES) ? voice as TtsVoice : 'onyx'
   try {
     const response = await openai.audio.speech.create({
       model: 'tts-1',
-      voice: 'onyx',
+      voice: selectedVoice,
       input: cleanText,
       response_format: 'mp3',
       speed: 0.95,
