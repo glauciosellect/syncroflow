@@ -18,7 +18,8 @@ function NotificationBell() {
   const { data: followUps = [] } = useQuery<any[]>({
     queryKey: ['followups-notify'],
     queryFn: () => api.get('/comercial/followups', { params: { status: 'PENDING' } }).then(r => r.data),
-    refetchInterval: 60_000,
+    refetchInterval: 5 * 60_000,
+    staleTime: 3 * 60_000,
   })
 
   const markDone = useMutation({

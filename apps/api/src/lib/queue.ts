@@ -39,7 +39,7 @@ export type TrainingJobData = {
 export function createWorker<T>(
   queueName: string,
   processor: (job: Job<T>) => Promise<void>,
-  concurrency = 5
+  concurrency = 20
 ) {
   return new Worker<T>(queueName, processor, { connection, concurrency })
 }

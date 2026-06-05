@@ -5,7 +5,15 @@ import { Toaster } from '@/components/ui/toaster'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
-    defaultOptions: { queries: { staleTime: 60 * 1000, retry: 1 } },
+    defaultOptions: {
+      queries: {
+        staleTime: 5 * 60 * 1000,
+        gcTime: 10 * 60 * 1000,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
+        retry: 1,
+      },
+    },
   }))
 
   return (

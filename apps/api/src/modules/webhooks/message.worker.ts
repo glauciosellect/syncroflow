@@ -41,16 +41,11 @@ export function startMessageWorker() {
       try {
       const { channelId, channelType, payload } = job.data
 
-      console.log('[WORKER] Processando job — canal:', channelId, 'tipo:', channelType)
-
       const channel = await prisma.channel.findUnique({
         where: { id: channelId },
         include: { agentChannels: { include: { agent: { include: { config: true, intentions: true } } } } },
       })
-      if (!channel) {
-        console.log('[WORKER] Canal não encontrado:', channelId)
-        return
-      }
+      if (!channel) return
 
       const MEDIA_CREDITS = 2
       let from: string, name: string, text: string | undefined
@@ -58,12 +53,7 @@ export function startMessageWorker() {
 
       if (channelType === 'WHATSAPP') {
         const provider = getWhatsAppProvider()
-        if (payload?.message) {
-          const m = payload.message
-          console.log('[WORKER] payload.message debug — type:', m.type, '| mimetype:', m.mimetype || m.Mimetype, '| PTT:', m.PTT, '| content?.PTT:', m.content?.PTT, '| content?.mimetype:', m.content?.mimetype, '| text:', m.text, '| messageid:', m.messageid || m.id)
-        }
         const msg = provider.parseWebhook(payload)
-        console.log('[WORKER] parseWebhook resultado:', msg ? `from=${msg.from} text=${msg.text?.slice(0, 50)} mediaType=${msg.mediaType} mediaUrl=${msg.mediaUrl}` : 'null')
         if (!msg) return
         from = msg.from
         name = msg.name
@@ -81,8 +71,6 @@ export function startMessageWorker() {
           if (msg.mediaUrl.startsWith('uazapi:') && provider.downloadMedia) {
             const messageId = msg.mediaUrl.replace('uazapi:', '')
             const result = await provider.downloadMedia(messageId)
-            console.log('[WORKER] downloadMedia result — transcription:', result.transcription?.slice(0, 80), '| fileURL:', result.fileURL?.slice(0, 80), '| mimetype:', result.mimetype)
-
             if (result.transcription) {
               text = result.transcription
             } else if (result.fileURL) {
@@ -98,18 +86,13 @@ export function startMessageWorker() {
           }
         }
 
-        if (!text) { console.log('[WORKER] STOP: text vazio após processamento de mídia'); return }
+        if (!text) return
+        if (isWhatsAppGroup(from)) return
+        if (isBotMessage(text)) return
 
-        // Ignorar mensagens de grupos do WhatsApp
-        if (isWhatsAppGroup(from)) { console.log('[WORKER] STOP: grupo WhatsApp'); return }
-
-        // Ignorar mensagens que parecem ser de outra IA (evita loop infinito)
-        if (isBotMessage(text)) { console.log('[WORKER] STOP: isBotMessage', text.slice(0, 80)); return }
-
-        // Verificar se o dono do número enviou mensagem para este contato recentemente (silêncio de 1h)
         const silenceKey = `silence:${channelId}:${from}`
         const isSilenced = await redis.get(silenceKey)
-        if (isSilenced) { console.log('[WORKER] STOP: silenciado'); return }
+        if (isSilenced) return
 
       } else if (channelType === 'TELEGRAM') {
         from = String(payload.message?.from?.id || payload.message?.chat?.id)
@@ -118,31 +101,21 @@ export function startMessageWorker() {
         if (!text) return
       } else if (channelType === 'META' || channelType === 'INSTAGRAM') {
         const messaging = payload.entry?.[0]?.messaging?.[0]
-        if (!messaging) {
-          console.log('[WORKER META] Sem messaging no payload:', JSON.stringify(payload).slice(0, 200))
-          return
-        }
+        if (!messaging) return
         from = messaging.sender.id
         name = 'Usuário'
         text = messaging.message?.text
-        console.log('[WORKER META] from:', from, 'text:', text?.slice(0, 80))
         if (!text) return
       } else {
         return
       }
 
       const agentChannel = channel.agentChannels[0]
-      if (!agentChannel) {
-        console.log('[WORKER] Nenhum agente vinculado ao canal:', channelId)
-        return
-      }
+      if (!agentChannel) return
       const agent = agentChannel.agent
-      console.log('[WORKER] Agente:', agent.name, '| from:', from, '| text:', text?.slice(0, 80))
 
-      // Verificar créditos antes de processar
       const workspace = await prisma.workspace.findUnique({ where: { id: channel.workspaceId } })
       if (!workspace) return
-      console.log('[WORKER] Créditos:', workspace.credits)
 
       const isMedia = !!(payload?.message?.mediaUrl || payload?.message?.fileUrl || payload?.message?.url)
 
@@ -231,15 +204,13 @@ export function startMessageWorker() {
             msgs.push(config.firstContactText)
           }
 
-          if (config.firstContactVideoUrl && channelType === 'WHATSAPP') {
-            const provider = getWhatsAppProvider()
-            await provider.sendMedia(channelId, from!, config.firstContactVideoUrl, 'video')
-          }
-
-          if (config.firstContactFileUrl && channelType === 'WHATSAPP') {
-            const provider = getWhatsAppProvider()
-            await provider.sendMedia(channelId, from!, config.firstContactFileUrl, config.firstContactFileName || undefined)
-          }
+          // Enviar vídeo e arquivo em paralelo
+          const mediaPromises: Promise<any>[] = []
+          if (config.firstContactVideoUrl && channelType === 'WHATSAPP')
+            mediaPromises.push(getWhatsAppProvider().sendMedia(channelId, from!, config.firstContactVideoUrl, 'video'))
+          if (config.firstContactFileUrl && channelType === 'WHATSAPP')
+            mediaPromises.push(getWhatsAppProvider().sendMedia(channelId, from!, config.firstContactFileUrl, config.firstContactFileName || undefined))
+          if (mediaPromises.length) await Promise.all(mediaPromises)
 
           // Registrar mensagem no histórico
           const fullContent = [config.firstContactText, config.firstContactVideoUrl ? `[Vídeo: ${config.firstContactVideoUrl}]` : null, config.firstContactFileUrl ? `[Arquivo: ${config.firstContactFileName || config.firstContactFileUrl}]` : null].filter(Boolean).join('\n')
@@ -271,24 +242,22 @@ export function startMessageWorker() {
         }
       }
 
-      // Carregar histórico ANTES de salvar a mensagem atual para evitar duplicata no LLM
-      const history = await prisma.message.findMany({
-        where: { conversationId: conversation.id },
-        orderBy: { createdAt: 'asc' },
-        take: 20,
-      })
+      // Carregar histórico e salvar mensagem do usuário em paralelo
+      const [history, userMsg] = await Promise.all([
+        prisma.message.findMany({
+          where: { conversationId: conversation.id },
+          orderBy: { createdAt: 'asc' },
+          take: 20,
+        }),
+        prisma.message.create({
+          data: { conversationId: conversation.id, role: 'USER', content: text },
+        }),
+      ])
 
-      const userMsg = await prisma.message.create({
-        data: { conversationId: conversation.id, role: 'USER', content: text },
-      })
-
-      // Incrementa não lidas (visível no chat interno para o operador humano)
-      await prisma.conversation.update({
-        where: { id: conversation.id },
-        data: { unreadCount: { increment: 1 } },
-      })
-
-      try { emitNewMessage(channel.workspaceId, conversation.id, userMsg) } catch {}
+      await Promise.all([
+        prisma.conversation.update({ where: { id: conversation.id }, data: { unreadCount: { increment: 1 } } }),
+        Promise.resolve().then(() => { try { emitNewMessage(channel.workspaceId, conversation.id, userMsg) } catch {} }),
+      ])
 
       if (conversation.status === 'HUMAN_ACTIVE' || conversation.status === 'WAITING_HUMAN') {
         return
@@ -530,22 +499,15 @@ export function startMessageWorker() {
         data: { credits: { decrement: creditsUsed } },
       })
 
-      console.log('[WORKER] Resposta gerada:', responseText?.slice(0, 100), '| créditos:', creditsUsed)
 
       if (channelType === 'WHATSAPP') {
         const provider = getWhatsAppProvider()
-        console.log('[WORKER] Enviando resposta para:', from)
-
-        // Resposta em áudio — usa a voz configurada no agente
         if (audioPreference === 'audio') {
           const agentVoice = (config as any)?.ttsVoice || 'onyx'
-          console.log('[WORKER] Gerando áudio TTS para resposta — voz:', agentVoice)
           const audioBuffer = await generateSpeech(responseText, channel.workspaceId, agentVoice)
           if (audioBuffer && provider.sendAudioBase64) {
-            console.log('[WORKER] Áudio gerado, enviando via sendAudioBase64, tamanho:', audioBuffer.length)
             await provider.sendAudioBase64(channelId, from, audioBuffer.toString('base64'))
           } else {
-            console.warn('[WORKER] TTS retornou null ou provider sem sendAudioBase64 — fallback para texto')
             await provider.sendText(channelId, from, responseText)
           }
         } else {
@@ -570,11 +532,8 @@ export function startMessageWorker() {
         }, { headers: { Authorization: `Bearer ${pageToken}` } })
       }
 
-      console.log('[WORKER] Job concluído com sucesso para:', from)
-
       } catch (err: any) {
-        console.error('[WORKER] ERRO no job:', err?.message || err)
-        console.error('[WORKER] Stack:', err?.stack?.slice(0, 500))
+        console.error('[WORKER] ERRO:', err?.message || err)
         throw err // re-throw para BullMQ registrar como falha e fazer retry
       }
     },

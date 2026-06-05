@@ -38,34 +38,42 @@ export default function DashboardPage() {
   const end = new Date().toISOString()
   const start = new Date(Date.now() - period * 24 * 60 * 60 * 1000).toISOString()
 
+  const DASH_STALE = 10 * 60 * 1000
+
   const { data: overview } = useQuery({
     queryKey: ['analytics-overview', period],
     queryFn: () => api.get('/analytics/overview', { params: { start, end } }).then(r => r.data),
+    staleTime: DASH_STALE,
   })
 
   const { data: timeline } = useQuery({
     queryKey: ['analytics-timeline', period],
     queryFn: () => api.get('/analytics/timeline', { params: { start, end } }).then(r => r.data),
+    staleTime: DASH_STALE,
   })
 
   const { data: topAgents } = useQuery({
     queryKey: ['analytics-top-agents', period],
     queryFn: () => api.get('/analytics/top-agents', { params: { start, end } }).then(r => r.data),
+    staleTime: DASH_STALE,
   })
 
   const { data: byChannel } = useQuery({
     queryKey: ['analytics-by-channel', period],
     queryFn: () => api.get('/analytics/by-channel', { params: { start, end } }).then(r => r.data),
+    staleTime: DASH_STALE,
   })
 
   const { data: comercialStats } = useQuery({
     queryKey: ['comercial-stats'],
     queryFn: () => api.get('/comercial/stats').then(r => r.data),
+    staleTime: DASH_STALE,
   })
 
   const { data: followUps = [] } = useQuery({
     queryKey: ['followups-dashboard'],
     queryFn: () => api.get('/comercial/followups', { params: { status: 'PENDING' } }).then(r => r.data),
+    staleTime: 3 * 60 * 1000,
   })
 
   const overdueFollowUps = (followUps as any[]).filter((f: any) => new Date(f.scheduledAt) < new Date())

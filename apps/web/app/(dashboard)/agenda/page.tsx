@@ -1,31 +1,43 @@
 'use client'
 import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import api from '@/lib/api'
-import { CalendarDays, RefreshCw, ExternalLink, AlertTriangle } from 'lucide-react'
+import { CalendarDays, ExternalLink, AlertTriangle, Grid3X3, List, CalendarRange, LayoutList } from 'lucide-react'
 import Link from 'next/link'
+import { cn } from '@/lib/utils'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+type ViewMode = 'week' | 'month' | 'day' | 'agenda'
+
+const views: { value: ViewMode; label: string; icon: any; gcMode: string }[] = [
+  { value: 'week',   label: 'Semana',  icon: CalendarRange, gcMode: 'WEEK' },
+  { value: 'month',  label: 'Mês',     icon: Grid3X3,       gcMode: 'MONTH' },
+  { value: 'day',    label: 'Dia',     icon: CalendarDays,  gcMode: 'DAY' },
+  { value: 'agenda', label: 'Lista',   icon: LayoutList,    gcMode: 'AGENDA' },
+]
 
 export default function AgendaPage() {
-  const { data: googleStatus } = useQuery({
+  const [view, setView] = useState<ViewMode>('week')
+
+  const { data: googleStatus, isLoading } = useQuery({
     queryKey: ['google-integration'],
     queryFn: () => api.get('/integrations/google').then(r => r.data),
+    staleTime: 10 * 60 * 1000,
   })
 
   const connected = googleStatus?.connected && !googleStatus?.tokenExpired
   const tokenExpired = googleStatus?.tokenExpired
   const email = googleStatus?.email
 
-  // URL pública do Google Calendar para embed (modo agenda)
-  // Usamos o iframe do Google Calendar com o e-mail conectado
+  const currentView = views.find(v => v.value === view)!
+
   const calendarSrc = email
-    ? `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(email)}&ctz=America%2FSao_Paulo&showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=1&showCalendars=0&mode=WEEK&hl=pt_BR`
+    ? `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(email)}&ctz=America%2FSao_Paulo&showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=0&showCalendars=0&showTz=0&mode=${currentView.gcMode}&hl=pt_BR&wkst=1`
     : null
 
-  if (!googleStatus) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <RefreshCw className="w-6 h-6 animate-spin text-gray-400" />
+        <div className="w-6 h-6 border-2 border-[#1565C0] border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -38,18 +50,18 @@ export default function AgendaPage() {
         </div>
         <div>
           <h2 className="text-xl font-bold text-gray-900 mb-1">
-            {tokenExpired ? 'Token expirado — reconecte o Google Calendar' : 'Google Calendar não conectado'}
+            {tokenExpired ? 'Reconecte o Google Calendar' : 'Google Calendar não conectado'}
           </h2>
           <p className="text-gray-500 text-sm max-w-sm mx-auto">
             {tokenExpired
               ? 'Sua sessão com o Google expirou. Reconecte para continuar usando a Agenda.'
-              : 'Conecte sua conta Google para visualizar e gerenciar seus agendamentos diretamente aqui.'}
+              : 'Conecte sua conta Google para visualizar e gerenciar seus agendamentos aqui.'}
           </p>
         </div>
         {tokenExpired && (
           <div className="flex items-center gap-2 text-amber-600 text-sm bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
             <AlertTriangle className="w-4 h-4 shrink-0" />
-            Token expirado — o agendamento automático pode estar falhando
+            Token expirado — agendamento automático pode estar falhando
           </div>
         )}
         <Link
@@ -65,38 +77,62 @@ export default function AgendaPage() {
   }
 
   return (
-    <div className="h-full flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+    <div className="h-full flex flex-col gap-3" style={{ minHeight: 'calc(100vh - 120px)' }}>
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <CalendarDays className="w-5 h-5 text-[#1565C0]" />
           <h1 className="text-lg font-semibold text-gray-900">Agenda</h1>
-          {email && <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{email}</span>}
+          {email && (
+            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full hidden sm:inline">
+              {email}
+            </span>
+          )}
         </div>
-        <a
-          href={`https://calendar.google.com/calendar/r`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1.5 text-xs text-[#1565C0] hover:underline font-medium"
-        >
-          <ExternalLink className="w-3.5 h-3.5" />
-          Abrir no Google Calendar
-        </a>
+
+        <div className="flex items-center gap-2">
+          {/* Seletor de visualização */}
+          <div className="flex items-center bg-gray-100 rounded-lg p-0.5 gap-0.5">
+            {views.map(v => (
+              <button
+                key={v.value}
+                onClick={() => setView(v.value)}
+                className={cn(
+                  'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all',
+                  view === v.value
+                    ? 'bg-white text-[#1565C0] shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                )}
+              >
+                <v.icon className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{v.label}</span>
+              </button>
+            ))}
+          </div>
+
+          <a
+            href="https://calendar.google.com/calendar/r"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-xs text-[#1565C0] hover:underline font-medium px-2 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Abrir no Google</span>
+          </a>
+        </div>
       </div>
 
-      {calendarSrc ? (
-        <div className="flex-1 rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-white min-h-[500px]">
+      {/* Iframe do Google Calendar */}
+      {calendarSrc && (
+        <div className="flex-1 rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-white">
           <iframe
+            key={view}
             src={calendarSrc}
             className="w-full h-full"
-            style={{ minHeight: '600px', border: 0 }}
+            style={{ minHeight: 'calc(100vh - 180px)', border: 0 }}
             title="Google Calendar"
             loading="lazy"
           />
-        </div>
-      ) : (
-        <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
-          Não foi possível carregar o calendário.{' '}
-          <Link href="/settings?tab=integrations" className="text-[#1565C0] ml-1 hover:underline">Verificar configurações</Link>
         </div>
       )}
     </div>
