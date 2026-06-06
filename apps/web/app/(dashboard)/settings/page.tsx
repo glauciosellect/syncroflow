@@ -338,18 +338,27 @@ const channelIcons: Record<string, string> = {
   WHATSAPP: '📱', INSTAGRAM: '📸', FACEBOOK: '📘', TELEGRAM: '✈️', WIDGET: '💬', EMAIL: '📧', SMS: '📩',
 }
 
-const channelForms: Record<string, { label: string; fields: { key: string; label: string; placeholder?: string }[] }> = {
-  whatsapp: { label: 'WhatsApp', fields: [{ key: 'name', label: 'Nome da conexão', placeholder: 'Ex: WhatsApp Principal' }] },
-  instagram: { label: 'Instagram / Facebook', fields: [{ key: 'name', label: 'Nome', placeholder: 'Ex: Instagram da Empresa' }, { key: 'pageAccessToken', label: 'Page Access Token' }, { key: 'pageId', label: 'Page ID' }, { key: 'verifyToken', label: 'Verify Token', placeholder: 'Crie uma senha qualquer para verificação' }] },
-}
-
 function ChannelsTab() {
   const { toast } = useToast()
   const qc = useQueryClient()
-  const [showForm, setShowForm] = useState<string | null>(null)
-  const [formData, setFormData] = useState<any>({})
+  const [showWhatsAppForm, setShowWhatsAppForm] = useState(false)
+  const [whatsAppName, setWhatsAppName] = useState('')
   const [qrData, setQrData] = useState<Record<string, { qr: string; status: string }>>({})
   const [selectedAgents, setSelectedAgents] = useState<Record<string, string>>({})
+  const searchParams = useSearchParams()
+
+  // Exibe toast após retorno do OAuth Meta
+  useEffect(() => {
+    const success = searchParams.get('meta_success')
+    const error = searchParams.get('meta_error')
+    if (success) {
+      toast({ title: 'Instagram/Facebook conectado!', description: decodeURIComponent(success) })
+      qc.invalidateQueries({ queryKey: ['channels'] })
+    }
+    if (error) {
+      toast({ title: 'Erro ao conectar', description: decodeURIComponent(error), variant: 'destructive' })
+    }
+  }, [])
 
   const { data: channels, isLoading } = useQuery({
     queryKey: ['channels'],
@@ -368,10 +377,10 @@ function ChannelsTab() {
     onError: () => toast({ title: 'Erro ao vincular agente', variant: 'destructive' }),
   })
 
-  const createMutation = useMutation({
-    mutationFn: (data: any) => api.post(`/channels/${showForm}`, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['channels'] }); setShowForm(null); setFormData({}) },
-    onError: (err: any) => toast({ title: 'Erro', description: err.response?.data?.error || 'Erro ao conectar canal', variant: 'destructive' }),
+  const createWhatsAppMutation = useMutation({
+    mutationFn: () => api.post('/channels/whatsapp', { name: whatsAppName }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['channels'] }); setShowWhatsAppForm(false); setWhatsAppName('') },
+    onError: (err: any) => toast({ title: 'Erro', description: err.response?.data?.error || 'Erro ao conectar', variant: 'destructive' }),
   })
 
   const deleteMutation = useMutation({
@@ -388,35 +397,46 @@ function ChannelsTab() {
     }
   }
 
+  const connectMeta = (type: 'instagram' | 'facebook') => {
+    // Pega o token JWT do localStorage para passar via state no OAuth
+    const token = localStorage.getItem('token') || ''
+    const url = `${API_URL}/integrations/meta/connect?token=${encodeURIComponent(token)}&type=${type}`
+    window.location.href = url
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <p className="text-sm text-gray-500">Conecte seus canais de atendimento e vincule agentes a cada um.</p>
         <div className="flex gap-2 flex-wrap">
-          {Object.entries(channelForms).map(([key, form]) => (
-            <Button key={key} variant="outline" size="sm" onClick={() => setShowForm(key)}>
-              <Plus className="w-3 h-3 mr-1" />{form.label}
-            </Button>
-          ))}
+          <Button variant="outline" size="sm" onClick={() => setShowWhatsAppForm(true)}>
+            <Plus className="w-3 h-3 mr-1" />WhatsApp
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => connectMeta('instagram')}
+            className="border-pink-200 text-pink-700 hover:bg-pink-50">
+            <Plus className="w-3 h-3 mr-1" />Instagram
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => connectMeta('facebook')}
+            className="border-blue-200 text-blue-700 hover:bg-blue-50">
+            <Plus className="w-3 h-3 mr-1" />Facebook
+          </Button>
         </div>
       </div>
 
-      {showForm && channelForms[showForm] && (
+      {showWhatsAppForm && (
         <Card>
-          <CardHeader><CardTitle className="text-base">Conectar {channelForms[showForm].label}</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">Conectar WhatsApp</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            {channelForms[showForm].fields.map((field) => (
-              <div key={field.key}>
-                <Label>{field.label}</Label>
-                <Input placeholder={field.placeholder} value={formData[field.key] || ''} onChange={e => setFormData((p: any) => ({ ...p, [field.key]: e.target.value }))} className="mt-1" />
-              </div>
-            ))}
+            <div>
+              <Label>Nome da conexão</Label>
+              <Input placeholder="Ex: WhatsApp Principal" value={whatsAppName} onChange={e => setWhatsAppName(e.target.value)} className="mt-1" />
+            </div>
             <div className="flex gap-2">
-              <Button onClick={() => createMutation.mutate(formData)} className="bg-[#1565C0] hover:bg-[#0D47A1]" disabled={createMutation.isPending}>
-                {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              <Button onClick={() => createWhatsAppMutation.mutate()} className="bg-[#1565C0] hover:bg-[#0D47A1]" disabled={createWhatsAppMutation.isPending || !whatsAppName.trim()}>
+                {createWhatsAppMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                 Conectar
               </Button>
-              <Button variant="ghost" onClick={() => { setShowForm(null); setFormData({}) }}>Cancelar</Button>
+              <Button variant="ghost" onClick={() => { setShowWhatsAppForm(false); setWhatsAppName('') }}>Cancelar</Button>
             </div>
           </CardContent>
         </Card>
@@ -462,6 +482,17 @@ function ChannelsTab() {
                       <Button variant="outline" size="sm" onClick={() => loadQR(channel.id)} className="w-full">
                         <QrCode className="w-3 h-3 mr-2" />Ver QR Code
                       </Button>
+                    )}
+                  </div>
+                )}
+
+                {(channel.type === 'INSTAGRAM' || channel.type === 'FACEBOOK') && channel.config?.igUsername && (
+                  <div className="mt-2 text-xs text-gray-500">
+                    @{channel.config.igUsername}
+                    {channel.config.tokenExpiresAt && (
+                      <span className="ml-2 text-amber-600">
+                        · Token expira {new Date(channel.config.tokenExpiresAt).toLocaleDateString('pt-BR')}
+                      </span>
                     )}
                   </div>
                 )}

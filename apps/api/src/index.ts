@@ -23,6 +23,7 @@ import { billingRoutes } from './modules/billing/billing.routes'
 import { stripeRoutes } from './modules/billing/stripe.routes'
 import { mcpRoutes } from './modules/mcp/mcp.routes'
 import { integrationRoutes } from './modules/integrations/integrations.routes'
+import { metaIntegrationRoutes } from './modules/integrations/meta.routes'
 import { apiKeyRoutes } from './modules/auth/apikeys.routes'
 import { envVariableRoutes } from './modules/auth/env-variables.routes'
 import { webhookRoutes } from './modules/webhooks/webhooks.routes'
@@ -95,6 +96,7 @@ async function bootstrap() {
   await app.register(stripeRoutes)
   await app.register(mcpRoutes)
   await app.register(integrationRoutes)
+  await app.register(metaIntegrationRoutes)
   await app.register(apiKeyRoutes)
   await app.register(envVariableRoutes)
   await app.register(webhookRoutes)
