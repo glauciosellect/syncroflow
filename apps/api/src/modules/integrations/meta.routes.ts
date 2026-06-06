@@ -55,8 +55,8 @@ export async function metaIntegrationRoutes(app: FastifyInstance) {
 
     const redirectUri = `${API_URL}/integrations/meta/callback`
     const scope = type === 'facebook'
-      ? 'pages_show_list,pages_messaging,pages_read_engagement'
-      : 'pages_show_list,pages_messaging,pages_read_engagement,instagram_basic,instagram_manage_messages'
+      ? 'pages_show_list,pages_messaging'
+      : 'pages_show_list,pages_messaging,instagram_basic,instagram_manage_messages'
 
     const state = Buffer.from(JSON.stringify({ token, type: type || 'instagram' })).toString('base64url')
 
