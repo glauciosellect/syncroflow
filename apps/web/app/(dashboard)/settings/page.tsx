@@ -397,9 +397,10 @@ function ChannelsTab() {
     }
   }
 
+  const { token: authToken } = useAuthStore()
+
   const connectMeta = (type: 'instagram' | 'facebook') => {
-    // Pega o token JWT do localStorage para passar via state no OAuth
-    const token = localStorage.getItem('sf_token') || ''
+    const token = authToken || localStorage.getItem('sf_token') || ''
     const url = `${API_URL}/integrations/meta/connect?token=${encodeURIComponent(token)}&type=${type}`
     window.location.href = url
   }
