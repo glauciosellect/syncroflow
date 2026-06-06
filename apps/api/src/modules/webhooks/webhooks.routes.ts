@@ -83,6 +83,7 @@ export async function webhookRoutes(app: FastifyInstance) {
     const { channelId } = req.params as { channelId: string }
     const body = req.body as any
     const channelType = 'META'
+    console.log('[META-ROUTE] recebido channelId:', channelId, '| body:', JSON.stringify(body).slice(0, 300))
     await messageQueue.add('process', { channelId, channelType, payload: body }, {
       attempts: 3,
       backoff: { type: 'exponential', delay: 1000 },
