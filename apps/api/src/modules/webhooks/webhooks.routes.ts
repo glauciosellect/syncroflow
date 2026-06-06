@@ -97,7 +97,7 @@ export async function webhookRoutes(app: FastifyInstance) {
 
     // Busca o canal pelo pageId ou igAccountId
     const channels = await prisma.channel.findMany({
-      where: { type: { in: ['INSTAGRAM', 'FACEBOOK', 'META'] } },
+      where: { type: { in: ['INSTAGRAM', 'FACEBOOK'] } },
     })
 
     const channel = channels.find((c) => {
