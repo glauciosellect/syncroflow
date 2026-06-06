@@ -8,7 +8,35 @@ const API_URL = process.env.API_URL!
 const FRONTEND_URL = process.env.FRONTEND_URL!
 
 // Troca code por token de curta duração, depois converte para longa duração (60 dias)
-async function exchangeCodeForLongLivedToken(code: string, redirectUri: string): Promise<string> {
+async function exchangeCodeForLongLivedToken(code: string, redirectUri: string, type: string): Promise<string> {
+  if (type === 'instagram') {
+    // Instagram API: troca code por short-lived token
+    const params = new URLSearchParams({
+      client_id: META_APP_ID,
+      client_secret: META_APP_SECRET,
+      grant_type: 'authorization_code',
+      redirect_uri: redirectUri,
+      code,
+    })
+    const shortRes = await axios.post('https://api.instagram.com/oauth/access_token', params.toString(), {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    })
+    console.log('[META-OAUTH] Instagram short token response:', JSON.stringify(shortRes.data).slice(0, 300))
+    const shortToken: string = shortRes.data.access_token
+
+    // Converte para long-lived token (60 dias)
+    const longRes = await axios.get('https://graph.instagram.com/access_token', {
+      params: {
+        grant_type: 'ig_exchange_token',
+        client_secret: META_APP_SECRET,
+        access_token: shortToken,
+      },
+    })
+    console.log('[META-OAUTH] Instagram long token response:', JSON.stringify(longRes.data).slice(0, 300))
+    return longRes.data.access_token
+  }
+
+  // Facebook: troca code por short-lived token
   const shortRes = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
     params: {
       client_id: META_APP_ID,
@@ -56,11 +84,15 @@ export async function metaIntegrationRoutes(app: FastifyInstance) {
     const redirectUri = `${API_URL}/integrations/meta/callback`
     const scope = type === 'facebook'
       ? 'pages_show_list,pages_messaging'
-      : 'pages_show_list,pages_messaging,instagram_basic,instagram_manage_messages'
+      : 'instagram_basic,instagram_manage_messages,pages_show_list,pages_messaging'
 
     const state = Buffer.from(JSON.stringify({ token, type: type || 'instagram' })).toString('base64url')
 
-    const authUrl = new URL('https://www.facebook.com/v21.0/dialog/oauth')
+    // Instagram API usa endpoint do Instagram para OAuth
+    const authUrl = new URL(type === 'instagram'
+      ? 'https://api.instagram.com/oauth/authorize'
+      : 'https://www.facebook.com/v21.0/dialog/oauth'
+    )
     authUrl.searchParams.set('client_id', META_APP_ID)
     authUrl.searchParams.set('redirect_uri', redirectUri)
     authUrl.searchParams.set('scope', scope)
@@ -105,7 +137,39 @@ export async function metaIntegrationRoutes(app: FastifyInstance) {
     const redirectUri = `${API_URL}/integrations/meta/callback`
 
     try {
-      const longToken = await exchangeCodeForLongLivedToken(code, redirectUri)
+      const longToken = await exchangeCodeForLongLivedToken(code, redirectUri, channelType)
+
+      // Instagram API: busca dados da conta diretamente
+      if (channelType === 'instagram') {
+        const igRes = await axios.get('https://graph.instagram.com/me', {
+          params: { fields: 'id,name,username', access_token: longToken },
+        })
+        console.log('[META-OAUTH] Instagram me:', JSON.stringify(igRes.data))
+        const ig = igRes.data
+        const existing = await prisma.channel.findFirst({
+          where: { workspaceId, type: 'INSTAGRAM', config: { path: ['igAccountId'], equals: ig.id } },
+        })
+        if (!existing) {
+          await prisma.channel.create({
+            data: {
+              workspaceId,
+              type: 'INSTAGRAM',
+              name: ig.username ? `@${ig.username}` : (ig.name || 'Instagram'),
+              config: {
+                pageAccessToken: longToken,
+                igAccountId: ig.id,
+                igUsername: ig.username,
+                igName: ig.name,
+                tokenExpiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
+                verifyToken: Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2),
+              },
+            },
+          })
+        }
+        const successMsg = `@${ig.username || ig.name} conectado`
+        return reply.redirect(`${FRONTEND_URL}/settings?meta_success=${encodeURIComponent(successMsg)}`)
+      }
+
       const pages = await getPagesWithInstagram(longToken)
       console.log('[META-OAUTH] páginas encontradas:', JSON.stringify(pages).slice(0, 500))
 
@@ -113,37 +177,10 @@ export async function metaIntegrationRoutes(app: FastifyInstance) {
         return reply.redirect(`${FRONTEND_URL}/settings?meta_error=no_pages`)
       }
 
-      // Cria canais para cada página/conta Instagram encontrada
+      // Cria canais para cada página Facebook encontrada
       const created: string[] = []
       for (const page of pages) {
-        if (channelType === 'instagram' && page.instagram_business_account) {
-          const ig = page.instagram_business_account
-          // Verifica se já existe canal para esse igAccountId
-          const existing = await prisma.channel.findFirst({
-            where: { workspaceId, type: 'INSTAGRAM', config: { path: ['igAccountId'], equals: ig.id } },
-          })
-          if (!existing) {
-            const channel = await prisma.channel.create({
-              data: {
-                workspaceId,
-                type: 'INSTAGRAM',
-                name: ig.username ? `@${ig.username}` : (ig.name || 'Instagram'),
-                config: {
-                  pageAccessToken: page.access_token,
-                  pageId: page.id,
-                  igAccountId: ig.id,
-                  igUsername: ig.username,
-                  igName: ig.name,
-                  tokenExpiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(), // 60 dias
-                  verifyToken: Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2),
-                },
-              },
-            })
-            // Configura webhook automaticamente
-            await setupMetaWebhook(page.id, page.access_token, channel.id)
-            created.push(ig.username || ig.name)
-          }
-        } else if (channelType === 'facebook') {
+        if (channelType === 'facebook') {
           const existing = await prisma.channel.findFirst({
             where: { workspaceId, type: 'FACEBOOK', config: { path: ['pageId'], equals: page.id } },
           })
