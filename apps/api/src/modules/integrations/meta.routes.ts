@@ -107,6 +107,7 @@ export async function metaIntegrationRoutes(app: FastifyInstance) {
     try {
       const longToken = await exchangeCodeForLongLivedToken(code, redirectUri)
       const pages = await getPagesWithInstagram(longToken)
+      console.log('[META-OAUTH] páginas encontradas:', JSON.stringify(pages).slice(0, 500))
 
       if (pages.length === 0) {
         return reply.redirect(`${FRONTEND_URL}/settings?meta_error=no_pages`)
