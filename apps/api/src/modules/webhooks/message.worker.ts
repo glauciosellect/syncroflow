@@ -544,10 +544,17 @@ export function startMessageWorker() {
         })
       } else if (channelType === 'META' || channelType === 'INSTAGRAM') {
         const pageToken = (channel.config as any).pageAccessToken
-        await axios.post('https://graph.facebook.com/v19.0/me/messages', {
-          recipient: { id: from },
-          message: { text: responseText },
-        }, { headers: { Authorization: `Bearer ${pageToken}` } })
+        const igAccountId = (channel.config as any).pageId || '17841474915151757'
+        console.log('[META-SEND] igAccountId:', igAccountId, '| from:', from, '| token prefix:', pageToken?.slice(0, 20))
+        try {
+          await axios.post(`https://graph.facebook.com/v21.0/${igAccountId}/messages`, {
+            recipient: { id: from },
+            message: { text: responseText },
+          }, { headers: { Authorization: `Bearer ${pageToken}` } })
+        } catch (sendErr: any) {
+          console.error('[META-SEND] ERRO:', sendErr?.response?.data || sendErr?.message)
+          throw sendErr
+        }
       }
 
       } catch (err: any) {
