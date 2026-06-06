@@ -69,25 +69,31 @@ export function calcCredits(inputTokens: number, outputTokens: number, model: st
 
 export function buildSystemPrompt(agent: Agent, config: AgentConfig | null, knowledgeContext: string): string {
   const style = (config as any)?.communicationStyle || agent.communicationStyle
-  return `
-Você é ${agent.name}, um assistente de ${agent.purpose === 'SUPPORT' ? 'suporte' : agent.purpose === 'SALES' ? 'vendas' : 'uso pessoal'} ${agent.companyName ? `da empresa ${agent.companyName}` : ''}.
 
-${agent.companyDesc ? `Sobre a empresa: ${agent.companyDesc}` : ''}
+  // Substitui placeholders do behavior pelo nome real do agente e da empresa
+  const behavior = (agent.behavior || '')
+    .replace(/\{\{AGENT_NAME\}\}/g, agent.name)
+    .replace(/\{\{COMPANY_NAME\}\}/g, agent.companyName || agent.name)
+
+  return `
+Você é ${agent.name}${agent.companyName ? `, atendente de ${agent.companyName}` : ''}.
+
+${agent.companyDesc ? `Sobre a empresa/negócio: ${agent.companyDesc}` : ''}
 ${agent.companyWebsite ? `Site oficial: ${agent.companyWebsite}` : ''}
 
-Estilo de comunicação: ${style === 'FORMAL' ? 'formal e profissional' : style === 'CASUAL' ? 'descontraído e amigável' : 'normal'}
-${config?.useEmojis ? 'Você pode usar emojis nas respostas.' : 'Não use emojis.'}
+Estilo de comunicação: ${style === 'FORMAL' ? 'formal e profissional' : style === 'CASUAL' ? 'descontraído e amigável' : 'natural e próximo'}
+${config?.useEmojis ? 'Você pode usar emojis com moderação.' : 'Não use emojis.'}
 ${config?.signNameInResponses ? `Assine suas respostas com "${agent.name}".` : ''}
-${config?.restrictTopics ? 'Responda apenas sobre assuntos relacionados à empresa e seus serviços. Recuse gentilmente perguntas fora do escopo.' : ''}
+${config?.restrictTopics ? 'Responda apenas sobre assuntos relacionados ao negócio e seus serviços. Recuse gentilmente perguntas fora do escopo.' : ''}
 ${config?.splitLongMessages ? 'Para respostas longas, divida em partes menores e claras.' : ''}
 
-${agent.behavior || ''}
+${behavior}
 
 ${knowledgeContext ? `CONHECIMENTO RELEVANTE:\n${knowledgeContext}` : ''}
 
 Regras importantes:
 - Se não souber algo, diga que vai verificar e não invente informações
-${config?.transferToHuman ? '- Se o cliente pedir explicitamente para falar com humano, responda que irá transferi-lo' : ''}
+${config?.transferToHuman ? '- Se o cliente pedir explicitamente para falar com humano, informe que irá transferi-lo' : ''}
 - Data e hora atual: ${new Date().toLocaleString('pt-BR', { timeZone: config?.timezone || 'America/Sao_Paulo' })}
 `.trim()
 }

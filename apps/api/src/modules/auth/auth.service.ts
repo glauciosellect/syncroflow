@@ -6,6 +6,7 @@ import { prisma } from '../../lib/prisma'
 import { redis } from '../../lib/redis'
 import { sendEmail, passwordResetEmail } from '../../lib/mailer'
 import type { RegisterInput, LoginInput } from './auth.schema'
+import { DEFAULT_AGENT_BEHAVIOR, DEFAULT_AGENT_NAME, DEFAULT_INTENTIONS } from '../agents/default-agent'
 
 function generateSlug(name: string): string {
   return name
@@ -69,6 +70,40 @@ export async function registerUser(input: RegisterInput, signTokens: (userId: st
   await saveRefreshToken(user.id, tokens.refreshToken)
 
   const workspace = user.workspaceMembers[0].workspace
+
+  // Cria agente padrão com comportamento base já configurado
+  try {
+    const agentName = DEFAULT_AGENT_NAME
+    const agent = await prisma.agent.create({
+      data: {
+        workspaceId: workspace.id,
+        name: agentName,
+        purpose: 'SUPPORT',
+        companyName: workspaceName,
+        behavior: DEFAULT_AGENT_BEHAVIOR,
+        communicationStyle: 'NORMAL',
+        llmModel: 'claude-haiku-4-5',
+        config: {
+          create: {
+            useEmojis: true,
+            signNameInResponses: false,
+            restrictTopics: false,
+            splitLongMessages: true,
+            transferToHuman: true,
+            responseDelay: 2,
+            timezone: 'America/Sao_Paulo',
+          } as any,
+        },
+        intentions: {
+          create: DEFAULT_INTENTIONS.map(({ order: _order, ...i }) => i),
+        },
+      },
+    })
+    console.log('[AUTH] Agente padrão criado:', agent.id)
+  } catch (err: any) {
+    console.error('[AUTH] Erro ao criar agente padrão:', err?.message)
+  }
+
   return { user: sanitize(user), workspace, ...tokens }
 }
 

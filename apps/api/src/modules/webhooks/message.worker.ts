@@ -271,6 +271,12 @@ export function startMessageWorker() {
       const contactVars = (contact.variables as Record<string, any>) || {}
       let audioPreference: 'audio' | 'text' | undefined = contactVars[AUDIO_PREFERENCE_KEY]
 
+      // Se o agente tem voz configurada, usa áudio por padrão (a não ser que contato tenha pedido #texto)
+      const agentHasVoice = !!(config as any)?.ttsVoice
+      if (!audioPreference && agentHasVoice && channelType === 'WHATSAPP') {
+        audioPreference = 'audio'
+      }
+
       // Se recebeu áudio e não tem preferência → define áudio automaticamente (sem perguntar)
       const isAudioMessage = channelType === 'WHATSAPP' && incomingMediaType === 'audio'
       if (isAudioMessage && !audioPreference) {
