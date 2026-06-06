@@ -110,7 +110,7 @@ export async function webhookRoutes(app: FastifyInstance) {
       return reply.send({ ok: true })
     }
 
-    await messageQueue.add('process', { channelId: channel.id, channelType: 'INSTAGRAM', payload: body }, {
+    await messageQueue.add('process', { channelId: channel.id, channelType: channel.type, payload: body }, {
       attempts: 3,
       backoff: { type: 'exponential', delay: 1000 },
     })
