@@ -451,7 +451,10 @@ export default function AgentDetailPage() {
             </Card>
 
             <Card>
-              <CardHeader><CardTitle className="text-base">Adicionar Website</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-base">Adicionar Website</CardTitle>
+                <p className="text-xs text-gray-400 mt-0.5">O agente vai <strong>ler e extrair o conteúdo</strong> da página para usar como conhecimento. Diferente do campo "Site da empresa" no Perfil — que apenas informa ao agente qual é o site oficial.</p>
+              </CardHeader>
               <CardContent>
                 <div className="flex gap-2">
                   <Input placeholder="https://seusite.com/pagina" value={trainingUrl} onChange={e => setTrainingUrl(e.target.value)} />

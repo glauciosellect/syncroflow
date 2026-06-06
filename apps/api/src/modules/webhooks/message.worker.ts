@@ -100,9 +100,19 @@ export function startMessageWorker() {
         text = payload.message?.text
         if (!text) return
       } else if (channelType === 'META' || channelType === 'INSTAGRAM') {
+        console.log('[META] payload raw:', JSON.stringify(payload).slice(0, 800))
+
+        // Instagram Direct usa entry[0].messaging (igual ao Messenger)
+        // mas alguns eventos chegam via entry[0].changes[0].value.messages
         const messaging = payload.entry?.[0]?.messaging?.[0]
+          || payload.entry?.[0]?.changes?.[0]?.value?.messages?.[0] && {
+              sender: { id: payload.entry?.[0]?.changes?.[0]?.value?.sender?.id || payload.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.from },
+              message: { text: payload.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.text?.body }
+            }
+
+        console.log('[META] messaging extraído:', JSON.stringify(messaging))
         if (!messaging) return
-        from = messaging.sender.id
+        from = messaging.sender?.id || messaging.sender
         name = 'Usuário'
         text = messaging.message?.text
         if (!text) return
