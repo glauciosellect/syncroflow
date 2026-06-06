@@ -66,6 +66,58 @@ export async function webhookRoutes(app: FastifyInstance) {
     return reply.send({ ok: true })
   })
 
+  // Webhook genérico do Meta — URL fixa configurada no painel Meta for Developers
+  // Identifica o canal pelo pageId ou igAccountId que vem no payload
+  app.get('/webhooks/meta', async (req, reply) => {
+    const query = req.query as Record<string, string>
+    if (query['hub.mode'] === 'subscribe') {
+      if (query['hub.verify_token'] === process.env.META_VERIFY_TOKEN) {
+        return reply.send(query['hub.challenge'])
+      }
+      return reply.status(403).send()
+    }
+    return reply.send()
+  })
+
+  app.post('/webhooks/meta', async (req, reply) => {
+    const body = req.body as any
+    console.log('[META-ROUTE] payload genérico:', JSON.stringify(body).slice(0, 400))
+
+    // Extrai o recipientId (pageId ou igAccountId) do payload
+    const recipientId: string =
+      body?.entry?.[0]?.messaging?.[0]?.recipient?.id ||
+      body?.entry?.[0]?.changes?.[0]?.value?.recipient?.id ||
+      body?.entry?.[0]?.id ||
+      ''
+
+    if (!recipientId) {
+      console.log('[META-ROUTE] recipientId não encontrado no payload')
+      return reply.send({ ok: true })
+    }
+
+    // Busca o canal pelo pageId ou igAccountId
+    const channels = await prisma.channel.findMany({
+      where: { type: { in: ['INSTAGRAM', 'FACEBOOK', 'META'] } },
+    })
+
+    const channel = channels.find((c) => {
+      const cfg = c.config as any
+      return cfg?.pageId === recipientId || cfg?.igAccountId === recipientId
+    })
+
+    if (!channel) {
+      console.log('[META-ROUTE] canal não encontrado para recipientId:', recipientId)
+      return reply.send({ ok: true })
+    }
+
+    await messageQueue.add('process', { channelId: channel.id, channelType: 'INSTAGRAM', payload: body }, {
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 1000 },
+    })
+    return reply.send({ ok: true })
+  })
+
+  // Webhook por channelId — mantido para compatibilidade com canais antigos
   app.get('/webhooks/meta/:channelId', async (req, reply) => {
     const query = req.query as Record<string, string>
     if (query['hub.mode'] === 'subscribe') {
