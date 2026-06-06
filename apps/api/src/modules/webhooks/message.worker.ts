@@ -102,17 +102,19 @@ export function startMessageWorker() {
       } else if (channelType === 'META' || channelType === 'INSTAGRAM') {
         console.log('[META] payload raw:', JSON.stringify(payload).slice(0, 800))
 
-        // Instagram Direct usa entry[0].messaging (igual ao Messenger)
-        // mas alguns eventos chegam via entry[0].changes[0].value.messages
-        const messaging = payload.entry?.[0]?.messaging?.[0]
-          || payload.entry?.[0]?.changes?.[0]?.value?.messages?.[0] && {
-              sender: { id: payload.entry?.[0]?.changes?.[0]?.value?.sender?.id || payload.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.from },
-              message: { text: payload.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.text?.body }
-            }
+        // Instagram Direct: entry[0].messaging[0] (Messenger-style)
+        // OU entry[0].changes[0].value com sender/recipient/message direto
+        let messaging = payload.entry?.[0]?.messaging?.[0]
+        if (!messaging) {
+          const val = payload.entry?.[0]?.changes?.[0]?.value
+          if (val?.sender && val?.message) {
+            messaging = { sender: val.sender, recipient: val.recipient, message: val.message }
+          }
+        }
 
         console.log('[META] messaging extraído:', JSON.stringify(messaging))
         if (!messaging) return
-        from = messaging.sender?.id || messaging.sender
+        from = messaging.sender?.id || String(messaging.sender)
         name = 'Usuário'
         text = messaging.message?.text
         if (!text) return
@@ -540,7 +542,7 @@ export function startMessageWorker() {
           chat_id: from,
           text: responseText,
         })
-      } else if (channelType === 'META') {
+      } else if (channelType === 'META' || channelType === 'INSTAGRAM') {
         const pageToken = (channel.config as any).pageAccessToken
         await axios.post('https://graph.facebook.com/v19.0/me/messages', {
           recipient: { id: from },
