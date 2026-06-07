@@ -8,7 +8,7 @@ const inter = Inter({ subsets: ['latin'] })
 
 // Substitua pelos IDs reais antes do deploy em produção:
 const META_PIXEL_ID = '990433977062746'
-const GA_MEASUREMENT_ID = 'G-XXXXXXXXXX'
+const GA_MEASUREMENT_ID = 'G-F346T28WVJ'
 
 export const metadata: Metadata = {
   title: 'SyncroFlow — Atendimento Omnichannel com IA',
