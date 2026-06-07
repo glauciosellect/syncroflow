@@ -7,7 +7,7 @@ import { Providers } from './providers'
 const inter = Inter({ subsets: ['latin'] })
 
 // Substitua pelos IDs reais antes do deploy em produção:
-const META_PIXEL_ID = 'PIXEL_ID_AQUI'
+const META_PIXEL_ID = '990433977062746'
 const GA_MEASUREMENT_ID = 'G-XXXXXXXXXX'
 
 export const metadata: Metadata = {
