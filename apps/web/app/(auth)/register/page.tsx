@@ -88,6 +88,13 @@ export default function RegisterPage() {
       })
       const { user, workspace, accessToken, refreshToken } = res.data
       setAuth(user, workspace, accessToken, refreshToken)
+
+      // Dispara pixels de conversão ao concluir cadastro
+      if (typeof window !== 'undefined') {
+        if ((window as any).fbq) (window as any).fbq('track', 'CompleteRegistration')
+        if ((window as any).gtag) (window as any).gtag('event', 'sign_up', { method: 'email' })
+      }
+
       router.push('/dashboard')
     } catch (err: any) {
       toast({ title: 'Erro ao criar conta', description: err.response?.data?.error || 'Tente novamente', variant: 'destructive' })

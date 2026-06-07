@@ -4,9 +4,36 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SyncroFlow — Atendimento Inteligente. Fluxo que Conecta.</title>
-  <meta name="description" content="Plataforma SaaS de atendimento omnichannel com IA. Crie agentes inteligentes para WhatsApp, Instagram, Telegram e mais. Sem código, sem complicação." />
+  <meta name="description" content="Plataforma SaaS de atendimento omnichannel com IA. Crie agentes inteligentes para WhatsApp, Instagram, Facebook e mais. Sem código, sem complicação." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+  <!-- Meta Pixel — substitua PIXEL_ID_AQUI pelo ID real do seu pixel -->
+  <script>
+    !function(f,b,e,v,n,t,s)
+    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+    n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];
+    s.parentNode.insertBefore(t,s)}(window, document,'script',
+    'https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', 'PIXEL_ID_AQUI');
+    fbq('track', 'PageView');
+  </script>
+  <noscript>
+    <img height="1" width="1" style="display:none"
+      src="https://www.facebook.com/tr?id=PIXEL_ID_AQUI&ev=PageView&noscript=1"/>
+  </noscript>
+
+  <!-- Google Analytics — substitua G-XXXXXXXXXX pelo ID real -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-XXXXXXXXXX');
+  </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -94,6 +121,7 @@
     }
     .nav-inner { display: flex; align-items: center; justify-content: space-between; }
     .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .logo img { height: 44px; width: auto; display: block; border-radius: 8px; }
     .logo-text { font-size: 22px; font-weight: 800; }
     .logo-text span:first-child { color: var(--green-light); }
     .logo-text span:last-child { color: var(--blue); }
@@ -199,7 +227,7 @@
     .section-header { text-align: center; margin-bottom: 60px; }
     .section-header h2 { font-size: clamp(28px, 4vw, 44px); font-weight: 800; margin-bottom: 16px; }
     .section-header p { font-size: 17px; color: var(--gray-600); max-width: 560px; margin: 0 auto; }
-    .channels-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+    .channels-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
     .channel-card {
       background: white; border-radius: 16px; padding: 28px 16px; text-align: center;
       border: 1px solid var(--gray-200); transition: all 0.3s;
@@ -344,7 +372,7 @@
       .hero-visual { display: none; }
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
       .stat-item:nth-child(2) { border-right: none; }
-      .channels-grid { grid-template-columns: repeat(3, 1fr); }
+      .channels-grid { grid-template-columns: repeat(2, 1fr); }
       .features-grid { grid-template-columns: 1fr; }
       .steps-grid { grid-template-columns: repeat(2, 1fr); }
       .plans-grid { grid-template-columns: 1fr; max-width: 420px; margin-left: auto; margin-right: auto; }
@@ -367,19 +395,7 @@
     <div class="container">
       <div class="nav-inner">
         <a href="#" class="logo">
-          <svg width="36" height="36" viewBox="0 0 48 48" fill="none">
-            <path d="M8 32C8 24 14 16 24 14C34 12 42 18 42 28C42 36 36 42 26 42L14 44L16 34C11 31 8 28 8 32Z" fill="url(#navgrad)"/>
-            <circle cx="18" cy="28" r="2.5" fill="white"/>
-            <circle cx="24" cy="28" r="2.5" fill="white"/>
-            <circle cx="30" cy="28" r="2.5" fill="white"/>
-            <defs>
-              <linearGradient id="navgrad" x1="8" y1="14" x2="42" y2="44">
-                <stop offset="0%" stop-color="#4CAF50"/>
-                <stop offset="100%" stop-color="#1565C0"/>
-              </linearGradient>
-            </defs>
-          </svg>
-          <span class="logo-text"><span>Syncro</span><span>Flow</span></span>
+          <img src="logo.png" alt="SyncroFlow — Atendimento Inteligente. Fluxo que Conecta." />
         </a>
         <ul class="nav-links">
           <li><a href="#canais">Canais</a></li>
@@ -410,7 +426,7 @@
             no WhatsApp
           </h1>
           <p>
-            Crie agentes de IA que atendem seus clientes 24 horas por dia. Sem código, sem complicação. Conecte WhatsApp, Instagram, Telegram e mais em minutos.
+            Crie agentes de IA que atendem seus clientes 24 horas por dia. Sem código, sem complicação. Conecte WhatsApp, Instagram, Facebook e mais em minutos.
           </p>
           <div class="hero-btns">
             <a href="https://app.syncroflow.io/register" class="btn-primary">Começar grátis — 14 dias →</a>
@@ -486,7 +502,7 @@
     <div class="container">
       <div class="stats-grid">
         <div class="stat-item fade-up">
-          <strong>5+</strong>
+          <strong>4+</strong>
           <span>Canais integrados</span>
         </div>
         <div class="stat-item fade-up">
@@ -498,7 +514,7 @@
           <span>Para configurar</span>
         </div>
         <div class="stat-item fade-up">
-          <strong>3</strong>
+          <strong>5</strong>
           <span>Modelos de IA</span>
         </div>
       </div>
@@ -528,11 +544,6 @@
           <span class="channel-icon">📘</span>
           <h3>Facebook</h3>
           <p>Messenger integrado</p>
-        </div>
-        <div class="channel-card fade-up">
-          <span class="channel-icon">✈️</span>
-          <h3>Telegram</h3>
-          <p>Bot Token rápido</p>
         </div>
         <div class="channel-card fade-up">
           <span class="channel-icon">💬</span>
@@ -712,7 +723,7 @@
             <span>• Até 5 agentes</span>
           </div>
           <ul class="plan-features">
-            <li>WhatsApp, Instagram, Telegram</li>
+            <li>WhatsApp, Instagram, Facebook</li>
             <li>Widget para sites</li>
             <li>Intenções com webhook</li>
             <li>Base de conhecimento</li>
@@ -732,7 +743,7 @@
             <span>• Até 15 agentes</span>
           </div>
           <ul class="plan-features">
-            <li>WhatsApp, Instagram, Telegram</li>
+            <li>WhatsApp, Instagram, Facebook</li>
             <li>Widget para sites</li>
             <li>Intenções com webhook</li>
             <li>Base de conhecimento</li>
@@ -751,7 +762,7 @@
             <span>• Até 40 agentes</span>
           </div>
           <ul class="plan-features">
-            <li>WhatsApp, Instagram, Telegram</li>
+            <li>WhatsApp, Instagram, Facebook</li>
             <li>Widget para sites</li>
             <li>Intenções com webhook</li>
             <li>Base de conhecimento</li>
@@ -858,20 +869,8 @@
     <div class="container">
       <div class="footer-grid">
         <div class="footer-brand">
-          <a href="#" class="logo">
-            <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
-              <path d="M8 32C8 24 14 16 24 14C34 12 42 18 42 28C42 36 36 42 26 42L14 44L16 34C11 31 8 28 8 32Z" fill="url(#ftgrad)"/>
-              <circle cx="18" cy="28" r="2.5" fill="white"/>
-              <circle cx="24" cy="28" r="2.5" fill="white"/>
-              <circle cx="30" cy="28" r="2.5" fill="white"/>
-              <defs>
-                <linearGradient id="ftgrad" x1="8" y1="14" x2="42" y2="44">
-                  <stop offset="0%" stop-color="#4CAF50"/>
-                  <stop offset="100%" stop-color="#29B6F6"/>
-                </linearGradient>
-              </defs>
-            </svg>
-            <span class="logo-text" style="font-size:18px"><span>Syncro</span><span>Flow</span></span>
+          <a href="#" class="logo" style="text-decoration:none">
+            <span class="logo-text" style="font-size:20px"><span>Syncro</span><span>Flow</span></span>
           </a>
           <p>Plataforma SaaS de atendimento omnichannel com IA. Desenvolvido no Brasil para o mercado brasileiro.</p>
         </div>
@@ -889,8 +888,8 @@
           <ul>
             <li><a href="#">WhatsApp</a></li>
             <li><a href="#">Instagram</a></li>
-            <li><a href="#">Telegram</a></li>
             <li><a href="#">Facebook</a></li>
+            <li><a href="#">Widget para sites</a></li>
           </ul>
         </div>
         <div class="footer-col">
@@ -950,6 +949,13 @@
     })
     counters.forEach(c => counterObserver.observe(c))
   </script>
+
+  <!-- Nota para o dev: o evento CompleteRegistration deve ser disparado em app.syncroflow.io/register
+       após o usuário concluir o cadastro (ex: na página de confirmação/sucesso). Exemplo:
+       fbq('track', 'CompleteRegistration');
+       gtag('event', 'sign_up', { method: 'email' });
+       Esse código deve ser adicionado no app Next.js, não aqui na landing.
+  -->
 </body>
 </html>
 
