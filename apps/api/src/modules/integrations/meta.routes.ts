@@ -33,12 +33,23 @@ async function exchangeCodeForLongLivedToken(code: string, redirectUri: string):
 
 // Busca páginas do Facebook e conta Instagram vinculada
 async function getPagesWithInstagram(userToken: string) {
+  // Loga info do usuário para diagnóstico
+  try {
+    const meRes = await axios.get('https://graph.facebook.com/v21.0/me', {
+      params: { access_token: userToken, fields: 'id,name' },
+    })
+    console.log('[META-OAUTH] me:', JSON.stringify(meRes.data))
+  } catch (e: any) {
+    console.log('[META-OAUTH] me error:', e?.response?.data || e?.message)
+  }
+
   const res = await axios.get('https://graph.facebook.com/v21.0/me/accounts', {
     params: {
       access_token: userToken,
       fields: 'id,name,access_token,instagram_business_account{id,name,username,profile_picture_url}',
     },
   })
+  console.log('[META-OAUTH] /me/accounts raw:', JSON.stringify(res.data))
   return res.data.data as Array<{
     id: string
     name: string
@@ -119,20 +130,22 @@ export async function metaIntegrationRoutes(app: FastifyInstance) {
       console.log('[META-OAUTH] páginas encontradas:', JSON.stringify(pages).slice(0, 800))
 
       if (pages.length === 0) {
-        // Verifica se o token tem a permissão pages_show_list para diagnóstico
+        // Diagnóstico detalhado
         try {
-          const permRes = await axios.get('https://graph.facebook.com/v21.0/me/permissions', {
-            params: { access_token: longToken },
-          })
+          const [permRes, meRes] = await Promise.all([
+            axios.get('https://graph.facebook.com/v21.0/me/permissions', { params: { access_token: longToken } }),
+            axios.get('https://graph.facebook.com/v21.0/me', { params: { access_token: longToken, fields: 'id,name' } }),
+          ])
           const granted = (permRes.data?.data || []).filter((p: any) => p.status === 'granted').map((p: any) => p.permission)
-          console.log('[META-OAUTH] permissões concedidas:', granted.join(', '))
+          const meUser = meRes.data?.name || meRes.data?.id || 'desconhecido'
+          console.log('[META-OAUTH] diagnóstico — usuário:', meUser, '| permissões:', granted.join(', '))
           const hasPages = granted.includes('pages_show_list')
           const errMsg = hasPages
-            ? 'Nenhuma Página do Facebook encontrada. Certifique-se de ter uma Página (não perfil pessoal) e selecioná-la durante a autorização.'
-            : 'Permissão "pages_show_list" não concedida. Tente conectar novamente e autorize todas as permissões solicitadas.'
+            ? `Nenhuma Página encontrada para o usuário "${meUser}". Você precisa ser ADMINISTRADOR da Página no Facebook. Acesse facebook.com/[sua-pagina] → Configurações → Funções da Página e verifique se sua conta é Admin.`
+            : `Permissão "pages_show_list" não concedida para "${meUser}". Tente conectar novamente e autorize TODAS as permissões.`
           return reply.redirect(`${FRONTEND_URL}/settings?meta_error=${encodeURIComponent(errMsg)}`)
         } catch {
-          return reply.redirect(`${FRONTEND_URL}/settings?meta_error=${encodeURIComponent('Nenhuma Página do Facebook encontrada. Você precisa ter uma Página (não perfil pessoal) e selecioná-la durante a autorização.')}`)
+          return reply.redirect(`${FRONTEND_URL}/settings?meta_error=${encodeURIComponent('Nenhuma Página do Facebook encontrada. Você precisa ser ADMINISTRADOR da Página (não apenas seguidor).')}`)
         }
       }
 
