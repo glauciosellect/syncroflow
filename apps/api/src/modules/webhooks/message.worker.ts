@@ -99,7 +99,7 @@ export function startMessageWorker() {
         name = payload.message?.from?.first_name || 'Usuário'
         text = payload.message?.text
         if (!text) return
-      } else if (channelType === 'META' || channelType === 'INSTAGRAM') {
+      } else if (channelType === 'META' || channelType === 'INSTAGRAM' || channelType === 'FACEBOOK') {
         console.log('[META] payload raw:', JSON.stringify(payload).slice(0, 800))
 
         // Instagram Direct: entry[0].messaging[0] (Messenger-style)
@@ -542,7 +542,7 @@ export function startMessageWorker() {
           chat_id: from,
           text: responseText,
         })
-      } else if (channelType === 'META' || channelType === 'INSTAGRAM') {
+      } else if (channelType === 'META' || channelType === 'INSTAGRAM' || channelType === 'FACEBOOK') {
         const pageToken = (channel.config as any).pageAccessToken
         // Para Instagram usa igAccountId; para Facebook/META usa pageId
         const igAccountId = (channel.config as any).igAccountId || (channel.config as any).pageId

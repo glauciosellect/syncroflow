@@ -48,20 +48,21 @@ model Workspace {
   elevenLabsVoiceId       String?
   createdAt               DateTime          @default(now())
   updatedAt               DateTime          @default(now()) @updatedAt
-  agents         Agent[]
-  attendances    Attendance[]
-  channels       Channel[]
-  contacts       Contact[]
-  conversations  Conversation[]
-  envVariables   EnvVariable[]
-  invoices       Invoice[]
-  knowledgeBases KnowledgeBase[]
-  subscriptions  Subscription[]
-  members        WorkspaceMember[]
-  invites        WorkspaceInvite[]
-  leads          Lead[]
-  pipelineStages PipelineStage[]
-  followUps      FollowUp[]
+  agents          Agent[]
+  attendances     Attendance[]
+  channels        Channel[]
+  contacts        Contact[]
+  conversations   Conversation[]
+  envVariables    EnvVariable[]
+  invoices        Invoice[]
+  knowledgeBases  KnowledgeBase[]
+  subscriptions   Subscription[]
+  members         WorkspaceMember[]
+  invites         WorkspaceInvite[]
+  leads           Lead[]
+  pipelineStages  PipelineStage[]
+  followUps       FollowUp[]
+  welcomeMessages WelcomeMessage[]
 }
 
 model WorkspaceMember {
@@ -474,6 +475,20 @@ model FollowUp {
   updatedAt   DateTime       @default(now()) @updatedAt
   workspace   Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   lead        Lead?          @relation(fields: [leadId], references: [id], onDelete: SetNull)
+}
+
+model WelcomeMessage {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  userId       String
+  phone        String
+  name         String
+  messageIndex Int
+  scheduledAt  DateTime
+  sentAt       DateTime?
+  status       String    @default("PENDING")
+  createdAt    DateTime  @default(now())
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 }
 
 enum Plan {

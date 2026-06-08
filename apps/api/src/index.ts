@@ -30,6 +30,7 @@ import { webhookRoutes } from './modules/webhooks/webhooks.routes'
 import { comercialRoutes } from './modules/comercial/comercial.routes'
 import { startTrainingWorker } from './modules/ai/training.worker'
 import { startMessageWorker } from './modules/webhooks/message.worker'
+import { startWelcomeWorker } from './modules/welcome/welcome.worker'
 import { initSocket } from './lib/socket'
 
 const app = Fastify({ logger: process.env.NODE_ENV === 'development' })
@@ -106,6 +107,7 @@ async function bootstrap() {
 
   startTrainingWorker()
   startMessageWorker()
+  startWelcomeWorker()
 
   const port = Number(process.env.PORT) || 3001
   await app.listen({ port, host: '0.0.0.0' })

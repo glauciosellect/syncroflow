@@ -120,8 +120,9 @@
       box-shadow: 0 1px 20px rgba(0,0,0,0.08);
     }
     .nav-inner { display: flex; align-items: center; justify-content: space-between; }
-    .logo { display: flex; align-items: center; text-decoration: none; }
-    .logo img { height: 60px; width: auto; display: block; }
+    .logo { display: flex; align-items: center; gap: 8px; text-decoration: none; }
+    .logo-icon { height: 52px; width: auto; display: block; }
+    .logo-wordmark { height: 36px; width: auto; display: block; }
     .logo-text { font-size: 22px; font-weight: 800; }
     .logo-text span:first-child { color: var(--green-light); }
     .logo-text span:last-child { color: var(--blue); }
@@ -256,6 +257,30 @@
     .feature-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 10px; }
     .feature-card p { font-size: 14px; color: var(--gray-600); line-height: 1.7; }
 
+    /* ── COMPARISON ── */
+    .comparison { padding: 100px 0; background: var(--gray-50); }
+    .comparison-table { margin-top: 60px; border-radius: 20px; overflow: hidden; border: 1px solid var(--gray-200); background: white; }
+    .comp-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; border-bottom: 1px solid var(--gray-200); }
+    .comp-row:last-child { border-bottom: none; }
+    .comp-row.header { background: var(--gray-900); }
+    .comp-cell {
+      padding: 18px 20px; font-size: 14px; color: var(--gray-600);
+      display: flex; align-items: center;
+      border-right: 1px solid var(--gray-200);
+    }
+    .comp-cell:last-child { border-right: none; }
+    .comp-row.header .comp-cell { color: rgba(255,255,255,0.7); font-size: 13px; font-weight: 700; letter-spacing: 0.5px; padding: 20px; }
+    .comp-row.header .comp-cell.highlighted { background: linear-gradient(135deg, var(--blue), var(--green)); color: white; font-size: 14px; text-align: center; justify-content: center; }
+    .comp-cell.feature-name { font-weight: 600; color: var(--gray-900); font-size: 14px; }
+    .comp-cell.no { color: #EF4444; }
+    .comp-cell.yes { color: #16A34A; font-weight: 600; }
+    .comp-cell.highlighted { background: rgba(21,101,192,0.04); font-weight: 600; color: var(--blue); justify-content: center; text-align: center; }
+    .comp-cell.center { justify-content: center; text-align: center; }
+    @media (max-width: 700px) {
+      .comp-row { grid-template-columns: 1fr 1fr; }
+      .comp-cell:nth-child(2) { display: none; }
+    }
+
     /* ── HOW IT WORKS ── */
     .how { padding: 100px 0; background: linear-gradient(135deg, #0D47A1 0%, #1565C0 50%, #2E7D32 100%); color: white; }
     .steps-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; margin-top: 60px; }
@@ -312,6 +337,29 @@
     .credits-row:last-child { border-bottom: none; }
     .credits-row.header { background: linear-gradient(135deg, var(--blue), var(--green)); color: white; font-weight: 700; }
     .credits-row:not(.header):hover { background: var(--blue-pale); }
+
+    /* ── FAQ ── */
+    .faq { padding: 100px 0; background: white; }
+    .faq-list { max-width: 780px; margin: 60px auto 0; }
+    .faq-item { border: 1px solid var(--gray-200); border-radius: 16px; margin-bottom: 12px; overflow: hidden; transition: box-shadow 0.2s; }
+    .faq-item:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+    .faq-question {
+      width: 100%; text-align: left; background: white; border: none; cursor: pointer;
+      padding: 22px 24px; font-size: 16px; font-weight: 600; color: var(--gray-900);
+      display: flex; justify-content: space-between; align-items: center; gap: 16px;
+      transition: background 0.2s;
+    }
+    .faq-question:hover { background: var(--gray-50); }
+    .faq-question .faq-icon {
+      width: 28px; height: 28px; border-radius: 50%; background: var(--blue-pale);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      color: var(--blue); font-size: 18px; font-weight: 400; transition: transform 0.3s, background 0.2s;
+    }
+    .faq-item.open .faq-question .faq-icon { transform: rotate(45deg); background: var(--blue); color: white; }
+    .faq-answer { max-height: 0; overflow: hidden; transition: max-height 0.35s ease, padding 0.25s ease; padding: 0 24px; }
+    .faq-answer p { font-size: 15px; color: var(--gray-600); line-height: 1.75; padding-bottom: 20px; }
+    .faq-cta { text-align: center; margin-top: 48px; }
+    .faq-cta p { font-size: 16px; color: var(--gray-600); margin-bottom: 20px; }
 
     /* ── TESTIMONIALS ── */
     .testimonials { padding: 100px 0; background: var(--gray-50); }
@@ -395,7 +443,8 @@
     <div class="container">
       <div class="nav-inner">
         <a href="#" class="logo">
-          <img src="logo.png" alt="SyncroFlow — Atendimento Inteligente. Fluxo que Conecta." />
+          <img src="icone.png" class="logo-icon" alt="" />
+          <img src="logotipo.png" class="logo-wordmark" alt="SyncroFlow — Atendimento Inteligente. Fluxo que Conecta." />
         </a>
         <ul class="nav-links">
           <li><a href="#canais">Canais</a></li>
@@ -607,6 +656,76 @@
     </div>
   </section>
 
+  <!-- COMPARISON -->
+  <section class="comparison" id="comparativo">
+    <div class="container">
+      <div class="section-header fade-up">
+        <span class="section-label">Comparativo</span>
+        <h2>Por que o <span class="gradient-text">SyncroFlow</span> é a melhor escolha?</h2>
+        <p>Veja lado a lado como cada opção impacta o seu negócio.</p>
+      </div>
+      <div class="comparison-table fade-up">
+        <div class="comp-row header">
+          <div class="comp-cell">Situação</div>
+          <div class="comp-cell center">❌ Sem atendimento<br>automático</div>
+          <div class="comp-cell center">👤 Com Secretária</div>
+          <div class="comp-cell highlighted">✅ Com SyncroFlow</div>
+        </div>
+        <div class="comp-row">
+          <div class="comp-cell feature-name">Horário de atendimento</div>
+          <div class="comp-cell no center">Só horário comercial</div>
+          <div class="comp-cell no center">Só horário comercial</div>
+          <div class="comp-cell yes highlighted">24h / 7 dias</div>
+        </div>
+        <div class="comp-row">
+          <div class="comp-cell feature-name">Resposta ao primeiro contato</div>
+          <div class="comp-cell no center">Horas ou dias depois</div>
+          <div class="comp-cell center" style="color:#F59E0B">Minutos (se disponível)</div>
+          <div class="comp-cell yes highlighted">Instantânea, em segundos</div>
+        </div>
+        <div class="comp-row">
+          <div class="comp-cell feature-name">Custo mensal</div>
+          <div class="comp-cell no center">R$0 (perde clientes)</div>
+          <div class="comp-cell no center">R$1.800 a R$3.500/mês</div>
+          <div class="comp-cell yes highlighted">A partir de R$60/mês</div>
+        </div>
+        <div class="comp-row">
+          <div class="comp-cell feature-name">Atende múltiplos clientes ao mesmo tempo</div>
+          <div class="comp-cell no center">Não</div>
+          <div class="comp-cell no center">Não</div>
+          <div class="comp-cell yes highlighted">Sim, ilimitado</div>
+        </div>
+        <div class="comp-row">
+          <div class="comp-cell feature-name">Agenda consultas/pedidos automaticamente</div>
+          <div class="comp-cell no center">Não</div>
+          <div class="comp-cell center" style="color:#F59E0B">Sim, manualmente</div>
+          <div class="comp-cell yes highlighted">Sim, automaticamente</div>
+        </div>
+        <div class="comp-row">
+          <div class="comp-cell feature-name">Disponível em feriados e fins de semana</div>
+          <div class="comp-cell no center">Não</div>
+          <div class="comp-cell no center">Raramente</div>
+          <div class="comp-cell yes highlighted">Sempre</div>
+        </div>
+        <div class="comp-row">
+          <div class="comp-cell feature-name">Consistência nas respostas</div>
+          <div class="comp-cell no center">Variável</div>
+          <div class="comp-cell center" style="color:#F59E0B">Depende do humor</div>
+          <div class="comp-cell yes highlighted">Sempre igual, profissional</div>
+        </div>
+        <div class="comp-row">
+          <div class="comp-cell feature-name">WhatsApp, Instagram e Facebook</div>
+          <div class="comp-cell no center">Não</div>
+          <div class="comp-cell center" style="color:#F59E0B">Manual</div>
+          <div class="comp-cell yes highlighted">Automática e simultânea</div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:48px" class="fade-up">
+        <a href="https://app.syncroflow.io/register" class="btn-primary">Começar Trial Gratuito — 14 dias sem cartão →</a>
+      </div>
+    </div>
+  </section>
+
   <!-- HOW IT WORKS -->
   <section class="how" id="como-funciona">
     <div class="container">
@@ -799,6 +918,143 @@
     }
   </script>
 
+  <!-- FAQ -->
+  <section class="faq" id="faq">
+    <div class="container">
+      <div class="section-header fade-up">
+        <span class="section-label">FAQ</span>
+        <h2>Perguntas <span class="gradient-text">frequentes</span></h2>
+        <p>Tudo que você precisa saber antes de começar.</p>
+      </div>
+      <div class="faq-list fade-up">
+
+        <div class="faq-item">
+          <button class="faq-question" onclick="toggleFaq(this)">
+            Preciso de conhecimento técnico para configurar o SyncroFlow?
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-answer">
+            <p>Não. O SyncroFlow foi desenvolvido para ser usado por qualquer pessoa, sem precisar saber programar. A configuração é visual, intuitiva e leva menos de 30 minutos. Se precisar de ajuda, nosso suporte está disponível por WhatsApp.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question" onclick="toggleFaq(this)">
+            O SyncroFlow funciona com meu número de WhatsApp atual?
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-answer">
+            <p>Sim. Você pode conectar seu número de WhatsApp Business existente. Não é necessário trocar de número nem de chip. A integração é feita pelo WhatsApp Business API oficial.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question" onclick="toggleFaq(this)">
+            Meus clientes vão saber que é um robô respondendo?
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-answer">
+            <p>O SyncroFlow usa inteligência artificial avançada que conversa de forma natural e humanizada. Você configura o nome, a personalidade e o tom do seu atendente virtual. A maioria dos clientes não percebe diferença.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question" onclick="toggleFaq(this)">
+            O que acontece se o cliente fizer uma pergunta que o agente não sabe responder?
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-answer">
+            <p>Você configura exatamente o que o agente deve fazer nessa situação: redirecionar para um atendente humano, pedir para o cliente aguardar, ou enviar uma mensagem personalizada. Você tem controle total.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question" onclick="toggleFaq(this)">
+            Posso usar o SyncroFlow no Instagram e no Facebook também?
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-answer">
+            <p>Sim. O SyncroFlow atende nos três canais simultaneamente: WhatsApp, Instagram Direct e Facebook Messenger. Todas as conversas ficam centralizadas em um único painel.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question" onclick="toggleFaq(this)">
+            E se eu precisar cancelar? Tem multa ou fidelidade?
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-answer">
+            <p>Não. O SyncroFlow não tem fidelidade nem multa de cancelamento. Você pode cancelar a qualquer momento pelo painel, sem burocracia. Cobramos apenas pelo período utilizado.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question" onclick="toggleFaq(this)">
+            O trial de 14 dias é realmente gratuito? Preciso de cartão de crédito?
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-answer">
+            <p>Sim, totalmente gratuito e sem necessidade de cartão de crédito. Você acessa todas as funcionalidades durante 14 dias. Só pedimos seu e-mail e número de WhatsApp para começar.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question" onclick="toggleFaq(this)">
+            Quantas mensagens o SyncroFlow consegue responder por dia?
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-answer">
+            <p>Não há limite de mensagens. O SyncroFlow responde todos os seus clientes simultaneamente, 24 horas por dia, 7 dias por semana, sem atrasos, independente do volume.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question" onclick="toggleFaq(this)">
+            Meus dados e os dados dos meus clientes ficam seguros?
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-answer">
+            <p>Sim. Todos os dados são armazenados com criptografia e seguimos as diretrizes da LGPD (Lei Geral de Proteção de Dados). Seus dados nunca são compartilhados com terceiros.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question" onclick="toggleFaq(this)">
+            Qual a diferença entre o SyncroFlow e um chatbot comum?
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-answer">
+            <p>Chatbots comuns seguem um roteiro fixo de perguntas e respostas. O SyncroFlow usa IA generativa (a mesma tecnologia do ChatGPT) para entender a intenção do cliente e responder de forma contextual, como um atendente humano treinado. Além disso, ele aprende com as interações ao longo do tempo.</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="faq-cta fade-up">
+        <p>Ainda tem dúvidas? Fale com a gente agora pelo WhatsApp →</p>
+        <a href="https://app.syncroflow.io/register" class="btn-primary">Testar Grátis por 14 Dias →</a>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    function toggleFaq(btn) {
+      const item = btn.closest('.faq-item')
+      const answer = item.querySelector('.faq-answer')
+      const isOpen = item.classList.contains('open')
+      // Fecha todos
+      document.querySelectorAll('.faq-item.open').forEach(el => {
+        el.classList.remove('open')
+        el.querySelector('.faq-answer').style.maxHeight = null
+      })
+      // Abre o clicado se estava fechado
+      if (!isOpen) {
+        item.classList.add('open')
+        answer.style.maxHeight = answer.scrollHeight + 'px'
+      }
+    }
+  </script>
+
   <!-- TESTIMONIALS -->
   <section class="testimonials">
     <div class="container">
@@ -865,7 +1121,8 @@
       <div class="footer-grid">
         <div class="footer-brand">
           <a href="#" class="logo" style="text-decoration:none">
-            <span class="logo-text" style="font-size:20px"><span>Syncro</span><span>Flow</span></span>
+            <img src="icone.png" style="height:40px;width:auto;filter:brightness(0) invert(1);" alt="" />
+            <img src="logotipo.png" style="height:28px;width:auto;filter:brightness(0) invert(1);" alt="SyncroFlow" />
           </a>
           <p>Plataforma SaaS de atendimento omnichannel com IA. Desenvolvido no Brasil para o mercado brasileiro.</p>
         </div>

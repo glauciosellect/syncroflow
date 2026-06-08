@@ -134,8 +134,10 @@ export async function webhookRoutes(app: FastifyInstance) {
   app.post('/webhooks/meta/:channelId', async (req, reply) => {
     const { channelId } = req.params as { channelId: string }
     const body = req.body as any
-    const channelType = 'META'
-    console.log('[META-ROUTE] recebido channelId:', channelId, '| body:', JSON.stringify(body).slice(0, 300))
+    // Busca o tipo real do canal para rotear corretamente no worker
+    const channel = await prisma.channel.findUnique({ where: { id: channelId }, select: { type: true } })
+    const channelType = channel?.type || 'META'
+    console.log('[META-ROUTE] recebido channelId:', channelId, '| type:', channelType, '| body:', JSON.stringify(body).slice(0, 300))
     await messageQueue.add('process', { channelId, channelType, payload: body }, {
       attempts: 3,
       backoff: { type: 'exponential', delay: 1000 },

@@ -7,6 +7,7 @@ import { redis } from '../../lib/redis'
 import { sendEmail, passwordResetEmail } from '../../lib/mailer'
 import type { RegisterInput, LoginInput } from './auth.schema'
 import { DEFAULT_AGENT_BEHAVIOR, DEFAULT_AGENT_NAME, DEFAULT_INTENTIONS } from '../agents/default-agent'
+import { scheduleWelcomeFlow } from '../welcome/welcome.service'
 
 function generateSlug(name: string): string {
   return name
@@ -92,6 +93,7 @@ export async function registerUser(input: RegisterInput, signTokens: (userId: st
             transferToHuman: true,
             responseDelay: 2,
             timezone: 'America/Sao_Paulo',
+            autoCreateLead: true,
           } as any,
         },
         intentions: {
@@ -102,6 +104,16 @@ export async function registerUser(input: RegisterInput, signTokens: (userId: st
     console.log('[AUTH] Agente padrão criado:', agent.id)
   } catch (err: any) {
     console.error('[AUTH] Erro ao criar agente padrão:', err?.message)
+  }
+
+  // Dispara fluxo de boas-vindas via WhatsApp se o usuário forneceu telefone
+  if (input.phone) {
+    scheduleWelcomeFlow({
+      userId: user.id,
+      workspaceId: workspace.id,
+      name: input.name.split(' ')[0],
+      phone: input.phone,
+    }).catch((err) => console.error('[AUTH] Erro ao agendar boas-vindas:', err?.message))
   }
 
   return { user: sanitize(user), workspace, ...tokens }
