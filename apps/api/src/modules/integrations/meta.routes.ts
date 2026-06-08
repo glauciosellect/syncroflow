@@ -88,11 +88,21 @@ export async function metaIntegrationRoutes(app: FastifyInstance) {
       return reply.redirect(`${FRONTEND_URL}/settings?meta_error=invalid_state`)
     }
 
-    // Verifica JWT e extrai userId
+    // Verifica o token: aceita refreshToken (7 dias) ou accessToken (15 min)
     let userId: string
     try {
-      const payload = app.jwt.verify(jwtToken) as { sub: string }
-      userId = payload.sub
+      // Tenta como refreshToken primeiro (sessão no banco — não expira em 15 min)
+      const session = await prisma.session.findUnique({
+        where: { refreshToken: jwtToken },
+        select: { userId: true, expiresAt: true },
+      })
+      if (session && session.expiresAt > new Date()) {
+        userId = session.userId
+      } else {
+        // Fallback: verifica como accessToken JWT
+        const payload = app.jwt.verify(jwtToken) as { sub: string }
+        userId = payload.sub
+      }
     } catch {
       return reply.redirect(`${FRONTEND_URL}/settings?meta_error=invalid_token`)
     }

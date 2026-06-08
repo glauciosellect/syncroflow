@@ -397,10 +397,11 @@ function ChannelsTab() {
     }
   }
 
-  const { token: authToken } = useAuthStore()
+  const { token: authToken, refreshToken: authRefreshToken } = useAuthStore()
 
   const connectMeta = (type: 'instagram' | 'facebook') => {
-    const token = authToken || localStorage.getItem('sf_token') || ''
+    // Usa refreshToken (7 dias) para não expirar durante o fluxo OAuth do Meta
+    const token = authRefreshToken || localStorage.getItem('sf_refresh') || authToken || localStorage.getItem('sf_token') || ''
     const url = `${API_URL}/integrations/meta/connect?token=${encodeURIComponent(token)}&type=${type}`
     window.location.href = url
   }
