@@ -55,7 +55,7 @@ export async function metaIntegrationRoutes(app: FastifyInstance) {
     if (!token) return reply.status(400).send({ error: 'Token JWT obrigatório' })
 
     const redirectUri = `${API_URL}/integrations/meta/callback`
-    const scope = 'pages_show_list,pages_messaging,instagram_basic,instagram_manage_messages'
+    const scope = 'pages_show_list,pages_messaging,pages_manage_metadata,instagram_basic,instagram_manage_messages'
 
     const state = Buffer.from(JSON.stringify({ token, type: type || 'instagram' })).toString('base64url')
 
@@ -119,7 +119,21 @@ export async function metaIntegrationRoutes(app: FastifyInstance) {
       console.log('[META-OAUTH] páginas encontradas:', JSON.stringify(pages).slice(0, 800))
 
       if (pages.length === 0) {
-        return reply.redirect(`${FRONTEND_URL}/settings?meta_error=no_pages`)
+        // Verifica se o token tem a permissão pages_show_list para diagnóstico
+        try {
+          const permRes = await axios.get('https://graph.facebook.com/v21.0/me/permissions', {
+            params: { access_token: longToken },
+          })
+          const granted = (permRes.data?.data || []).filter((p: any) => p.status === 'granted').map((p: any) => p.permission)
+          console.log('[META-OAUTH] permissões concedidas:', granted.join(', '))
+          const hasPages = granted.includes('pages_show_list')
+          const errMsg = hasPages
+            ? 'Nenhuma Página do Facebook encontrada. Certifique-se de ter uma Página (não perfil pessoal) e selecioná-la durante a autorização.'
+            : 'Permissão "pages_show_list" não concedida. Tente conectar novamente e autorize todas as permissões solicitadas.'
+          return reply.redirect(`${FRONTEND_URL}/settings?meta_error=${encodeURIComponent(errMsg)}`)
+        } catch {
+          return reply.redirect(`${FRONTEND_URL}/settings?meta_error=${encodeURIComponent('Nenhuma Página do Facebook encontrada. Você precisa ter uma Página (não perfil pessoal) e selecioná-la durante a autorização.')}`)
+        }
       }
 
       const created: string[] = []
