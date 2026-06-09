@@ -6,7 +6,7 @@ import { prisma } from '../../lib/prisma'
 import { redis } from '../../lib/redis'
 import { sendEmail, passwordResetEmail } from '../../lib/mailer'
 import type { RegisterInput, LoginInput } from './auth.schema'
-import { DEFAULT_AGENT_BEHAVIOR, DEFAULT_AGENT_NAME, DEFAULT_INTENTIONS } from '../agents/default-agent'
+import { DEFAULT_AGENT_BEHAVIOR, DEFAULT_AGENT_NAME, DEFAULT_INTENTIONS, DEFAULT_FLOWS } from '../agents/default-agent'
 import { scheduleWelcomeFlow } from '../welcome/welcome.service'
 
 function generateSlug(name: string): string {
@@ -98,6 +98,9 @@ export async function registerUser(input: RegisterInput, signTokens: (userId: st
         },
         intentions: {
           create: DEFAULT_INTENTIONS.map(({ order: _order, ...i }) => i),
+        },
+        flows: {
+          create: DEFAULT_FLOWS,
         },
       },
     })
