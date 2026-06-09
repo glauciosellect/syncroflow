@@ -13,6 +13,7 @@ import { workspaceRoutes } from './modules/workspaces/workspaces.routes'
 import { agentRoutes } from './modules/agents/agents.routes'
 import { trainingRoutes } from './modules/training/training.routes'
 import { intentionRoutes } from './modules/intentions/intentions.routes'
+import { flowRoutes } from './modules/flows/flows.routes'
 import { channelRoutes } from './modules/channels/channels.routes'
 import { conversationRoutes } from './modules/conversations/conversations.routes'
 import { contactRoutes } from './modules/contacts/contacts.routes'
@@ -87,6 +88,7 @@ async function bootstrap() {
   await app.register(agentRoutes)
   await app.register(trainingRoutes)
   await app.register(intentionRoutes)
+  await app.register(flowRoutes)
   await app.register(channelRoutes)
   await app.register(conversationRoutes)
   await app.register(contactRoutes)

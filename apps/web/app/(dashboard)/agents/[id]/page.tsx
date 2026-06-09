@@ -13,7 +13,7 @@ import { ArrowLeft, Save, Loader2, Bot, Send, X, Plus, Trash2, Pencil, Volume2, 
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 
-const tabs = ['Perfil', 'Treinamentos', 'Intenções', 'Configurações']
+const tabs = ['Perfil', 'Treinamentos', 'Intenções', 'Fluxos', 'Configurações']
 const modelOptions = [
   { value: 'claude-haiku-4-5', label: 'Claude Haiku', desc: 'Rápido e econômico', creditsPerMsg: 1, color: 'text-green-600' },
   { value: 'claude-3-5-sonnet-20241022', label: 'Claude Sonnet', desc: 'Equilibrado', creditsPerMsg: 3, color: 'text-blue-600' },
@@ -42,6 +42,9 @@ export default function AgentDetailPage() {
   const [showIntentionForm, setShowIntentionForm] = useState(false)
   const [intentionForm, setIntentionForm] = useState({ name: '', description: '', actionType: 'INTERNAL', fixedMessage: '', calendarAction: 'SCHEDULE' })
   const [editingIntention, setEditingIntention] = useState<any>(null)
+  const [showFlowForm, setShowFlowForm] = useState(false)
+  const [flowForm, setFlowForm] = useState({ name: '', trigger: '', script: '' })
+  const [editingFlow, setEditingFlow] = useState<any>(null)
   const [viewingTraining, setViewingTraining] = useState<any>(null)
   const [editingTrainingContent, setEditingTrainingContent] = useState('')
   const [previewingVoice, setPreviewingVoice] = useState<string | null>(null)
@@ -119,6 +122,63 @@ export default function AgentDetailPage() {
     mutationFn: (intentId: string) => api.delete(`/agents/${id}/intentions/${intentId}`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['agent', id] }); toast({ title: 'Intenção removida' }) },
   })
+
+  const { data: flows = [] } = useQuery({
+    queryKey: ['flows', id],
+    queryFn: () => api.get(`/agents/${id}/flows`).then(r => r.data),
+  })
+
+  const createFlowMutation = useMutation({
+    mutationFn: (data: any) => api.post(`/agents/${id}/flows`, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['flows', id] })
+      setShowFlowForm(false)
+      setFlowForm({ name: '', trigger: '', script: '' })
+      toast({ title: 'Fluxo criado!' })
+    },
+    onError: () => toast({ title: 'Erro ao criar fluxo', variant: 'destructive' }),
+  })
+
+  const updateFlowMutation = useMutation({
+    mutationFn: ({ flowId, data }: { flowId: string; data: any }) => api.patch(`/agents/${id}/flows/${flowId}`, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['flows', id] })
+      setEditingFlow(null)
+      setShowFlowForm(false)
+      setFlowForm({ name: '', trigger: '', script: '' })
+      toast({ title: 'Fluxo atualizado!' })
+    },
+    onError: () => toast({ title: 'Erro ao atualizar fluxo', variant: 'destructive' }),
+  })
+
+  const deleteFlowMutation = useMutation({
+    mutationFn: (flowId: string) => api.delete(`/agents/${id}/flows/${flowId}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['flows', id] }); toast({ title: 'Fluxo removido' }) },
+  })
+
+  const toggleFlowMutation = useMutation({
+    mutationFn: ({ flowId, isActive }: { flowId: string; isActive: boolean }) => api.patch(`/agents/${id}/flows/${flowId}`, { isActive }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['flows', id] }),
+  })
+
+  const handleSaveFlow = () => {
+    const { name, trigger, script } = flowForm
+    if (!name.trim() || !trigger.trim() || !script.trim()) {
+      toast({ title: 'Preencha todos os campos', variant: 'destructive' })
+      return
+    }
+    if (editingFlow) {
+      updateFlowMutation.mutate({ flowId: editingFlow.id, data: { name, trigger, script } })
+    } else {
+      createFlowMutation.mutate({ name, trigger, script })
+    }
+  }
+
+  const openEditFlow = (flow: any) => {
+    setFlowForm({ name: flow.name, trigger: flow.trigger, script: flow.script })
+    setEditingFlow(flow)
+    setShowFlowForm(true)
+  }
 
   const handleSaveIntention = () => {
     const { name, description, actionType, fixedMessage, calendarAction } = intentionForm
@@ -645,6 +705,99 @@ export default function AgentDetailPage() {
                         </button>
                         <button onClick={() => deleteIntentionMutation.mutate(intention.id)} className="p-1.5 hover:bg-red-50 rounded text-gray-400 hover:text-red-500">
                           <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ABA: FLUXOS */}
+        {activeTab === 'Fluxos' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">Fluxos de Atendimento</h2>
+                <p className="text-xs text-gray-500 mt-0.5">Defina como o agente deve responder em cada situação — leads, clientes, tipo de demanda etc.</p>
+              </div>
+              <Button size="sm" className="bg-[#1565C0] hover:bg-blue-800 text-white gap-1"
+                onClick={() => { setEditingFlow(null); setFlowForm({ name: '', trigger: '', script: '' }); setShowFlowForm(true) }}>
+                <Plus className="w-4 h-4" /> Novo Fluxo
+              </Button>
+            </div>
+
+            {showFlowForm && (
+              <Card className="border-blue-200">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">{editingFlow ? 'Editar Fluxo' : 'Novo Fluxo de Atendimento'}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div>
+                    <Label className="text-xs">Nome do fluxo</Label>
+                    <Input className="mt-1 text-sm" placeholder="Ex: Atendimento para Leads, Clientes Existentes, Área Cível..." value={flowForm.name} onChange={e => setFlowForm(p => ({ ...p, name: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Quando acionar este fluxo</Label>
+                    <Input className="mt-1 text-sm" placeholder="Ex: Quando o cliente nunca contratou e quer saber sobre serviços / Quando mencionar divórcio, herança, contratos..." value={flowForm.trigger} onChange={e => setFlowForm(p => ({ ...p, trigger: e.target.value }))} />
+                    <p className="text-xs text-gray-400 mt-1">Descreva em linguagem natural as situações em que este fluxo deve ser usado.</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Script de atendimento</Label>
+                    <textarea
+                      className="mt-1 w-full text-sm border border-gray-200 rounded-lg px-3 py-2 min-h-[180px] resize-y focus:outline-none focus:ring-2 focus:ring-blue-300"
+                      placeholder={`Ex:\nEtapa 1 — Apresentação: Se for o primeiro contato, apresente-se como advogada especializada em direito de família.\nEtapa 2 — Qualificação: Pergunte qual é a situação atual (casado, separado, em processo).\nEtapa 3 — Explicação: Explique brevemente as opções disponíveis sem dar parecer jurídico.\nEtapa 4 — CTA: Convide para uma consulta inicial.`}
+                      value={flowForm.script}
+                      onChange={e => setFlowForm(p => ({ ...p, script: e.target.value }))}
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <Button variant="outline" size="sm" onClick={() => { setShowFlowForm(false); setEditingFlow(null); setFlowForm({ name: '', trigger: '', script: '' }) }}>Cancelar</Button>
+                    <Button size="sm" className="bg-[#1565C0] hover:bg-blue-800 text-white" onClick={handleSaveFlow}
+                      disabled={createFlowMutation.isPending || updateFlowMutation.isPending}>
+                      {(createFlowMutation.isPending || updateFlowMutation.isPending) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                      {editingFlow ? 'Salvar alterações' : 'Criar Fluxo'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {flows.length === 0 && !showFlowForm && (
+              <div className="text-center py-12 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl">
+                <div className="text-3xl mb-2">🔀</div>
+                <div className="font-medium text-sm text-gray-500">Nenhum fluxo criado ainda</div>
+                <div className="text-xs mt-1">Crie fluxos diferentes para cada tipo de cliente ou situação</div>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              {(flows as any[]).map((flow: any) => (
+                <Card key={flow.id} className={`border ${flow.isActive ? 'border-gray-200' : 'border-gray-100 opacity-60'}`}>
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm text-gray-900">{flow.name}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${flow.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                            {flow.isActive ? 'Ativo' : 'Inativo'}
+                          </span>
+                        </div>
+                        <div className="text-xs text-blue-600 mt-1 font-medium">Acionar quando: <span className="font-normal text-gray-600">{flow.trigger}</span></div>
+                        <div className="text-xs text-gray-500 mt-1.5 bg-gray-50 rounded-lg p-2 whitespace-pre-wrap line-clamp-3">{flow.script}</div>
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        <button onClick={() => toggleFlowMutation.mutate({ flowId: flow.id, isActive: !flow.isActive })}
+                          className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 text-xs">
+                          {flow.isActive ? 'Desativar' : 'Ativar'}
+                        </button>
+                        <button onClick={() => openEditFlow(flow)} className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600">
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => deleteFlowMutation.mutate(flow.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500">
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>

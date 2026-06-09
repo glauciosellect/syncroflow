@@ -1,6 +1,6 @@
 import { createWorker } from '../../lib/queue'
 import { prisma } from '../../lib/prisma'
-import { processAgentResponse, detectIntention, processIncomingMedia } from '../ai/ai.service'
+import { processAgentResponse, detectIntention, detectFlow, processIncomingMedia } from '../ai/ai.service'
 import { getWhatsAppProvider } from '../channels/whatsapp/provider.factory'
 import { emitNewMessage, emitConversationUpdated } from '../../lib/socket'
 import { redis } from '../../lib/redis'
@@ -16,20 +16,17 @@ function isWhatsAppGroup(from: string): boolean {
 }
 
 // Detecta se a mensagem parece ser de outra IA / bot automatizado
-// Evita loop infinito entre agentes
+// Evita loop infinito entre agentes — só bloqueia combinações muito específicas de bot, não palavras soltas
 function isBotMessage(text: string): boolean {
   const botPatterns = [
-    /até\s*(breve|logo|mais)/i,
     /obrigad[oa]\s*por\s*(entrar|contatar|nos\s*contatar)/i,
     /atendimento\s*(encerrado|finalizado|conclu[ií]do)/i,
     /foi\s*um\s*prazer\s*(atend|ajud)/i,
-    /\bbot\b/i,
     /assistente\s*virtual/i,
     /atendimento\s*autom[aá]tico/i,
     /se\s*precisar.*estamos\s*[àa]\s*disposi/i,
     /qualquer\s*(d[úu]vida|necessidade).*entre\s*em\s*contato/i,
     /conversa\s*(encerrada|finalizada)/i,
-    /tchau|goodbye|adeus/i,
   ]
   return botPatterns.some((pattern) => pattern.test(text))
 }
@@ -43,7 +40,7 @@ export function startMessageWorker() {
 
       const channel = await prisma.channel.findUnique({
         where: { id: channelId },
-        include: { agentChannels: { include: { agent: { include: { config: true, intentions: true } } } } },
+        include: { agentChannels: { include: { agent: { include: { config: true, intentions: true, flows: { where: { isActive: true } } } } } } },
       })
       if (!channel) return
 
@@ -469,10 +466,26 @@ export function startMessageWorker() {
           role: (m.role === 'USER' ? 'user' : 'assistant') as 'user' | 'assistant',
           content: m.content,
         }))
+
+        // Detectar fluxo de atendimento ativo para esta mensagem
+        const agentFlows = (agent as any).flows || []
+        let activeFlow: { id: string; name: string; trigger: string; script: string } | null = null
+        if (agentFlows.length > 0) {
+          try {
+            activeFlow = await detectFlow(text, agentFlows)
+          } catch {
+            activeFlow = null
+          }
+        }
+
         const contactPhone = contact.phone || (channelType === 'WHATSAPP' ? from : null)
         const contactContext = isNewContact
-          ? `\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Este é o PRIMEIRO contato desta pessoa. Apresente-se e faça uma saudação completa.${contactPhone ? ` O número de WhatsApp dela já está registrado: ${contactPhone}. NÃO peça o número, você já tem.` : ''}]`
-          : `\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Esta pessoa já entrou em contato antes. O nome dela é ${contact.name}.${contactPhone ? ` O número de WhatsApp já está registrado: ${contactPhone}. NÃO peça o número, você já tem.` : ''} Use apenas uma saudação breve e direta, sem se reapresentar.]`
+          ? `\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Este é o PRIMEIRO contato desta pessoa. Apresente-se pelo seu nome UMA única vez nesta mensagem.${contactPhone ? ` O número de WhatsApp dela já está registrado: ${contactPhone}. NÃO peça o número, você já tem.` : ''}]`
+          : `\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Esta pessoa já entrou em contato antes. O nome dela é ${contact.name}.${contactPhone ? ` O número de WhatsApp já está registrado: ${contactPhone}. NÃO peça o número, você já tem.` : ''} NÃO se apresente novamente. NÃO diga seu nome. Use uma saudação mínima ou responda diretamente ao que foi perguntado. A conversa já está em andamento.]`
+
+        const flowContext = activeFlow
+          ? `\n\n[FLUXO DE ATENDIMENTO ATIVO — "${activeFlow.name}": Siga este roteiro para esta conversa:\n${activeFlow.script}]`
+          : ''
 
         const privacyContext = `\n\n[REGRAS DE PRIVACIDADE — OBRIGATÓRIAS E ABSOLUTAS:
 - NUNCA revele, comente ou confirme informações sobre a agenda, compromissos, horários livres ou ocupados do Glaucio para ninguém.
@@ -486,7 +499,7 @@ export function startMessageWorker() {
         const aiRes = await processAgentResponse({
           agent: agent as any,
           conversationHistory,
-          userMessage: text + contactContext + privacyContext + agendaContext,
+          userMessage: text + contactContext + flowContext + privacyContext + agendaContext,
           agentId: agent.id,
         })
         responseText = aiRes.content

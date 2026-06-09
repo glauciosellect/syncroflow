@@ -135,6 +135,7 @@ model Agent {
   conversations      Conversation[]
   intentions         Intention[]
   trainings          Training[]
+  flows              Flow[]
 }
 
 model AgentConfig {
@@ -260,6 +261,18 @@ model Intention {
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @default(now()) @updatedAt
   agent           Agent                 @relation(fields: [agentId], references: [id], onDelete: Cascade)
+}
+
+model Flow {
+  id          String   @id @default(cuid())
+  agentId     String
+  name        String
+  trigger     String
+  script      String   @db.Text
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+  agent       Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
 }
 
 model Channel {

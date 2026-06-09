@@ -95,6 +95,10 @@ Regras importantes:
 - Se não souber algo, diga que vai verificar e não invente informações
 ${config?.transferToHuman ? '- Se o cliente pedir explicitamente para falar com humano, informe que irá transferi-lo' : ''}
 - Data e hora atual: ${new Date().toLocaleString('pt-BR', { timeZone: config?.timezone || 'America/Sao_Paulo' })}
+- Após se apresentar na primeira mensagem, NÃO repita seu nome nas respostas seguintes. Trate o cliente de forma natural, como numa conversa contínua.
+- NUNCA encerre a conversa com "até breve", "tchau", "foi um prazer", "atendimento encerrado" ou qualquer despedida, A MENOS QUE o cliente explicitamente peça para encerrar ou se despeça primeiro. Enquanto o cliente continuar conversando, continue respondendo normalmente.
+- Se o cliente mandar uma mensagem curta como "ok", "entendi", "certo" ou "obrigado", responda brevemente e pergunte se há mais alguma coisa — não encerre.
+- Nunca repita a mesma pergunta ou frase de encerramento duas vezes seguidas.
 `.trim()
 }
 
@@ -125,6 +129,20 @@ export async function retrieveContext(message: string, agentId: string, topK = 5
     console.error('[AI] retrieveContext ERRO:', err?.message)
     return ''
   }
+}
+
+export async function detectFlow(message: string, flows: { id: string; name: string; trigger: string; script: string }[]): Promise<{ id: string; name: string; trigger: string; script: string } | null> {
+  if (flows.length === 0) return null
+  const flowList = flows.map(f => `- ID: ${f.id} | Nome: ${f.name} | Acionar quando: ${f.trigger}`).join('\n')
+  const res = await callLLM({
+    model: 'claude-haiku-4-5',
+    system: 'Você é um classificador de fluxos de atendimento. Analise a mensagem e determine se ela se encaixa em algum dos fluxos listados. Responda APENAS com o ID do fluxo ou "none". Nenhum texto adicional.',
+    messages: [{ role: 'user', content: `Mensagem: "${message}"\n\nFluxos disponíveis:\n${flowList}` }],
+    maxTokens: 100,
+  })
+  const flowId = res.content.trim()
+  if (flowId === 'none') return null
+  return flows.find(f => f.id === flowId) || null
 }
 
 export async function detectIntention(message: string, intentions: Intention[]): Promise<Intention | null> {
