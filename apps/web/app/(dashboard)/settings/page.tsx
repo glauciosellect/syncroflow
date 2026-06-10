@@ -14,7 +14,7 @@ import { formatDate } from '@/lib/utils'
 import {
   Plus, Trash2, Loader2, Eye, EyeOff, KeyRound,
   User, CreditCard, Check, Coins, Zap, AlertTriangle, Plug, ExternalLink,
-  Radio, QrCode, Save,
+  Radio, QrCode, Save, Copy,
 } from 'lucide-react'
 import { channelLabel, cn } from '@/lib/utils'
 
@@ -465,6 +465,16 @@ function ChannelsTab() {
                       <Badge variant={channel.isActive ? 'success' : 'secondary'} className="text-xs mt-0.5">
                         {channel.isActive ? 'Ativo' : 'Inativo'}
                       </Badge>
+                      <div className="flex items-center gap-1 mt-1">
+                        <span className="text-[10px] text-gray-400 font-mono">{channel.id}</span>
+                        <button
+                          onClick={() => { navigator.clipboard.writeText(channel.id); toast({ title: 'ID copiado!' }) }}
+                          className="text-gray-400 hover:text-gray-600 transition-colors"
+                          title="Copiar ID do canal"
+                        >
+                          <Copy className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                   <span className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full">{channelLabel(channel.type)}</span>
