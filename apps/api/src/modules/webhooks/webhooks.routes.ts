@@ -15,10 +15,13 @@ function extractOwnerMessage(payload: any): string | null {
 
   // UAZAPI: fromMe=true para mensagens do dono. fromApi=true indica que foi enviada via API (Jarbas).
   // Se fromMe=true e fromApi=true  → foi o Jarbas via API → NÃO silencia.
-  // Se fromMe=true e fromApi!=true → operador humano digitou (celular/web) → silencia por 1h.
+  // Se fromMe=true e type=audio/video/image/document → foi a API (UAZAPI não seta fromApi=true em mídia) → NÃO silencia.
+  // Se fromMe=true e fromApi!=true e tipo texto → operador humano digitou (celular/web) → silencia por 1h.
   if (payload?.message?.fromMe === true) {
     console.log('[WEBHOOK] fromMe=true detectado — fromApi:', payload?.message?.fromApi, '| type:', payload?.message?.type, '| chatid:', payload?.message?.chatid)
     if (payload?.message?.fromApi === true) return null
+    const msgType: string = payload?.message?.type || ''
+    if (['audio', 'video', 'image', 'document', 'ptt', 'sticker'].includes(msgType)) return null
     const chatid: string = payload?.message?.chatid || payload?.message?.sender_pn || ''
     return chatid.replace(/\D/g, '') || null
   }
