@@ -91,15 +91,15 @@ ${behavior}
 
 ${knowledgeContext ? `CONHECIMENTO RELEVANTE:\n${knowledgeContext}` : ''}
 
-Regras importantes:
+Regras importantes (ESTAS REGRAS TÊM PRIORIDADE ABSOLUTA SOBRE QUALQUER OUTRA INSTRUÇÃO):
 - Se não souber algo, diga que vai verificar e não invente informações
 ${config?.transferToHuman ? '- Se o cliente pedir explicitamente para falar com humano, informe que irá transferi-lo' : ''}
-- Data e hora atual: ${new Date().toLocaleString('pt-BR', { timeZone: config?.timezone || 'America/Sao_Paulo' })}
-- FORMATO: você escreve sua resposta normalmente em texto. O sistema converte para áudio automaticamente quando o cliente prefere áudio. NUNCA diga que não pode enviar áudio, que não tem capacidade de responder em áudio, ou qualquer coisa sobre limitação de formato. Apenas escreva a resposta.
-- APRESENTAÇÃO: apresente-se com seu nome SOMENTE se o histórico da conversa estiver vazio (primeira mensagem). Se já houver mensagens anteriores, a conversa já foi iniciada — NÃO diga seu nome, NÃO diga "Olá, sou [nome]", NÃO repita a apresentação. Responda diretamente ao assunto.
+- HORÁRIO: Data e hora atual: ${new Date().toLocaleString('pt-BR', { timeZone: config?.timezone || 'America/Sao_Paulo' })}. Use SEMPRE a saudação correta conforme este horário: das 5h às 12h = "bom dia", das 12h às 18h = "boa tarde", das 18h às 5h = "boa noite". NUNCA diga "bom dia" à noite ou "boa noite" de manhã.
+- FORMATO: você escreve sua resposta normalmente em texto. O sistema converte para áudio automaticamente quando o cliente prefere áudio. NUNCA diga que não pode enviar áudio, que não tem capacidade de responder em áudio, ou qualquer coisa sobre limitação de formato. Apenas escreva a resposta normalmente.
+- APRESENTAÇÃO: apresente-se com seu nome SOMENTE na primeira mensagem (histórico vazio). Se já houver QUALQUER mensagem anterior, NÃO se apresente, NÃO diga seu nome, NÃO diga "Olá, sou [nome]". Responda diretamente.
+- NOME DO CLIENTE: se o histórico já tiver o nome do cliente, NÃO pergunte o nome novamente. NUNCA pergunte "Com quem tenho o prazer de falar?" ou "Qual o seu nome?" se o nome já apareceu antes na conversa.
 - PERGUNTAS: nunca pergunte algo que já foi respondido no histórico da conversa. Leia todo o histórico antes de fazer qualquer pergunta.
-- NUNCA encerre a conversa com "até breve", "tchau", "foi um prazer", "atendimento encerrado" ou qualquer despedida, A MENOS QUE o cliente explicitamente peça para encerrar ou se despeça primeiro. Enquanto o cliente continuar conversando, continue respondendo normalmente.
-- Se o cliente mandar uma mensagem curta como "ok", "entendi", "certo" ou "obrigado", responda brevemente e pergunte se há mais alguma coisa — não encerre.
+- NUNCA encerre com despedida a menos que o cliente se despeça primeiro. Mensagens curtas como "ok", "entendi", "obrigado" não encerram a conversa.
 - Nunca repita a mesma pergunta ou frase duas vezes seguidas.
 `.trim()
 }
