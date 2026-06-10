@@ -31,31 +31,78 @@ async function exchangeCodeForLongLivedToken(code: string, redirectUri: string):
   return longRes.data.access_token
 }
 
+type MetaPage = {
+  id: string
+  name: string
+  access_token: string
+  instagram_business_account?: { id: string; name: string; username: string; profile_picture_url?: string }
+}
+
 // Busca páginas do Facebook e conta Instagram vinculada
-async function getPagesWithInstagram(userToken: string) {
+async function getPagesWithInstagram(userToken: string): Promise<MetaPage[]> {
   // Loga info do usuário para diagnóstico
+  let userName = 'desconhecido'
   try {
     const meRes = await axios.get('https://graph.facebook.com/v21.0/me', {
       params: { access_token: userToken, fields: 'id,name' },
     })
+    userName = meRes.data?.name || meRes.data?.id || 'desconhecido'
     console.log('[META-OAUTH] me:', JSON.stringify(meRes.data))
   } catch (e: any) {
     console.log('[META-OAUTH] me error:', e?.response?.data || e?.message)
   }
 
-  const res = await axios.get('https://graph.facebook.com/v21.0/me/accounts', {
-    params: {
-      access_token: userToken,
-      fields: 'id,name,access_token,instagram_business_account{id,name,username,profile_picture_url}',
-    },
-  })
-  console.log('[META-OAUTH] /me/accounts raw:', JSON.stringify(res.data))
-  return res.data.data as Array<{
-    id: string
-    name: string
-    access_token: string
-    instagram_business_account?: { id: string; name: string; username: string; profile_picture_url?: string }
-  }>
+  const pageFields = 'id,name,access_token,instagram_business_account{id,name,username,profile_picture_url}'
+  const pagesMap = new Map<string, MetaPage>()
+
+  // 1. Páginas com admin direto
+  try {
+    const res = await axios.get('https://graph.facebook.com/v21.0/me/accounts', {
+      params: { access_token: userToken, fields: pageFields },
+    })
+    console.log('[META-OAUTH] /me/accounts raw:', JSON.stringify(res.data))
+    for (const p of (res.data.data || [])) pagesMap.set(p.id, p)
+  } catch (e: any) {
+    console.log('[META-OAUTH] /me/accounts error:', e?.response?.data || e?.message)
+  }
+
+  // 2. Páginas via portfólios empresariais (Business Manager)
+  try {
+    const bizRes = await axios.get('https://graph.facebook.com/v21.0/me/businesses', {
+      params: { access_token: userToken, fields: 'id,name' },
+    })
+    console.log('[META-OAUTH] /me/businesses raw:', JSON.stringify(bizRes.data).slice(0, 400))
+    for (const biz of (bizRes.data?.data || [])) {
+      try {
+        const ownedRes = await axios.get(`https://graph.facebook.com/v21.0/${biz.id}/owned_pages`, {
+          params: { access_token: userToken, fields: pageFields },
+        })
+        console.log(`[META-OAUTH] business ${biz.name} owned_pages:`, JSON.stringify(ownedRes.data).slice(0, 400))
+        for (const p of (ownedRes.data?.data || [])) {
+          if (!pagesMap.has(p.id)) pagesMap.set(p.id, p)
+        }
+      } catch (e: any) {
+        console.log(`[META-OAUTH] owned_pages error for ${biz.id}:`, e?.response?.data || e?.message)
+      }
+      try {
+        const clientRes = await axios.get(`https://graph.facebook.com/v21.0/${biz.id}/client_pages`, {
+          params: { access_token: userToken, fields: pageFields },
+        })
+        console.log(`[META-OAUTH] business ${biz.name} client_pages:`, JSON.stringify(clientRes.data).slice(0, 400))
+        for (const p of (clientRes.data?.data || [])) {
+          if (!pagesMap.has(p.id)) pagesMap.set(p.id, p)
+        }
+      } catch (e: any) {
+        console.log(`[META-OAUTH] client_pages error for ${biz.id}:`, e?.response?.data || e?.message)
+      }
+    }
+  } catch (e: any) {
+    console.log('[META-OAUTH] /me/businesses error:', e?.response?.data || e?.message)
+  }
+
+  const pages = Array.from(pagesMap.values())
+  console.log(`[META-OAUTH] total páginas encontradas para "${userName}":`, pages.length)
+  return pages
 }
 
 export async function metaIntegrationRoutes(app: FastifyInstance) {

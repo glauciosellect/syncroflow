@@ -52,6 +52,7 @@ export async function googleRoutes(app: FastifyInstance) {
 
       // Upsert user — cria se não existe, atualiza googleId se existe
       let user = await prisma.user.findUnique({ where: { email } })
+      const isNewUser = !user
 
       if (!user) {
         const firstName = name.split(' ')[0]
@@ -100,7 +101,8 @@ export async function googleRoutes(app: FastifyInstance) {
       const workspace = (user as any).workspaceMembers?.[0]?.workspace
         ?? await prisma.workspaceMember.findFirst({ where: { userId: (user as any).id }, include: { workspace: true } }).then(m => m?.workspace)
 
-      const destination = (user as any).onboardingDone ? `${FRONTEND_URL}/dashboard` : `${FRONTEND_URL}/register?step=2`
+      // Usuários existentes vão direto ao dashboard; novos usuários passam pelo onboarding
+      const destination = (!isNewUser || (user as any).onboardingDone) ? `${FRONTEND_URL}/dashboard` : `${FRONTEND_URL}/register?step=2`
       const params = new URLSearchParams({
         token: jwtTokens.accessToken,
         refresh: jwtTokens.refreshToken,

@@ -148,7 +148,7 @@ export function Topbar() {
                 <div className="flex items-center gap-1.5 text-sm text-gray-600">
                   <Coins className="w-4 h-4 text-yellow-500" />
                   <span className="font-medium">{credits.toLocaleString()}</span>
-                  <span className="text-gray-400">créditos</span>
+                  <span className="hidden sm:inline text-gray-400">créditos</span>
                 </div>
               )}
             </div>
@@ -160,7 +160,7 @@ export function Topbar() {
             <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: 'linear-gradient(135deg, #1565C0, #2E7D32)' }}>
               {user?.name?.[0]?.toUpperCase()}
             </div>
-            <span className="text-sm font-medium text-gray-700">{user?.name?.split(' ')[0]}</span>
+            <span className="hidden sm:inline text-sm font-medium text-gray-700">{user?.name?.split(' ')[0]}</span>
           </button>
           <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
             <div className="p-1">
