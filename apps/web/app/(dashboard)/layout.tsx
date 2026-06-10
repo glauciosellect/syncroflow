@@ -56,7 +56,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         )}
 
-        <main className="flex-1 overflow-auto p-3 md:p-6">
+        <main className="flex-1 overflow-auto p-4 md:p-6">
           {/* Bloqueia conteúdo quando trial expirado (exceto página de billing) */}
           {isTrialExpired && !isBillingPage ? (
             <div className="flex flex-col items-center justify-center h-full text-center gap-4">

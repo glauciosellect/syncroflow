@@ -143,9 +143,9 @@ export function Topbar() {
   }
 
   return (
-    <header className="h-14 bg-[hsl(var(--card))] border-b border-[hsl(var(--border))] flex items-center justify-between px-4 md:px-5 shrink-0">
-      {/* Espaço para o botão hamburger no mobile */}
-      <div className="w-10 md:w-0" />
+    <header className="h-14 bg-[hsl(var(--card))] border-b border-[hsl(var(--border))] flex items-center justify-between pl-14 pr-4 md:pl-5 md:pr-5 shrink-0">
+      {/* Espaço vazio — padding-left já abre espaço para o hamburger fixo */}
+      <div />
 
       <div className="flex items-center gap-1.5">
         {/* Créditos */}

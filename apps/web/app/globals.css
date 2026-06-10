@@ -105,6 +105,20 @@
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 99px; }
   ::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground)); }
+
+  /* iOS — evita zoom automático ao focar em inputs */
+  @media (max-width: 768px) {
+    input, textarea, select {
+      font-size: 16px !important;
+    }
+  }
+
+  /* Touch targets mínimos em mobile */
+  @media (max-width: 768px) {
+    button, a, [role="button"] {
+      min-height: 40px;
+    }
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
