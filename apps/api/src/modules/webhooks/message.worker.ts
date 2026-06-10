@@ -16,7 +16,7 @@ function isWhatsAppGroup(from: string): boolean {
 }
 
 // Detecta se a mensagem parece ser de outra IA / bot automatizado
-// Evita loop infinito entre agentes — só bloqueia combinações muito específicas de bot, não palavras soltas
+// Evita loop infinito entre agentes
 function isBotMessage(text: string): boolean {
   const botPatterns = [
     /obrigad[oa]\s*por\s*(entrar|contatar|nos\s*contatar)/i,
@@ -29,6 +29,20 @@ function isBotMessage(text: string): boolean {
     /conversa\s*(encerrada|finalizada)/i,
   ]
   return botPatterns.some((pattern) => pattern.test(text))
+}
+
+// Detecta se a mensagem é uma despedida do cliente
+// Quando detectado, o agente responde uma última vez e silencia a conversa por 2h
+function isFarewellMessage(text: string): boolean {
+  const t = text.trim()
+  // Mensagem muito curta com emoji de despedida ou palavras simples
+  const farewellPatterns = [
+    /^(tchau|xau|tchauzinho|xauzinho|até\s*mais|até\s*logo|até\s*breve|até\s*amanhã|falou|flw|fui|valeu\s*falou|abraços?|bjs?|bjão|bjoca)[\s!.]*$/i,
+    /^(bye|cya|see\s*you|goodbye|hasta\s*luego)[\s!.]*$/i,
+    /\b(tchau|xau|até\s*mais|até\s*logo|até\s*breve|até\s*a\s*próxima|boa\s*noite|boa\s*tarde|bom\s*dia)\s*[\W]*$/i,
+  ]
+  // Só aplica em mensagens curtas (≤ 60 chars) para não bloquear respostas longas que mencionem despedida
+  return t.length <= 60 && farewellPatterns.some((p) => p.test(t))
 }
 
 export function startMessageWorker() {
@@ -90,6 +104,15 @@ export function startMessageWorker() {
         const silenceKey = `silence:${channelId}:${from}`
         const isSilenced = await redis.get(silenceKey)
         if (isSilenced) return
+
+        // Se cliente se despediu, agenda silêncio de 2h para evitar loop de despedidas
+        // O worker continua e processa normalmente — o agente responde a despedida uma última vez
+        // Depois disso a conversa fica silenciada até o próximo contato do cliente
+        const farewell = isFarewellMessage(text)
+        if (farewell) {
+          await redis.set(silenceKey, '1', 'EX', 2 * 60 * 60)
+          console.log(`[WORKER] Despedida detectada de ${from} — silenciando por 2h após esta resposta`)
+        }
 
       } else if (channelType === 'TELEGRAM') {
         from = String(payload.message?.from?.id || payload.message?.chat?.id)

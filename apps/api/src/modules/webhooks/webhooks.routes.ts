@@ -53,9 +53,15 @@ export async function webhookRoutes(app: FastifyInstance) {
         body?.data?.message?.extendedTextMessage?.text ||
         body?.text?.message || ''
 
-      if (ownerText.trim().toLowerCase() === '#jarbas on') {
+      const cmd = ownerText.trim().toLowerCase()
+      if (cmd === '#jarbas on' || cmd === '#on' || cmd === '#ativar') {
+        // Reativa o agente para este contato
         await redis.del(silenceKey)
+      } else if (cmd === '#jarbas' || cmd === '#jarbas off' || cmd === '#off' || cmd === '#parar' || cmd === '#silenciar') {
+        // Para o agente para este contato por 24h
+        await redis.set(silenceKey, '1', 'EX', 24 * 60 * 60)
       } else {
+        // Qualquer outro texto do dono = silencia por 1h (modo humano)
         await redis.set(silenceKey, '1', 'EX', OWNER_SILENCE_TTL)
       }
 
