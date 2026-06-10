@@ -160,14 +160,17 @@ export async function agentRoutes(app: FastifyInstance) {
     const { sub } = req.user as { sub: string }
     const workspaceId = await getWorkspaceId(sub)
     const { id } = req.params as { id: string }
-    const { message } = z.object({ message: z.string() }).parse(req.body)
+    const { message, history } = z.object({
+      message: z.string(),
+      history: z.array(z.object({ role: z.string(), content: z.string() })).optional(),
+    }).parse(req.body)
     const agent = await prisma.agent.findFirst({
       where: { id, workspaceId },
       include: { config: true },
     })
     if (!agent) return reply.status(404).send({ error: 'Agente não encontrado' })
     const { testAgent } = await import('../ai/ai.service')
-    const result = await testAgent(agent, message)
+    const result = await testAgent(agent, message, history)
     return reply.send(result)
   })
 }

@@ -219,10 +219,14 @@ export default function AgentDetailPage() {
     if (!testMessage.trim()) return
     const msg = testMessage
     setTestMessage('')
+    const currentHistory = testMessages
     setTestMessages(prev => [...prev, { role: 'user', content: msg }])
     setTestLoading(true)
     try {
-      const res = await api.post(`/agents/${id}/test`, { message: msg })
+      const res = await api.post(`/agents/${id}/test`, {
+        message: msg,
+        history: currentHistory.map(m => ({ role: m.role, content: m.content })),
+      })
       setTestMessages(prev => [...prev, { role: 'assistant', content: res.data.response, credits: res.data.creditsUsed }])
     } catch {
       setTestMessages(prev => [...prev, { role: 'assistant', content: 'Erro ao processar resposta.' }])

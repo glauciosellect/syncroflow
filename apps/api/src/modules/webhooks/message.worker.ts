@@ -503,9 +503,11 @@ export function startMessageWorker() {
         }
 
         const contactPhone = contact.phone || (channelType === 'WHATSAPP' ? from : null)
-        const contactContext = isNewContact
-          ? `\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Este é o PRIMEIRO contato desta pessoa. Apresente-se pelo seu nome UMA única vez nesta mensagem.${contactPhone ? ` O número de WhatsApp dela já está registrado: ${contactPhone}. NÃO peça o número, você já tem.` : ''}]`
-          : `\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Esta pessoa já entrou em contato antes. O nome dela é ${contact.name}.${contactPhone ? ` O número de WhatsApp já está registrado: ${contactPhone}. NÃO peça o número, você já tem.` : ''} NÃO se apresente novamente. NÃO diga seu nome. Use uma saudação mínima ou responda diretamente ao que foi perguntado. A conversa já está em andamento.]`
+        // Verifica se a IA já se apresentou em alguma mensagem anterior do histórico
+        const alreadyIntroduced = history.some(m => m.role === 'ASSISTANT' && m.content.length > 0)
+        const contactContext = (isNewContact && !alreadyIntroduced)
+          ? `\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Este é o PRIMEIRO contato desta pessoa e você ainda não se apresentou. Apresente-se pelo seu nome UMA única vez nesta mensagem.${contactPhone ? ` O número de WhatsApp dela já está registrado: ${contactPhone}. NÃO peça o número, você já tem.` : ''}]`
+          : `\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Você já se apresentou anteriormente. O nome desta pessoa é ${contact.name || 'o cliente'}.${contactPhone ? ` O número de WhatsApp já está registrado: ${contactPhone}. NÃO peça o número, você já tem.` : ''} NÃO diga seu nome novamente. NÃO diga "Olá, sou [nome]". Responda diretamente ao que foi perguntado. A conversa já está em andamento.]`
 
         const flowContext = activeFlow
           ? `\n\n[FLUXO DE ATENDIMENTO ATIVO — "${activeFlow.name}": Siga este roteiro para esta conversa:\n${activeFlow.script}]`

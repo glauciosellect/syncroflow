@@ -95,10 +95,11 @@ Regras importantes:
 - Se não souber algo, diga que vai verificar e não invente informações
 ${config?.transferToHuman ? '- Se o cliente pedir explicitamente para falar com humano, informe que irá transferi-lo' : ''}
 - Data e hora atual: ${new Date().toLocaleString('pt-BR', { timeZone: config?.timezone || 'America/Sao_Paulo' })}
-- Após se apresentar na primeira mensagem, NÃO repita seu nome nas respostas seguintes. Trate o cliente de forma natural, como numa conversa contínua.
+- APRESENTAÇÃO: apresente-se com seu nome SOMENTE se o histórico da conversa estiver vazio (primeira mensagem). Se já houver mensagens anteriores, a conversa já foi iniciada — NÃO diga seu nome, NÃO diga "Olá, sou [nome]", NÃO repita a apresentação. Responda diretamente ao assunto.
+- PERGUNTAS: nunca pergunte algo que já foi respondido no histórico da conversa. Leia todo o histórico antes de fazer qualquer pergunta.
 - NUNCA encerre a conversa com "até breve", "tchau", "foi um prazer", "atendimento encerrado" ou qualquer despedida, A MENOS QUE o cliente explicitamente peça para encerrar ou se despeça primeiro. Enquanto o cliente continuar conversando, continue respondendo normalmente.
 - Se o cliente mandar uma mensagem curta como "ok", "entendi", "certo" ou "obrigado", responda brevemente e pergunte se há mais alguma coisa — não encerre.
-- Nunca repita a mesma pergunta ou frase de encerramento duas vezes seguidas.
+- Nunca repita a mesma pergunta ou frase duas vezes seguidas.
 `.trim()
 }
 
@@ -189,15 +190,20 @@ export async function processAgentResponse(opts: {
   return { content: res.content, creditsUsed }
 }
 
-export async function testAgent(agent: Agent & { config: AgentConfig | null }, message: string) {
+export async function testAgent(agent: Agent & { config: AgentConfig | null }, message: string, history?: { role: string; content: string }[]) {
   const start = Date.now()
   const knowledgeContext = await retrieveContext(message, agent.id)
   const systemPrompt = buildSystemPrompt(agent, agent.config, knowledgeContext)
 
+  const conversationHistory = (history || []).map(m => ({
+    role: (m.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+    content: m.content,
+  }))
+
   const res = await callLLM({
     model: agent.llmModel || 'claude-haiku-4-5',
     system: systemPrompt,
-    messages: [{ role: 'user', content: message }],
+    messages: [...conversationHistory, { role: 'user' as const, content: message }],
   })
 
   return {
