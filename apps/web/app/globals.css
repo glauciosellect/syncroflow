@@ -4,117 +4,92 @@
 
 @layer base {
   /* ── Paleta SyncroFlow — alinhada à logo oficial ──────────────────────────
-     Verde:  #3DBE29 (Syncro) → HSL 110 65% 45%
-     Azul:   #1A3A8F (Flow)   → HSL 225 69% 33%
-     Gradiente brand: linear-gradient(135deg, #3DBE29, #1A3A8F)
+     Verde:  #3DBE29 (Syncro)  → HSL 110 65% 45%
+     Azul:   #1A3A8F (Flow)    → HSL 225 69% 33%
   ──────────────────────────────────────────────────────────────────────── */
 
   :root {
-    /* Superfícies */
-    --background:        0 0% 97%;       /* #F7F7F7 — fundo geral */
-    --surface:           0 0% 100%;      /* branco — cards, sidebar */
-    --surface-raised:    0 0% 100%;
+    --background:        220 20% 96%;
+    --surface:           0 0% 100%;
+    --foreground:        225 30% 12%;
+    --foreground-muted:  220 15% 45%;
 
-    /* Texto */
-    --foreground:        225 25% 15%;    /* #1D2133 — texto principal */
-    --foreground-muted:  220 15% 45%;    /* cinza médio */
-
-    /* Brand primária — Azul Flow */
-    --primary:           225 69% 33%;    /* #1A3A8F */
-    --primary-light:     225 69% 94%;    /* azul bem claro para hover/bg */
+    --primary:           225 69% 33%;
+    --primary-light:     225 69% 94%;
     --primary-foreground:0 0% 100%;
 
-    /* Brand secundária — Verde Syncro */
-    --brand-green:       110 65% 38%;    /* #3DBE29 levemente mais escuro p/ contraste */
+    --brand-green:       110 62% 35%;
     --brand-green-light: 110 65% 94%;
 
-    /* Gradiente brand */
-    --gradient-brand:    linear-gradient(135deg, #3DBE29 0%, #1A3A8F 100%);
-
-    /* UI neutros */
     --card:              0 0% 100%;
-    --card-foreground:   225 25% 15%;
+    --card-foreground:   225 30% 12%;
     --popover:           0 0% 100%;
-    --popover-foreground:225 25% 15%;
-    --secondary:         220 20% 95%;
+    --popover-foreground:225 30% 12%;
+    --secondary:         220 20% 94%;
     --secondary-foreground:225 25% 20%;
-    --muted:             220 20% 95%;
+    --muted:             220 20% 94%;
     --muted-foreground:  220 15% 50%;
     --accent:            225 69% 94%;
     --accent-foreground: 225 69% 25%;
 
-    /* Bordas e inputs */
-    --border:            220 20% 88%;
-    --input:             220 20% 92%;
+    --border:            220 20% 87%;
+    --input:             220 20% 91%;
     --ring:              225 69% 33%;
 
-    /* Estados */
-    --destructive:       0 84% 60%;
+    --destructive:       0 84% 58%;
     --destructive-foreground: 0 0% 100%;
-    --success:           110 65% 38%;
-    --warning:           38 92% 50%;
 
     --radius: 0.625rem;
 
-    /* Sidebar específico */
-    --sidebar-bg:        225 35% 15%;    /* azul escuro — sidebar light usa versão escura */
-    --sidebar-fg:        220 25% 80%;
-    --sidebar-active-bg: 225 69% 25%;
+    /* Sidebar */
+    --sidebar-bg:        225 40% 14%;
+    --sidebar-fg:        220 25% 78%;
+    --sidebar-active-bg: 225 55% 28%;
     --sidebar-active-fg: 0 0% 100%;
-    --sidebar-hover-bg:  225 35% 22%;
-    --sidebar-border:    225 35% 22%;
-    --sidebar-section:   220 20% 55%;
+    --sidebar-hover-bg:  225 40% 20%;
+    --sidebar-border:    225 40% 20%;
+    --sidebar-section:   220 20% 52%;
   }
 
   .dark {
-    /* Superfícies escuras */
-    --background:        222 25% 10%;    /* #121620 */
-    --surface:           222 25% 14%;    /* #181E2A */
-    --surface-raised:    222 25% 18%;
-
-    /* Texto */
-    --foreground:        220 20% 92%;    /* quase branco */
+    --background:        222 28% 9%;
+    --surface:           222 28% 13%;
+    --foreground:        220 25% 93%;
     --foreground-muted:  220 15% 60%;
 
-    /* Brand — mesmos valores, ajustados p/ legibilidade no escuro */
-    --primary:           225 75% 58%;    /* azul mais claro no dark */
-    --primary-light:     225 50% 20%;
+    --primary:           225 72% 58%;
+    --primary-light:     225 50% 18%;
     --primary-foreground:0 0% 100%;
 
-    --brand-green:       110 60% 48%;    /* verde mais claro no dark */
-    --brand-green-light: 110 40% 18%;
+    --brand-green:       110 58% 48%;
+    --brand-green-light: 110 40% 15%;
 
-    /* UI neutros escuros */
-    --card:              222 25% 14%;
-    --card-foreground:   220 20% 92%;
-    --popover:           222 25% 14%;
-    --popover-foreground:220 20% 92%;
-    --secondary:         222 25% 20%;
-    --secondary-foreground:220 20% 85%;
-    --muted:             222 25% 18%;
+    --card:              222 28% 13%;
+    --card-foreground:   220 25% 93%;
+    --popover:           222 28% 15%;
+    --popover-foreground:220 25% 93%;
+    --secondary:         222 28% 19%;
+    --secondary-foreground:220 25% 85%;
+    --muted:             222 28% 17%;
     --muted-foreground:  220 15% 55%;
-    --accent:            225 50% 20%;
-    --accent-foreground: 225 75% 72%;
+    --accent:            225 45% 20%;
+    --accent-foreground: 225 72% 72%;
 
-    /* Bordas e inputs */
-    --border:            222 25% 24%;
-    --input:             222 25% 20%;
-    --ring:              225 75% 58%;
+    --border:            222 28% 22%;
+    --input:             222 28% 18%;
+    --ring:              225 72% 58%;
 
-    /* Estados */
     --destructive:       0 65% 50%;
     --destructive-foreground: 0 0% 100%;
-    --success:           110 55% 45%;
-    --warning:           38 85% 55%;
 
-    /* Sidebar no dark — levemente diferente do bg */
-    --sidebar-bg:        222 28% 11%;
-    --sidebar-fg:        220 20% 70%;
-    --sidebar-active-bg: 225 60% 28%;
+    /* Sidebar no dark */
+    --sidebar-bg:        222 32% 10%;
+    --sidebar-fg:        220 20% 68%;
+    --sidebar-active-bg: 225 55% 26%;
     --sidebar-active-fg: 0 0% 100%;
-    --sidebar-hover-bg:  222 28% 18%;
-    --sidebar-border:    222 28% 20%;
-    --sidebar-section:   220 15% 45%;
+    --sidebar-hover-bg:  222 32% 17%;
+    --sidebar-border:    222 32% 18%;
+    --sidebar-section:   220 15% 42%;
   }
 }
 
@@ -123,23 +98,221 @@
 
   body {
     @apply bg-[hsl(var(--background))] text-[hsl(var(--foreground))];
-    font-feature-settings: 'rlig' 1, 'calt' 1;
     -webkit-font-smoothing: antialiased;
   }
 
-  /* Scrollbar personalizada */
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb {
-    background: hsl(var(--border));
-    border-radius: 99px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground));
-  }
+  ::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground)); }
 }
 
-/* ── Utilitários de brand ──────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────────────────────
+   DARK MODE — força todos os elementos hardcoded a respeitarem o tema escuro
+   Isso cobre inputs, cards, modals, textareas, dropdowns do Radix UI e Tailwind
+───────────────────────────────────────────────────────────────────────────── */
+
+/* Inputs, textareas, select */
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.dark textarea,
+.dark select {
+  background-color: hsl(var(--input)) !important;
+  color: hsl(var(--foreground)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: hsl(var(--muted-foreground)) !important;
+  opacity: 1;
+}
+
+/* Cards, divs com bg-white, bg-gray-*, bg-slate-* */
+.dark .bg-white {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+}
+
+.dark .bg-gray-50 { background-color: hsl(222 28% 15%) !important; }
+.dark .bg-gray-100 { background-color: hsl(222 28% 17%) !important; }
+.dark .bg-gray-200 { background-color: hsl(222 28% 20%) !important; }
+.dark .bg-gray-800 { background-color: hsl(222 28% 20%) !important; }
+.dark .bg-gray-900 { background-color: hsl(222 28% 11%) !important; }
+
+/* Bordas */
+.dark .border-gray-100 { border-color: hsl(var(--border)) !important; }
+.dark .border-gray-200 { border-color: hsl(var(--border)) !important; }
+.dark .border-gray-300 { border-color: hsl(222 28% 28%) !important; }
+
+/* Textos */
+.dark .text-gray-900 { color: hsl(var(--foreground)) !important; }
+.dark .text-gray-800 { color: hsl(220 25% 88%) !important; }
+.dark .text-gray-700 { color: hsl(220 20% 80%) !important; }
+.dark .text-gray-600 { color: hsl(220 15% 68%) !important; }
+.dark .text-gray-500 { color: hsl(var(--muted-foreground)) !important; }
+.dark .text-gray-400 { color: hsl(220 12% 48%) !important; }
+.dark .text-gray-300 { color: hsl(220 10% 40%) !important; }
+
+/* Hover states */
+.dark .hover\:bg-gray-50:hover { background-color: hsl(222 28% 17%) !important; }
+.dark .hover\:bg-gray-100:hover { background-color: hsl(222 28% 19%) !important; }
+.dark .hover\:bg-gray-200:hover { background-color: hsl(222 28% 22%) !important; }
+
+/* Cards de plano / pricing — borda visível no dark */
+.dark .border-gray-200.rounded-2xl,
+.dark .rounded-2xl.border-gray-200 {
+  border-color: hsl(222 28% 28%) !important;
+  background-color: hsl(var(--card)) !important;
+}
+
+/* bg-slate-* */
+.dark .bg-slate-50 { background-color: hsl(222 28% 15%) !important; }
+.dark .bg-slate-100 { background-color: hsl(222 28% 17%) !important; }
+.dark .text-slate-900 { color: hsl(var(--foreground)) !important; }
+.dark .text-slate-700 { color: hsl(220 20% 78%) !important; }
+.dark .text-slate-500 { color: hsl(var(--muted-foreground)) !important; }
+
+/* Campos com ring/focus no dark */
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
+  outline-color: hsl(var(--ring)) !important;
+  border-color: hsl(var(--ring)) !important;
+  box-shadow: 0 0 0 2px hsl(var(--ring) / 0.2) !important;
+}
+
+/* Checkbox e radio — não força bg */
+.dark input[type="checkbox"],
+.dark input[type="radio"] {
+  accent-color: hsl(var(--primary));
+}
+
+/* Badge / chip de "Mais popular" e outros pills escuros */
+.dark .bg-\[\#1565C0\] {
+  background-color: hsl(225 72% 50%) !important;
+}
+.dark .border-\[\#1565C0\] {
+  border-color: hsl(225 72% 55%) !important;
+}
+.dark .text-\[\#1565C0\] {
+  color: hsl(225 72% 68%) !important;
+}
+.dark .shadow-blue-100 {
+  --tw-shadow-color: hsl(225 72% 10%);
+}
+
+/* Tabs bar / sub-navigation com bg-white */
+.dark [role="tablist"].bg-white,
+.dark [role="tablist"].bg-gray-100 {
+  background-color: hsl(222 28% 15%) !important;
+}
+.dark [role="tab"] {
+  color: hsl(var(--muted-foreground)) !important;
+}
+.dark [role="tab"][data-state="active"],
+.dark [aria-selected="true"] {
+  color: hsl(var(--foreground)) !important;
+  background-color: hsl(var(--card)) !important;
+}
+
+/* Separators / hr */
+.dark hr { border-color: hsl(var(--border)) !important; }
+
+/* Código / pre */
+.dark pre,
+.dark code {
+  background-color: hsl(222 28% 15%) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Scroll area */
+.dark [data-radix-scroll-area-viewport] {
+  background-color: transparent !important;
+}
+
+/* Switch Radix */
+.dark [data-radix-switch-root][data-state="unchecked"] {
+  background-color: hsl(222 28% 28%) !important;
+}
+
+/* Divisores */
+.dark hr,
+.dark .divide-gray-100 > * + *,
+.dark .divide-gray-200 > * + * {
+  border-color: hsl(var(--border)) !important;
+}
+
+/* Radix UI — Dialog, Popover, Select, DropdownMenu */
+.dark [data-radix-popper-content-wrapper] > *,
+.dark [role="dialog"],
+.dark [role="listbox"],
+.dark [data-radix-select-content],
+.dark [data-radix-dropdown-menu-content] {
+  background-color: hsl(var(--popover)) !important;
+  color: hsl(var(--popover-foreground)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+/* Radix Select items */
+.dark [data-radix-select-item]:hover,
+.dark [data-radix-collection-item]:hover,
+.dark [role="option"]:hover {
+  background-color: hsl(var(--accent)) !important;
+}
+
+/* Shadows no dark */
+.dark .shadow-sm,
+.dark .shadow,
+.dark .shadow-md,
+.dark .shadow-lg,
+.dark .shadow-xl {
+  --tw-shadow-color: rgba(0,0,0,0.4);
+}
+
+/* Tabs e botões de toggle com bg-white */
+.dark button.bg-white,
+.dark [role="tab"].bg-white {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Tabelas */
+.dark table { color: hsl(var(--foreground)) !important; }
+.dark th { color: hsl(var(--foreground)) !important; background-color: hsl(222 28% 15%) !important; }
+.dark td { border-color: hsl(var(--border)) !important; }
+.dark tr:hover td { background-color: hsl(222 28% 16%) !important; }
+
+/* Labels */
+.dark label { color: hsl(var(--foreground)) !important; }
+
+/* Cards Radix / ShadcnUI */
+.dark [class*="rounded"][class*="border"],
+.dark [class*="Card"] {
+  border-color: hsl(var(--border));
+}
+
+/* Blue-50, blue-100 no dark */
+.dark .bg-blue-50 { background-color: hsl(225 50% 16%) !important; }
+.dark .bg-blue-100 { background-color: hsl(225 45% 20%) !important; }
+.dark .text-blue-600,
+.dark .text-\[\#1565C0\] { color: hsl(225 72% 65%) !important; }
+.dark .border-blue-200 { border-color: hsl(225 45% 28%) !important; }
+
+/* Amber/yellow no dark */
+.dark .bg-amber-50 { background-color: hsl(38 60% 14%) !important; }
+.dark .text-amber-700 { color: hsl(38 85% 65%) !important; }
+.dark .border-amber-200 { border-color: hsl(38 50% 30%) !important; }
+
+/* Red no dark */
+.dark .bg-red-50 { background-color: hsl(0 50% 14%) !important; }
+.dark .bg-red-600 { background-color: hsl(0 65% 48%) !important; }
+.dark .border-red-200 { border-color: hsl(0 45% 28%) !important; }
+
+/* Green no dark */
+.dark .bg-green-50 { background-color: hsl(110 40% 12%) !important; }
+.dark .text-green-600 { color: hsl(110 58% 52%) !important; }
+
+/* ── Utilitários de brand ─────────────────────────────────────────────────── */
 @layer utilities {
   .brand-gradient {
     background: linear-gradient(135deg, #3DBE29 0%, #1A3A8F 100%);
@@ -149,13 +322,5 @@
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-  }
-  .sidebar-item-active {
-    background-color: hsl(var(--sidebar-active-bg));
-    color: hsl(var(--sidebar-active-fg));
-  }
-  .sidebar-item-hover:hover {
-    background-color: hsl(var(--sidebar-hover-bg));
-    color: hsl(var(--sidebar-active-fg));
   }
 }

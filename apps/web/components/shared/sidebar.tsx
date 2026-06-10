@@ -31,19 +31,22 @@ export function Sidebar() {
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-[hsl(var(--sidebar-bg))]">
       {/* Logo */}
-      <div className="px-4 py-4 border-b border-[hsl(var(--sidebar-border))] flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2">
+      <div className="px-3 py-3 border-b border-[hsl(var(--sidebar-border))] flex items-center justify-between shrink-0">
+        <div className="flex-1 flex items-center justify-center">
           <Image
-            src="/logo.png"
+            src="/icone.png"
             alt="SyncroFlow"
-            width={130}
-            height={44}
-            className="object-contain"
+            width={36}
+            height={36}
+            className="object-contain shrink-0"
             priority
           />
+          <span className="ml-2 font-bold text-base tracking-tight" style={{ color: '#3DBE29' }}>
+            Syncro<span style={{ color: '#a0c4ff' }}>Flow</span>
+          </span>
         </div>
         <button
-          className="md:hidden p-1.5 rounded-md text-[hsl(var(--sidebar-fg))] hover:bg-[hsl(var(--sidebar-hover-bg))] transition-colors"
+          className="md:hidden p-1.5 rounded-md text-[hsl(var(--sidebar-fg))] hover:bg-[hsl(var(--sidebar-hover-bg))] transition-colors shrink-0"
           onClick={() => setMobileOpen(false)}
         >
           <X className="w-4 h-4" />
