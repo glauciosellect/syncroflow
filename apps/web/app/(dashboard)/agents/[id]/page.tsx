@@ -483,17 +483,17 @@ export default function AgentDetailPage() {
           <div className="space-y-4">
 
             {/* Orientação ao cliente */}
-            <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800 space-y-1">
-              <p className="font-semibold">💡 O que colocar nos treinamentos?</p>
+            <div className="rounded-xl border border-gray-200 bg-gray-50 dark:bg-[hsl(222_28%_15%)] dark:border-[hsl(222_28%_24%)] px-4 py-3 text-sm text-gray-600 dark:text-gray-400 space-y-1">
+              <p className="font-semibold text-gray-700 dark:text-gray-300">💡 O que colocar nos treinamentos?</p>
               <p>O comportamento e o fluxo de atendimento do agente já estão configurados na aba <strong>Perfil</strong>. Aqui você ensina o agente sobre o seu negócio:</p>
-              <ul className="list-disc list-inside mt-1 space-y-0.5 text-blue-700">
+              <ul className="list-disc list-inside mt-1 space-y-0.5">
                 <li>Serviços ou produtos que oferece</li>
                 <li>Preços, planos e condições de pagamento</li>
                 <li>Horário de funcionamento e localização</li>
                 <li>Perguntas frequentes e respostas prontas</li>
                 <li>Políticas, procedimentos e informações importantes</li>
               </ul>
-              <p className="text-blue-600 mt-1">Não precisa repetir "você é o agente X da empresa Y" — isso já está configurado automaticamente.</p>
+              <p className="mt-1">Não precisa repetir "você é o agente X da empresa Y" — isso já está configurado automaticamente.</p>
             </div>
 
             <Card>
@@ -569,30 +569,30 @@ export default function AgentDetailPage() {
           <div className="space-y-4">
 
             {/* Orientação sobre intenções */}
-            <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800 space-y-2">
-              <p className="font-semibold">💡 O que são Intenções?</p>
+            <div className="rounded-xl border border-gray-200 bg-gray-50 dark:bg-[hsl(222_28%_15%)] dark:border-[hsl(222_28%_24%)] px-4 py-3 text-sm text-gray-600 dark:text-gray-400 space-y-2">
+              <p className="font-semibold text-gray-700 dark:text-gray-300">💡 O que são Intenções?</p>
               <p>Intenções são atalhos inteligentes — o agente lê a mensagem do cliente, identifica o que ele quer e executa uma ação automaticamente, sem precisar gerar uma resposta de IA.</p>
               <div className="space-y-1.5 mt-1">
-                <p className="font-medium">Tipos de ação disponíveis:</p>
+                <p className="font-medium text-gray-700 dark:text-gray-300">Tipos de ação disponíveis:</p>
                 <div className="flex items-start gap-2">
                   <span>💬</span>
                   <div>
-                    <span className="font-medium">Mensagem fixa</span>
-                    <span className="text-blue-700"> — responde sempre com o mesmo texto. Use para: horário de funcionamento, endereço, preços, política de cancelamento, link de pagamento, transferência para humano.</span>
+                    <span className="font-medium text-gray-700 dark:text-gray-300">Mensagem fixa</span>
+                    <span> — responde sempre com o mesmo texto. Use para: horário de funcionamento, endereço, preços, política de cancelamento, link de pagamento, transferência para humano.</span>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
                   <span>📅</span>
                   <div>
-                    <span className="font-medium">Google Calendar</span>
-                    <span className="text-blue-700"> — agenda, consulta ou cancela um horário direto na agenda. Requer Google Calendar configurado em Configurações.</span>
+                    <span className="font-medium text-gray-700 dark:text-gray-300">Google Calendar</span>
+                    <span> — agenda, consulta ou cancela um horário direto na agenda. Requer Google Calendar configurado em Configurações.</span>
                   </div>
                 </div>
               </div>
-              <div className="border-t border-blue-200 pt-2 mt-1 space-y-1">
-                <p className="font-medium">Como o agente decide quando acionar?</p>
-                <p className="text-blue-700">No campo <strong>"Quando acionar"</strong>, escreva as situações ou palavras que indicam aquela intenção. Quanto mais claro e específico, melhor a detecção.</p>
-                <p className="text-blue-700">Exemplos: <em>"cliente quer saber o preço"</em> · <em>"pergunta sobre horário de funcionamento"</em> · <em>"quer marcar ou agendar um horário"</em> · <em>"pede para falar com atendente humano"</em></p>
+              <div className="border-t border-gray-200 dark:border-[hsl(222_28%_24%)] pt-2 mt-1 space-y-1">
+                <p className="font-medium text-gray-700 dark:text-gray-300">Como o agente decide quando acionar?</p>
+                <p>No campo <strong>"Quando acionar"</strong>, escreva as situações ou palavras que indicam aquela intenção. Quanto mais claro e específico, melhor a detecção.</p>
+                <p>Exemplos: <em>"cliente quer saber o preço"</em> · <em>"pergunta sobre horário de funcionamento"</em> · <em>"quer marcar ou agendar um horário"</em> · <em>"pede para falar com atendente humano"</em></p>
               </div>
             </div>
 
