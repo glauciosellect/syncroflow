@@ -8,6 +8,7 @@ import { sendEmail, passwordResetEmail } from '../../lib/mailer'
 import type { RegisterInput, LoginInput } from './auth.schema'
 import { DEFAULT_AGENT_BEHAVIOR, DEFAULT_AGENT_NAME, DEFAULT_INTENTIONS, DEFAULT_FLOWS } from '../agents/default-agent'
 import { scheduleWelcomeFlow } from '../welcome/welcome.service'
+import { notifyOwnerNewUser } from '../welcome/welcome.service'
 
 function generateSlug(name: string): string {
   return name
@@ -117,6 +118,15 @@ export async function registerUser(input: RegisterInput, signTokens: (userId: st
       phone: input.phone,
     }).catch((err) => console.error('[AUTH] Erro ao agendar boas-vindas:', err?.message))
   }
+
+  // Notifica o dono do SyncroFlow sobre novo cadastro (sem passar pelo Jarbas)
+  notifyOwnerNewUser({
+    name: input.name,
+    email: input.email,
+    phone: input.phone,
+    workspaceName,
+    segment: input.segment,
+  }).catch((err) => console.error('[AUTH] Erro ao notificar dono:', err?.message))
 
   return { user: sanitize(user), workspace, ...tokens }
 }

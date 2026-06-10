@@ -1,5 +1,7 @@
 import { prisma } from '../../lib/prisma'
 import { welcomeQueue } from '../../lib/queue'
+import { redis } from '../../lib/redis'
+import { getWhatsAppProvider } from '../channels/whatsapp/provider.factory'
 
 const MESSAGES: Array<{ delayHours: number; text: (name: string) => string }> = [
   {
@@ -67,4 +69,46 @@ export async function scheduleWelcomeFlow(params: {
 
 export function getWelcomeMessageText(index: number, name: string): string {
   return MESSAGES[index]?.text(name) ?? ''
+}
+
+// Envia notificação direta ao dono do SyncroFlow quando novo usuário se cadastra.
+// Usa o canal do workspace do dono + seta silence key para o Jarbas não responder.
+export async function notifyOwnerNewUser(params: {
+  name: string
+  email: string
+  phone?: string
+  workspaceName?: string
+  segment?: string
+}) {
+  const ownerPhone = process.env.OWNER_NOTIFY_PHONE
+  const ownerChannelId = process.env.OWNER_NOTIFY_CHANNEL_ID
+  if (!ownerPhone || !ownerChannelId) return
+
+  const { name, email, phone, workspaceName, segment } = params
+
+  const lines = [
+    `🆕 *Novo cadastro no SyncroFlow!*`,
+    ``,
+    `👤 *Nome:* ${name}`,
+    `📧 *Email:* ${email}`,
+    phone ? `📱 *WhatsApp:* ${phone}` : `📱 *WhatsApp:* não informado`,
+    workspaceName ? `🏢 *Empresa:* ${workspaceName}` : null,
+    segment ? `🏷️ *Segmento:* ${segment}` : null,
+    ``,
+    `⏰ ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`,
+  ].filter(l => l !== null).join('\n')
+
+  try {
+    // Seta silence por 5 min para o Jarbas não responder esta notificação
+    const normalizedOwner = ownerPhone.replace(/\D/g, '')
+    const silenceKey = `silence:${ownerChannelId}:${normalizedOwner}`
+    await redis.set(silenceKey, '1', 'EX', 5 * 60)
+
+    const provider = getWhatsAppProvider()
+    await provider.sendText(ownerChannelId, normalizedOwner, lines)
+
+    console.log(`[WELCOME] Notificação de novo usuário enviada para ${ownerPhone}`)
+  } catch (err: any) {
+    console.error('[WELCOME] Erro ao notificar dono:', err?.message)
+  }
 }
