@@ -21,7 +21,7 @@ function extractOwnerMessage(payload: any): string | null {
     console.log('[WEBHOOK] fromMe=true detectado — fromApi:', payload?.message?.fromApi, '| type:', payload?.message?.type, '| chatid:', payload?.message?.chatid)
     if (payload?.message?.fromApi === true) return null
     const msgType: string = payload?.message?.type || ''
-    if (['audio', 'video', 'image', 'document', 'ptt', 'sticker'].includes(msgType)) return null
+    if (['audio', 'video', 'image', 'document', 'ptt', 'sticker', 'media'].includes(msgType)) return null
     const chatid: string = payload?.message?.chatid || payload?.message?.sender_pn || ''
     return chatid.replace(/\D/g, '') || null
   }
