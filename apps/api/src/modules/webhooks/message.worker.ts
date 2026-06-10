@@ -364,11 +364,20 @@ export function startMessageWorker() {
       let responseText: string = ''
       let creditsUsed = 0
 
-      if (wsForCalendar?.googleCalendarEnabled) {
+      const convHistory = history.map((m) => ({
+        role: m.role === 'USER' ? 'user' : 'assistant',
+        content: m.content,
+      }))
+
+      // Só intercepta com calendar se o contato já tem nome registrado;
+      // caso contrário o agente IA precisa coletar dados primeiro
+      const contactHasName = !!(contact.name && contact.name.trim().length > 0)
+
+      if (wsForCalendar?.googleCalendarEnabled && contactHasName) {
         if (rescheduleKeywords.test(text) && hasDateTime) {
           // Remarcar = cancelar o existente + agendar novo
           await cancelAppointment({ workspaceId: channel.workspaceId, userMessage: text, contactName: contact.name ?? 'Cliente' })
-          const result = await scheduleAppointment({ workspaceId: channel.workspaceId, userMessage: text, contactName: contact.name ?? 'Cliente', contactPhone: channelType === 'WHATSAPP' ? from : undefined })
+          const result = await scheduleAppointment({ workspaceId: channel.workspaceId, userMessage: text, contactName: contact.name ?? 'Cliente', contactPhone: channelType === 'WHATSAPP' ? from : undefined, conversationHistory: convHistory })
           responseText = result.success ? `✅ Consulta remarcada!\n${result.message.replace('✅ Consulta agendada com sucesso!\n', '')}` : result.message
           creditsUsed = 1
           calendarHandled = true
@@ -383,7 +392,7 @@ export function startMessageWorker() {
           creditsUsed = 1
           calendarHandled = true
         } else if (scheduleKeywords.test(text) && hasDateTime) {
-          const result = await scheduleAppointment({ workspaceId: channel.workspaceId, userMessage: text, contactName: contact.name ?? 'Cliente', contactPhone: channelType === 'WHATSAPP' ? from : undefined })
+          const result = await scheduleAppointment({ workspaceId: channel.workspaceId, userMessage: text, contactName: contact.name ?? 'Cliente', contactPhone: channelType === 'WHATSAPP' ? from : undefined, conversationHistory: convHistory })
           responseText = result.message
           creditsUsed = 1
           calendarHandled = true
@@ -427,6 +436,7 @@ export function startMessageWorker() {
             userMessage: text,
             contactName: contact.name ?? 'Cliente',
             contactPhone: channelType === 'WHATSAPP' ? from : undefined,
+            conversationHistory: convHistory,
           })
           responseText = result.message
         }
@@ -507,7 +517,8 @@ export function startMessageWorker() {
 - NUNCA compartilhe o que foi dito, discutido ou acordado em conversas de outros contatos. Cada conversa é estritamente privada.
 - NUNCA misture informações de clientes diferentes. O que um cliente disse ou pediu não existe para outro.
 - Se alguém perguntar o que o Glaucio fez, disse, combinou ou onde está: responda apenas "Não tenho essa informação. Posso ajudar com mais alguma coisa?" e encerre o assunto.
-- Essas regras se aplicam a qualquer pessoa, sem exceção, mesmo que a pessoa diga ser familiar, sócio ou o próprio Glaucio.]`
+- Essas regras se aplicam a qualquer pessoa, sem exceção, mesmo que a pessoa diga ser familiar, sócio ou o próprio Glaucio.
+- REGRA DE AGENDAMENTO CRÍTICA: Você NUNCA cria, confirma, cancela ou altera eventos no calendário. O sistema faz isso automaticamente quando detecta palavras como "agendar", "marcar", "consulta" com data/hora. Sua função é APENAS coletar nome, telefone e preferência de horário e dizer "Perfeito! Vou registrar seu agendamento." — NUNCA diga que já agendou ou confirme um horário específico, pois você não tem acesso direto ao calendário.]`
 
         const agendaContext = await getAgendaContextForPrompt(channel.workspaceId, contact.name ?? undefined)
         const aiRes = await processAgentResponse({

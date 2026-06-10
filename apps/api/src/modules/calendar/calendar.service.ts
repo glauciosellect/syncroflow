@@ -23,7 +23,7 @@ function toLocalISOString(date: Date): string {
 }
 
 // Extrai dados de agendamento da mensagem do usuário usando IA
-async function extractEventData(userMessage: string, contactName: string): Promise<{
+async function extractEventData(userMessage: string, contactName: string, conversationHistory?: { role: string; content: string }[]): Promise<{
   summary: string
   description: string
   startDateTime: string | null
@@ -32,16 +32,21 @@ async function extractEventData(userMessage: string, contactName: string): Promi
 } | null> {
   const now = new Date().toLocaleString('pt-BR', { timeZone: TZ })
 
+  // Monta contexto da conversa para a IA entender horários mencionados anteriormente
+  const historyContext = conversationHistory && conversationHistory.length > 0
+    ? '\n\nHistórico da conversa:\n' + conversationHistory.slice(-10).map(m => `${m.role === 'user' ? 'Cliente' : 'Assistente'}: ${m.content}`).join('\n')
+    : ''
+
   const res = await callLLM({
     model: 'claude-haiku-4-5',
     system: `Você extrai dados de agendamento de mensagens de WhatsApp.
 Data/hora atual: ${now} (fuso: ${TZ}).
 Retorne JSON com: summary (título do evento), description (observações), startDateTime (ISO 8601), endDateTime (ISO 8601, padrão = start + 1h), attendeeEmail (email do cliente se mencionado, senão null).
-Se não houver data/hora clara, retorne null no campo startDateTime.
+Se não houver data/hora clara na mensagem atual, use o horário mencionado anteriormente na conversa.
 Responda APENAS com JSON válido, sem texto adicional.`,
     messages: [{
       role: 'user',
-      content: `Nome do cliente: ${contactName}\nMensagem: ${userMessage}`,
+      content: `Nome do cliente: ${contactName}${historyContext}\n\nÚltima mensagem: ${userMessage}`,
     }],
     maxTokens: 300,
   })
@@ -60,8 +65,9 @@ export async function scheduleAppointment(opts: {
   userMessage: string
   contactName: string
   contactPhone?: string
+  conversationHistory?: { role: string; content: string }[]
 }): Promise<{ success: boolean; message: string; eventId?: string }> {
-  const { workspaceId, userMessage, contactName, contactPhone } = opts
+  const { workspaceId, userMessage, contactName, contactPhone, conversationHistory } = opts
 
   const ws = await prisma.workspace.findUnique({
     where: { id: workspaceId },
@@ -81,7 +87,7 @@ export async function scheduleAppointment(opts: {
   }
 
   const calendarId = ws.googleCalendarId || 'primary'
-  const extracted = await extractEventData(userMessage, contactName)
+  const extracted = await extractEventData(userMessage, contactName, conversationHistory)
 
   if (!extracted || !extracted.startDateTime) {
     return {
