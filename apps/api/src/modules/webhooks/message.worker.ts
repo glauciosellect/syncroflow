@@ -281,10 +281,12 @@ export function startMessageWorker() {
       ])
 
       if (conversation.status === 'HUMAN_ACTIVE' || conversation.status === 'WAITING_HUMAN') {
+        console.log(`[WORKER] Silenciado: conversa ${conversation.id} está em modo humano (${conversation.status})`)
         return
       }
 
       if (config?.maxInteractionsPerChat && conversation.interactionCount >= config.maxInteractionsPerChat) {
+        console.log(`[WORKER] Silenciado: conversa ${conversation.id} atingiu limite de ${config.maxInteractionsPerChat} interações (atual: ${conversation.interactionCount})`)
         return
       }
 
