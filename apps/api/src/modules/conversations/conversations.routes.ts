@@ -3,19 +3,14 @@ import { z } from 'zod'
 import { prisma } from '../../lib/prisma'
 import { emitNewMessage, emitConversationUpdated } from '../../lib/socket'
 import { getWhatsAppProvider } from '../channels/whatsapp/provider.factory'
-
-async function getWorkspaceId(userId: string) {
-  const member = await prisma.workspaceMember.findFirst({ where: { userId }, orderBy: { createdAt: 'asc' } })
-  if (!member) throw new Error('Workspace não encontrado')
-  return member.workspaceId
-}
+import { getWorkspaceId } from '../../lib/workspace'
 
 export async function conversationRoutes(app: FastifyInstance) {
   app.addHook('onRequest', app.authenticate)
 
   app.get('/conversations', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { status, agentId, channelId, page = '1', limit = '20', search } = req.query as Record<string, string>
     const skip = (Number(page) - 1) * Number(limit)
 
@@ -44,8 +39,8 @@ export async function conversationRoutes(app: FastifyInstance) {
   })
 
   app.get('/conversations/:id', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { id } = req.params as { id: string }
     const conversation = await prisma.conversation.findFirst({
       where: { id, workspaceId },
@@ -67,8 +62,8 @@ export async function conversationRoutes(app: FastifyInstance) {
   })
 
   app.get('/conversations/:id/messages', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { id } = req.params as { id: string }
     const { page = '1', limit = '50' } = req.query as Record<string, string>
     const skip = (Number(page) - 1) * Number(limit)
@@ -89,8 +84,8 @@ export async function conversationRoutes(app: FastifyInstance) {
   })
 
   app.post('/conversations/:id/messages', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { id } = req.params as { id: string }
     const { content } = z.object({ content: z.string().min(1) }).parse(req.body)
 
@@ -142,8 +137,8 @@ export async function conversationRoutes(app: FastifyInstance) {
   })
 
   app.post('/conversations/:id/assume', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { id } = req.params as { id: string }
 
     const conv = await prisma.conversation.findFirst({ where: { id, workspaceId } })
@@ -162,8 +157,8 @@ export async function conversationRoutes(app: FastifyInstance) {
   })
 
   app.post('/conversations/:id/transfer', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { id } = req.params as { id: string }
     const { to } = z.object({ to: z.enum(['human', 'ai']) }).parse(req.body)
 
@@ -181,8 +176,8 @@ export async function conversationRoutes(app: FastifyInstance) {
   })
 
   app.post('/conversations/:id/close', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { id } = req.params as { id: string }
 
     const conv = await prisma.conversation.findFirst({

@@ -1,11 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { prisma } from '../../lib/prisma'
-
-async function getWorkspaceId(userId: string) {
-  const member = await prisma.workspaceMember.findFirst({ where: { userId }, orderBy: { createdAt: 'asc' } })
-  if (!member) throw new Error('Workspace não encontrado')
-  return member.workspaceId
-}
+import { getWorkspaceId } from '../../lib/workspace'
 
 function dateRange(start?: string, end?: string) {
   const s = start ? new Date(start) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
@@ -17,8 +12,8 @@ export async function analyticsRoutes(app: FastifyInstance) {
   app.addHook('onRequest', app.authenticate)
 
   app.get('/analytics/overview', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { start, end } = req.query as Record<string, string>
     const range = dateRange(start, end)
 
@@ -39,8 +34,8 @@ export async function analyticsRoutes(app: FastifyInstance) {
   })
 
   app.get('/analytics/timeline', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { start, end } = req.query as Record<string, string>
     const range = dateRange(start, end)
 
@@ -59,8 +54,8 @@ export async function analyticsRoutes(app: FastifyInstance) {
   })
 
   app.get('/analytics/by-channel', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { start, end } = req.query as Record<string, string>
     const range = dateRange(start, end)
 
@@ -81,8 +76,8 @@ export async function analyticsRoutes(app: FastifyInstance) {
   })
 
   app.get('/analytics/top-agents', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { start, end } = req.query as Record<string, string>
     const range = dateRange(start, end)
 
@@ -103,8 +98,8 @@ export async function analyticsRoutes(app: FastifyInstance) {
   })
 
   app.get('/analytics/top-contacts', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { start, end } = req.query as Record<string, string>
     const range = dateRange(start, end)
 
@@ -125,8 +120,8 @@ export async function analyticsRoutes(app: FastifyInstance) {
   })
 
   app.get('/analytics/attendance', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { start, end } = req.query as Record<string, string>
     const range = dateRange(start, end)
 

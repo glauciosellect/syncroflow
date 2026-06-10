@@ -1,20 +1,16 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { prisma } from '../../lib/prisma'
+import { getWorkspaceId } from '../../lib/workspace'
 import { getWhatsAppProvider } from './whatsapp/provider.factory'
 
-async function getWorkspaceId(userId: string) {
-  const member = await prisma.workspaceMember.findFirst({ where: { userId }, orderBy: { createdAt: 'asc' } })
-  if (!member) throw new Error('Workspace não encontrado')
-  return member.workspaceId
-}
 
 export async function channelRoutes(app: FastifyInstance) {
   app.addHook('onRequest', app.authenticate)
 
   app.get('/channels', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const channels = await prisma.channel.findMany({
       where: { workspaceId },
       include: { agentChannels: { include: { agent: { select: { id: true, name: true } } } } },
@@ -23,8 +19,8 @@ export async function channelRoutes(app: FastifyInstance) {
   })
 
   app.post('/channels/whatsapp', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { name } = z.object({ name: z.string().min(1) }).parse(req.body)
     const channel = await prisma.channel.create({
       data: { workspaceId, type: 'WHATSAPP', name, config: { provider: process.env.WHATSAPP_PROVIDER || 'evolution' } },
@@ -37,8 +33,8 @@ export async function channelRoutes(app: FastifyInstance) {
   })
 
   app.post('/channels/telegram', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { name, botToken } = z.object({ name: z.string(), botToken: z.string() }).parse(req.body)
     const channel = await prisma.channel.create({
       data: { workspaceId, type: 'TELEGRAM', name, config: { botToken } },
@@ -50,8 +46,8 @@ export async function channelRoutes(app: FastifyInstance) {
   })
 
   app.post('/channels/widget', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { name, color, position, welcomeMessage, allowedDomains } = z.object({
       name: z.string(),
       color: z.string().optional(),
@@ -69,8 +65,8 @@ export async function channelRoutes(app: FastifyInstance) {
   })
 
   app.post('/channels/instagram', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { name, pageAccessToken, pageId } = z.object({ name: z.string(), pageAccessToken: z.string(), pageId: z.string() }).parse(req.body)
     const channel = await prisma.channel.create({
       data: { workspaceId, type: 'INSTAGRAM', name, config: { pageAccessToken, pageId } },
@@ -79,8 +75,8 @@ export async function channelRoutes(app: FastifyInstance) {
   })
 
   app.post('/channels/facebook', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { name, pageAccessToken, pageId } = z.object({ name: z.string(), pageAccessToken: z.string(), pageId: z.string() }).parse(req.body)
     const channel = await prisma.channel.create({
       data: { workspaceId, type: 'FACEBOOK', name, config: { pageAccessToken, pageId } },
@@ -89,8 +85,8 @@ export async function channelRoutes(app: FastifyInstance) {
   })
 
   app.delete('/channels/:id', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { id } = req.params as { id: string }
     const channel = await prisma.channel.findFirst({ where: { id, workspaceId } })
     if (!channel) return reply.status(404).send({ error: 'Canal não encontrado' })
@@ -103,8 +99,8 @@ export async function channelRoutes(app: FastifyInstance) {
   })
 
   app.patch('/channels/:id/agents', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { id } = req.params as { id: string }
     const channel = await prisma.channel.findFirst({ where: { id, workspaceId } })
     if (!channel) return reply.status(404).send({ error: 'Canal não encontrado' })
@@ -118,8 +114,8 @@ export async function channelRoutes(app: FastifyInstance) {
   })
 
   app.get('/channels/:id/qr', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { id } = req.params as { id: string }
     const channel = await prisma.channel.findFirst({ where: { id, workspaceId, type: 'WHATSAPP' } })
     if (!channel) return reply.status(404).send({ error: 'Canal não encontrado' })

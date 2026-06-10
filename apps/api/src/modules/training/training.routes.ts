@@ -1,13 +1,9 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { prisma } from '../../lib/prisma'
+import { getWorkspaceId } from '../../lib/workspace'
 import { trainingQueue } from '../../lib/queue'
 
-async function getWorkspaceId(userId: string) {
-  const member = await prisma.workspaceMember.findFirst({ where: { userId }, orderBy: { createdAt: 'asc' } })
-  if (!member) throw new Error('Workspace não encontrado')
-  return member.workspaceId
-}
 
 async function verifyAgent(agentId: string, workspaceId: string) {
   const agent = await prisma.agent.findFirst({ where: { id: agentId, workspaceId } })
@@ -19,8 +15,8 @@ export async function trainingRoutes(app: FastifyInstance) {
   app.addHook('onRequest', app.authenticate)
 
   app.get('/agents/:agentId/trainings', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { agentId } = req.params as { agentId: string }
     await verifyAgent(agentId, workspaceId)
     const { type, page = '1', limit = '20' } = req.query as { type?: string; page?: string; limit?: string }
@@ -34,8 +30,8 @@ export async function trainingRoutes(app: FastifyInstance) {
   })
 
   app.post('/agents/:agentId/trainings/text', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { agentId } = req.params as { agentId: string }
     await verifyAgent(agentId, workspaceId)
     const { content, title } = z.object({ content: z.string().min(1).max(50000), title: z.string().optional() }).parse(req.body)
@@ -47,8 +43,8 @@ export async function trainingRoutes(app: FastifyInstance) {
   })
 
   app.post('/agents/:agentId/trainings/website', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { agentId } = req.params as { agentId: string }
     await verifyAgent(agentId, workspaceId)
     const { url, crawl } = z.object({ url: z.string().url(), crawl: z.boolean().default(false) }).parse(req.body)
@@ -60,8 +56,8 @@ export async function trainingRoutes(app: FastifyInstance) {
   })
 
   app.post('/agents/:agentId/trainings/video', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { agentId } = req.params as { agentId: string }
     await verifyAgent(agentId, workspaceId)
     const { url } = z.object({ url: z.string().url() }).parse(req.body)
@@ -73,8 +69,8 @@ export async function trainingRoutes(app: FastifyInstance) {
   })
 
   app.patch('/agents/:agentId/trainings/:trainingId', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { agentId, trainingId } = req.params as { agentId: string; trainingId: string }
     await verifyAgent(agentId, workspaceId)
     const { content, title } = z.object({ content: z.string().min(1).max(50000), title: z.string().optional() }).parse(req.body)
@@ -89,8 +85,8 @@ export async function trainingRoutes(app: FastifyInstance) {
   })
 
   app.delete('/agents/:agentId/trainings/:trainingId', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { agentId, trainingId } = req.params as { agentId: string; trainingId: string }
     await verifyAgent(agentId, workspaceId)
     await prisma.trainingChunk.deleteMany({ where: { trainingId } })
@@ -100,8 +96,8 @@ export async function trainingRoutes(app: FastifyInstance) {
 
   // Limpa todos os chunks de um agente (para reprocessamento completo)
   app.delete('/agents/:agentId/trainings', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { agentId } = req.params as { agentId: string }
     await verifyAgent(agentId, workspaceId)
     const trainings = await prisma.training.findMany({ where: { agentId }, select: { id: true } })

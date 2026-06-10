@@ -1,18 +1,14 @@
 import type { FastifyInstance } from 'fastify'
 import { prisma } from '../../lib/prisma'
+import { getWorkspaceId } from '../../lib/workspace'
 
-async function getWorkspaceId(userId: string) {
-  const member = await prisma.workspaceMember.findFirst({ where: { userId }, orderBy: { createdAt: 'asc' } })
-  if (!member) throw new Error('Workspace não encontrado')
-  return member.workspaceId
-}
 
 export async function attendanceRoutes(app: FastifyInstance) {
   app.addHook('onRequest', app.authenticate)
 
   app.get('/attendances', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { search, status, channelType, agentName, page = '1', limit = '20', start, end } = req.query as Record<string, string>
     const skip = (Number(page) - 1) * Number(limit)
 
@@ -31,8 +27,8 @@ export async function attendanceRoutes(app: FastifyInstance) {
   })
 
   app.get('/attendances/export', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const attendances = await prisma.attendance.findMany({
       where: { workspaceId },
       orderBy: { createdAt: 'desc' },
@@ -52,8 +48,8 @@ export async function attendanceRoutes(app: FastifyInstance) {
   })
 
   app.get('/attendances/:id', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { id } = req.params as { id: string }
     const attendance = await prisma.attendance.findFirst({ where: { id, workspaceId } })
     if (!attendance) return reply.status(404).send({ error: 'Atendimento não encontrado' })

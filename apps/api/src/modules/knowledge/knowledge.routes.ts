@@ -1,19 +1,15 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { prisma } from '../../lib/prisma'
+import { getWorkspaceId } from '../../lib/workspace'
 
-async function getWorkspaceId(userId: string) {
-  const member = await prisma.workspaceMember.findFirst({ where: { userId }, orderBy: { createdAt: 'asc' } })
-  if (!member) throw new Error('Workspace não encontrado')
-  return member.workspaceId
-}
 
 export async function knowledgeRoutes(app: FastifyInstance) {
   app.addHook('onRequest', app.authenticate)
 
   app.get('/knowledge', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const bases = await prisma.knowledgeBase.findMany({
       where: { workspaceId },
       include: { _count: { select: { documents: true, agentLinks: true } } },
@@ -22,16 +18,16 @@ export async function knowledgeRoutes(app: FastifyInstance) {
   })
 
   app.post('/knowledge', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { name, description } = z.object({ name: z.string().min(1), description: z.string().optional() }).parse(req.body)
     const kb = await prisma.knowledgeBase.create({ data: { workspaceId, name, description } })
     return reply.status(201).send(kb)
   })
 
   app.get('/knowledge/:id', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { id } = req.params as { id: string }
     const kb = await prisma.knowledgeBase.findFirst({
       where: { id, workspaceId },
@@ -42,8 +38,8 @@ export async function knowledgeRoutes(app: FastifyInstance) {
   })
 
   app.patch('/knowledge/:id', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { id } = req.params as { id: string }
     const data = z.object({ name: z.string().optional(), description: z.string().optional().nullable() }).parse(req.body)
     await prisma.knowledgeBase.updateMany({ where: { id, workspaceId }, data })
@@ -51,16 +47,16 @@ export async function knowledgeRoutes(app: FastifyInstance) {
   })
 
   app.delete('/knowledge/:id', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { id } = req.params as { id: string }
     await prisma.knowledgeBase.deleteMany({ where: { id, workspaceId } })
     return reply.send({ ok: true })
   })
 
   app.post('/knowledge/:id/documents', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { id } = req.params as { id: string }
     const kb = await prisma.knowledgeBase.findFirst({ where: { id, workspaceId } })
     if (!kb) return reply.status(404).send({ error: 'Base não encontrada' })
@@ -76,8 +72,8 @@ export async function knowledgeRoutes(app: FastifyInstance) {
   })
 
   app.post('/agents/:agentId/knowledge/:kbId', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { agentId, kbId } = req.params as { agentId: string; kbId: string }
     const agent = await prisma.agent.findFirst({ where: { id: agentId, workspaceId } })
     if (!agent) return reply.status(404).send({ error: 'Agente não encontrado' })

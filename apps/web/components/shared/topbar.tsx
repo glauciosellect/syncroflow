@@ -131,8 +131,22 @@ function ThemeToggle() {
 }
 
 export function Topbar() {
-  const { user, workspace, logout, refreshToken } = useAuthStore()
+  const { user, workspace, logout, refreshToken, setWorkspace } = useAuthStore()
   const router = useRouter()
+
+  // Atualiza créditos do workspace a cada 2 minutos
+  useQuery({
+    queryKey: ['workspace-credits'],
+    queryFn: () => api.get('/analytics/overview').then(r => {
+      if (r.data?.creditsRemaining !== undefined) {
+        setWorkspace({ credits: r.data.creditsRemaining })
+      }
+      return r.data
+    }),
+    refetchInterval: 2 * 60 * 1000,
+    staleTime: 60 * 1000,
+    enabled: !!workspace,
+  })
 
   const handleLogout = async () => {
     try {

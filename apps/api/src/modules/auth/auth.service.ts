@@ -29,7 +29,7 @@ async function uniqueSlug(base: string): Promise<string> {
   return slug
 }
 
-export async function registerUser(input: RegisterInput, signTokens: (userId: string) => { accessToken: string; refreshToken: string }) {
+export async function registerUser(input: RegisterInput, signTokens: (userId: string, workspaceId?: string) => { accessToken: string; refreshToken: string }) {
   const existing = await prisma.user.findUnique({ where: { email: input.email } })
   if (existing) throw new Error('Email já cadastrado')
 
@@ -67,10 +67,9 @@ export async function registerUser(input: RegisterInput, signTokens: (userId: st
     include: { workspaceMembers: { include: { workspace: true } } },
   })
 
-  const tokens = signTokens(user.id)
-  await saveRefreshToken(user.id, tokens.refreshToken)
-
   const workspace = user.workspaceMembers[0].workspace
+  const tokens = signTokens(user.id, workspace.id)
+  await saveRefreshToken(user.id, tokens.refreshToken)
 
   // Cria agente padrão com comportamento base já configurado
   try {
@@ -122,10 +121,10 @@ export async function registerUser(input: RegisterInput, signTokens: (userId: st
   return { user: sanitize(user), workspace, ...tokens }
 }
 
-export async function loginUser(input: LoginInput, signTokens: (userId: string) => { accessToken: string; refreshToken: string }) {
+export async function loginUser(input: LoginInput, signTokens: (userId: string, workspaceId?: string) => { accessToken: string; refreshToken: string }) {
   const user = await prisma.user.findUnique({
     where: { email: input.email },
-    include: { workspaceMembers: { include: { workspace: true }, take: 1 } },
+    include: { workspaceMembers: { include: { workspace: true }, orderBy: { createdAt: 'asc' }, take: 1 } },
   })
   if (!user || !user.passwordHash) throw new Error('Credenciais inválidas')
 
@@ -143,16 +142,16 @@ export async function loginUser(input: LoginInput, signTokens: (userId: string) 
     if (!verified) throw new Error('Código 2FA inválido')
   }
 
-  const tokens = signTokens(user.id)
+  const workspace = user.workspaceMembers[0]?.workspace
+  const tokens = signTokens(user.id, workspace?.id)
   await saveRefreshToken(user.id, tokens.refreshToken)
 
-  const workspace = user.workspaceMembers[0]?.workspace
   return { user: sanitize(user), workspace, ...tokens }
 }
 
 export async function refreshTokens(
   oldRefreshToken: string,
-  signTokens: (userId: string) => { accessToken: string; refreshToken: string }
+  signTokens: (userId: string, workspaceId?: string) => { accessToken: string; refreshToken: string }
 ) {
   const session = await prisma.session.findUnique({
     where: { refreshToken: oldRefreshToken },
@@ -163,7 +162,13 @@ export async function refreshTokens(
     throw new Error('Refresh token inválido ou expirado')
   }
 
-  const tokens = signTokens(session.userId)
+  const member = await prisma.workspaceMember.findFirst({
+    where: { userId: session.userId },
+    orderBy: { createdAt: 'asc' },
+    include: { workspace: true },
+  })
+
+  const tokens = signTokens(session.userId, member?.workspaceId)
   await prisma.session.update({
     where: { id: session.id },
     data: {
@@ -172,7 +177,7 @@ export async function refreshTokens(
     },
   })
 
-  return { user: sanitize(session.user), ...tokens }
+  return { user: sanitize(session.user), workspace: member?.workspace ?? null, ...tokens }
 }
 
 export async function logoutUser(refreshToken: string) {

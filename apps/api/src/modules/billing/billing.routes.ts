@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { prisma } from '../../lib/prisma'
+import { getWorkspaceId } from '../../lib/workspace'
 
 const PLANS = {
   STARTER:  { name: 'Starter',  credits: 2000,  agents: 5,  priceMonthly: 6000  },
@@ -9,18 +10,13 @@ const PLANS = {
 
 const CYCLE_DISCOUNTS = { MONTHLY: 0, ANNUAL: 12 }
 
-async function getWorkspaceId(userId: string) {
-  const member = await prisma.workspaceMember.findFirst({ where: { userId }, orderBy: { createdAt: 'asc' } })
-  if (!member) throw new Error('Workspace não encontrado')
-  return member.workspaceId
-}
 
 export async function billingRoutes(app: FastifyInstance) {
   app.addHook('onRequest', app.authenticate)
 
   app.get('/billing', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const workspace = await prisma.workspace.findUnique({
       where: { id: workspaceId },
       include: { subscriptions: { orderBy: { createdAt: 'desc' }, take: 1 } },
@@ -47,8 +43,8 @@ export async function billingRoutes(app: FastifyInstance) {
   })
 
   app.get('/billing/invoices', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const invoices = await prisma.invoice.findMany({
       where: { workspaceId },
       orderBy: { createdAt: 'desc' },
@@ -57,8 +53,8 @@ export async function billingRoutes(app: FastifyInstance) {
   })
 
   app.post('/billing/cancel', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     await prisma.subscription.updateMany({
       where: { workspaceId, status: 'ACTIVE' },
       data: { cancelAtPeriodEnd: true },

@@ -1,19 +1,15 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { prisma } from '../../lib/prisma'
+import { getWorkspaceId } from '../../lib/workspace'
 
-async function getWorkspaceId(userId: string) {
-  const member = await prisma.workspaceMember.findFirst({ where: { userId }, orderBy: { createdAt: 'asc' } })
-  if (!member) throw new Error('Workspace não encontrado')
-  return member.workspaceId
-}
 
 export async function contactRoutes(app: FastifyInstance) {
   app.addHook('onRequest', app.authenticate)
 
   app.get('/contacts', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { search, channelId, tag, page = '1', limit = '20' } = req.query as Record<string, string>
     const skip = (Number(page) - 1) * Number(limit)
 
@@ -34,8 +30,8 @@ export async function contactRoutes(app: FastifyInstance) {
   })
 
   app.get('/contacts/:id', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { id } = req.params as { id: string }
     const contact = await prisma.contact.findFirst({ where: { id, workspaceId } })
     if (!contact) return reply.status(404).send({ error: 'Contato não encontrado' })
@@ -43,8 +39,8 @@ export async function contactRoutes(app: FastifyInstance) {
   })
 
   app.patch('/contacts/:id', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { id } = req.params as { id: string }
     const data = z.object({
       name: z.string().optional(),
@@ -61,16 +57,16 @@ export async function contactRoutes(app: FastifyInstance) {
   })
 
   app.delete('/contacts/:id', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { id } = req.params as { id: string }
     await prisma.contact.deleteMany({ where: { id, workspaceId } })
     return reply.send({ ok: true })
   })
 
   app.get('/contacts/:id/conversations', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { id } = req.params as { id: string }
     const contact = await prisma.contact.findFirst({ where: { id, workspaceId } })
     if (!contact) return reply.status(404).send({ error: 'Contato não encontrado' })

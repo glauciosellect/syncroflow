@@ -58,7 +58,7 @@ api.interceptors.response.use(
 
     try {
       const res = await axios.post(`${BASE_URL}/auth/refresh`, { refreshToken })
-      const { accessToken, refreshToken: newRefresh } = res.data
+      const { accessToken, refreshToken: newRefresh, workspace } = res.data
 
       // Atualiza localStorage
       localStorage.setItem('sf_token', accessToken)
@@ -71,6 +71,7 @@ api.interceptors.response.use(
           const parsed = JSON.parse(sfAuth)
           parsed.state.token = accessToken
           parsed.state.refreshToken = newRefresh
+          if (workspace) parsed.state.workspace = workspace
           localStorage.setItem('sf-auth', JSON.stringify(parsed))
         } catch {}
       }

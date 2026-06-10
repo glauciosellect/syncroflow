@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { prisma } from '../../lib/prisma'
+import { getWorkspaceId } from '../../lib/workspace'
 import axios from 'axios'
 
 const intentionSchema = z.object({
@@ -19,18 +20,13 @@ const intentionSchema = z.object({
   isActive: z.boolean().optional(),
 })
 
-async function getWorkspaceId(userId: string) {
-  const member = await prisma.workspaceMember.findFirst({ where: { userId }, orderBy: { createdAt: 'asc' } })
-  if (!member) throw new Error('Workspace não encontrado')
-  return member.workspaceId
-}
 
 export async function intentionRoutes(app: FastifyInstance) {
   app.addHook('onRequest', app.authenticate)
 
   app.get('/agents/:agentId/intentions', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { agentId } = req.params as { agentId: string }
     const agent = await prisma.agent.findFirst({ where: { id: agentId, workspaceId } })
     if (!agent) return reply.status(404).send({ error: 'Agente não encontrado' })
@@ -42,8 +38,8 @@ export async function intentionRoutes(app: FastifyInstance) {
   })
 
   app.post('/agents/:agentId/intentions', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { agentId } = req.params as { agentId: string }
     const agent = await prisma.agent.findFirst({ where: { id: agentId, workspaceId } })
     if (!agent) return reply.status(404).send({ error: 'Agente não encontrado' })
@@ -60,8 +56,8 @@ export async function intentionRoutes(app: FastifyInstance) {
   })
 
   app.patch('/agents/:agentId/intentions/:intentId', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { agentId, intentId } = req.params as { agentId: string; intentId: string }
     const agent = await prisma.agent.findFirst({ where: { id: agentId, workspaceId } })
     if (!agent) return reply.status(404).send({ error: 'Agente não encontrado' })
@@ -96,8 +92,8 @@ export async function intentionRoutes(app: FastifyInstance) {
   })
 
   app.post('/agents/:agentId/intentions/import', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { agentId } = req.params as { agentId: string }
     const agent = await prisma.agent.findFirst({ where: { id: agentId, workspaceId } })
     if (!agent) return reply.status(404).send({ error: 'Agente não encontrado' })

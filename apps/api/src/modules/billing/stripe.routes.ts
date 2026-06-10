@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import Stripe from 'stripe'
 import { prisma } from '../../lib/prisma'
+import { getWorkspaceId } from '../../lib/workspace'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -31,11 +32,6 @@ export const CREDIT_PACKAGES = [
   { id: 'pack_1000', name: '1.000 créditos', credits: 1000, price: 3500, priceLabel: 'R$ 35,00' },
 ]
 
-async function getWorkspaceId(userId: string) {
-  const member = await prisma.workspaceMember.findFirst({ where: { userId }, orderBy: { createdAt: 'asc' } })
-  if (!member) throw new Error('Workspace não encontrado')
-  return member.workspaceId
-}
 
 export async function stripeRoutes(app: FastifyInstance) {
 
@@ -46,8 +42,8 @@ export async function stripeRoutes(app: FastifyInstance) {
 
   // Criar sessão de checkout para compra de créditos avulsos
   app.post('/billing/checkout', { onRequest: [app.authenticate] }, async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { packageId } = req.body as { packageId: string }
 
     const pkg = CREDIT_PACKAGES.find(p => p.id === packageId)
@@ -77,8 +73,8 @@ export async function stripeRoutes(app: FastifyInstance) {
 
   // Criar sessão de checkout para assinatura de plano
   app.post('/billing/subscribe', { onRequest: [app.authenticate] }, async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { plan, cycle = 'MONTHLY' } = req.body as { plan: string; cycle?: string }
 
     const priceId = getPriceId(plan, cycle)
@@ -131,8 +127,8 @@ export async function stripeRoutes(app: FastifyInstance) {
 
   // Portal de gerenciamento (cancelar, trocar cartão, ver faturas)
   app.post('/billing/portal', { onRequest: [app.authenticate] }, async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
 
     const sub_ = await prisma.subscription.findFirst({
       where: { workspaceId, status: 'ACTIVE' },

@@ -21,8 +21,8 @@ import {
 } from './auth.service'
 
 export async function authRoutes(app: FastifyInstance) {
-  const signTokens = (userId: string) => ({
-    accessToken: app.jwt.sign({ sub: userId }, { expiresIn: '15m' }),
+  const signTokens = (userId: string, workspaceId?: string) => ({
+    accessToken: app.jwt.sign({ sub: userId, wid: workspaceId }, { expiresIn: '15m' }),
     refreshToken: app.jwt.sign({ sub: userId, type: 'refresh' }, { expiresIn: '7d' }),
   })
 

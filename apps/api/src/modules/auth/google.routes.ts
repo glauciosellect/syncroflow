@@ -24,8 +24,8 @@ async function uniqueSlug(base: string): Promise<string> {
 }
 
 export async function googleRoutes(app: FastifyInstance) {
-  const signTokens = (userId: string) => ({
-    accessToken: app.jwt.sign({ sub: userId }, { expiresIn: '15m' }),
+  const signTokens = (userId: string, workspaceId?: string) => ({
+    accessToken: app.jwt.sign({ sub: userId, wid: workspaceId }, { expiresIn: '15m' }),
     refreshToken: app.jwt.sign({ sub: userId, type: 'refresh' }, { expiresIn: '7d' }),
   })
 
@@ -89,7 +89,10 @@ export async function googleRoutes(app: FastifyInstance) {
         } as any) as any
       }
 
-      const jwtTokens = signTokens((user as any).id)
+      const workspace = (user as any).workspaceMembers?.[0]?.workspace
+        ?? await prisma.workspaceMember.findFirst({ where: { userId: (user as any).id }, orderBy: { createdAt: 'asc' }, include: { workspace: true } }).then(m => m?.workspace)
+
+      const jwtTokens = signTokens((user as any).id, workspace?.id)
       await prisma.session.create({
         data: {
           userId: (user as any).id,
@@ -97,9 +100,6 @@ export async function googleRoutes(app: FastifyInstance) {
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         },
       })
-
-      const workspace = (user as any).workspaceMembers?.[0]?.workspace
-        ?? await prisma.workspaceMember.findFirst({ where: { userId: (user as any).id }, include: { workspace: true } }).then(m => m?.workspace)
 
       // Usuários existentes vão direto ao dashboard; novos usuários passam pelo onboarding
       const destination = (!isNewUser || (user as any).onboardingDone) ? `${FRONTEND_URL}/dashboard` : `${FRONTEND_URL}/register?step=2`
@@ -190,8 +190,8 @@ export async function googleRoutes(app: FastifyInstance) {
 
   // ── GOOGLE CALENDAR — status e disconnect ────────────────────────────────
   app.get('/integrations/google', { onRequest: [app.authenticate] }, async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const member = await prisma.workspaceMember.findFirst({ where: { userId: sub } })
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const member = await prisma.workspaceMember.findFirst({ where: wid ? { workspaceId: wid, userId: sub } : { userId: sub }, orderBy: { createdAt: 'asc' } })
     if (!member) return reply.status(404).send({ error: 'Workspace não encontrado' })
 
     const ws = await (prisma.workspace as any).findUnique({
@@ -220,8 +220,8 @@ export async function googleRoutes(app: FastifyInstance) {
   })
 
   app.delete('/integrations/google', { onRequest: [app.authenticate] }, async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const member = await prisma.workspaceMember.findFirst({ where: { userId: sub } })
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const member = await prisma.workspaceMember.findFirst({ where: wid ? { workspaceId: wid, userId: sub } : { userId: sub }, orderBy: { createdAt: 'asc' } })
     if (!member) return reply.status(404).send({ error: 'Workspace não encontrado' })
 
     await (prisma.workspace as any).update({
@@ -240,8 +240,8 @@ export async function googleRoutes(app: FastifyInstance) {
 
   // ── GOOGLE CALENDAR — eventos ────────────────────────────────────────────
   app.get('/integrations/google/events', { onRequest: [app.authenticate] }, async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const member = await prisma.workspaceMember.findFirst({ where: { userId: sub } })
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const member = await prisma.workspaceMember.findFirst({ where: wid ? { workspaceId: wid, userId: sub } : { userId: sub }, orderBy: { createdAt: 'asc' } })
     if (!member) return reply.status(404).send({ error: 'Workspace não encontrado' })
 
     const { timeMin, timeMax } = req.query as Record<string, string>
@@ -261,8 +261,8 @@ export async function googleRoutes(app: FastifyInstance) {
   })
 
   app.post('/integrations/google/events', { onRequest: [app.authenticate] }, async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const member = await prisma.workspaceMember.findFirst({ where: { userId: sub } })
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const member = await prisma.workspaceMember.findFirst({ where: wid ? { workspaceId: wid, userId: sub } : { userId: sub }, orderBy: { createdAt: 'asc' } })
     if (!member) return reply.status(404).send({ error: 'Workspace não encontrado' })
 
     const ws = await (prisma.workspace as any).findUnique({
@@ -280,9 +280,9 @@ export async function googleRoutes(app: FastifyInstance) {
   })
 
   app.delete('/integrations/google/events/:eventId', { onRequest: [app.authenticate] }, async (req, reply) => {
-    const { sub } = req.user as { sub: string }
+    const { sub, wid } = req.user as { sub: string; wid?: string }
     const { eventId } = req.params as { eventId: string }
-    const member = await prisma.workspaceMember.findFirst({ where: { userId: sub } })
+    const member = await prisma.workspaceMember.findFirst({ where: wid ? { workspaceId: wid, userId: sub } : { userId: sub }, orderBy: { createdAt: 'asc' } })
     if (!member) return reply.status(404).send({ error: 'Workspace não encontrado' })
 
     const ws = await (prisma.workspace as any).findUnique({

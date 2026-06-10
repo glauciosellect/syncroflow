@@ -1,15 +1,8 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { prisma } from '../../lib/prisma'
+import { getWorkspaceId } from '../../lib/workspace'
 
-async function getWorkspaceId(userId: string) {
-  const member = await prisma.workspaceMember.findFirst({
-    where: { userId },
-    orderBy: { createdAt: 'asc' },
-  })
-  if (!member) throw new Error('Workspace não encontrado')
-  return member.workspaceId
-}
 
 const leadSchema = z.object({
   name: z.string().min(1).max(200),
@@ -45,8 +38,8 @@ export async function comercialRoutes(app: FastifyInstance) {
   // —— Pipeline Stages ————————————————————————————————————————————————
 
   app.get('/comercial/stages', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const stages = await prisma.pipelineStage.findMany({
       where: { workspaceId },
       orderBy: { order: 'asc' },
@@ -56,8 +49,8 @@ export async function comercialRoutes(app: FastifyInstance) {
   })
 
   app.post('/comercial/stages', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const data = stageSchema.parse(req.body)
     const count = await prisma.pipelineStage.count({ where: { workspaceId } })
     const stage = await prisma.pipelineStage.create({
@@ -67,8 +60,8 @@ export async function comercialRoutes(app: FastifyInstance) {
   })
 
   app.patch('/comercial/stages/:id', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { id } = req.params as { id: string }
     const data = stageSchema.partial().parse(req.body)
     const stage = await prisma.pipelineStage.updateMany({ where: { id, workspaceId }, data })
@@ -77,8 +70,8 @@ export async function comercialRoutes(app: FastifyInstance) {
   })
 
   app.delete('/comercial/stages/:id', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { id } = req.params as { id: string }
     await prisma.lead.updateMany({ where: { stageId: id, workspaceId }, data: { stageId: null } })
     await prisma.pipelineStage.deleteMany({ where: { id, workspaceId } })
@@ -86,8 +79,8 @@ export async function comercialRoutes(app: FastifyInstance) {
   })
 
   app.post('/comercial/stages/reorder', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { order } = z.object({ order: z.array(z.string()) }).parse(req.body)
     await Promise.all(order.map((id, idx) =>
       prisma.pipelineStage.updateMany({ where: { id, workspaceId }, data: { order: idx } })
@@ -98,8 +91,8 @@ export async function comercialRoutes(app: FastifyInstance) {
   // —— Leads ———————————————————————————————————————————————————————
 
   app.get('/comercial/leads', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { stageId, search } = req.query as { stageId?: string; search?: string }
     const leads = await prisma.lead.findMany({
       where: {
@@ -114,16 +107,16 @@ export async function comercialRoutes(app: FastifyInstance) {
   })
 
   app.post('/comercial/leads', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const data = leadSchema.parse(req.body)
     const lead = await prisma.lead.create({ data: { ...data, workspaceId }, include: { stage: true } })
     return reply.status(201).send(lead)
   })
 
   app.patch('/comercial/leads/:id', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { id } = req.params as { id: string }
     const data = leadSchema.partial().parse(req.body)
     const result = await prisma.lead.updateMany({ where: { id, workspaceId }, data })
@@ -132,8 +125,8 @@ export async function comercialRoutes(app: FastifyInstance) {
   })
 
   app.delete('/comercial/leads/:id', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { id } = req.params as { id: string }
     await prisma.lead.deleteMany({ where: { id, workspaceId } })
     return reply.send({ ok: true })
@@ -142,8 +135,8 @@ export async function comercialRoutes(app: FastifyInstance) {
   // —— Follow-ups —————————————————————————————————————————————————
 
   app.get('/comercial/followups', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { status } = req.query as { status?: string }
     const followUps = await prisma.followUp.findMany({
       where: {
@@ -157,8 +150,8 @@ export async function comercialRoutes(app: FastifyInstance) {
   })
 
   app.post('/comercial/followups', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const data = followUpSchema.parse(req.body)
     const followUp = await prisma.followUp.create({
       data: { ...data, workspaceId, scheduledAt: new Date(data.scheduledAt) },
@@ -168,8 +161,8 @@ export async function comercialRoutes(app: FastifyInstance) {
   })
 
   app.patch('/comercial/followups/:id', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { id } = req.params as { id: string }
     const data = z.object({
       title: z.string().optional(),
@@ -192,8 +185,8 @@ export async function comercialRoutes(app: FastifyInstance) {
   })
 
   app.delete('/comercial/followups/:id', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const { id } = req.params as { id: string }
     await prisma.followUp.deleteMany({ where: { id, workspaceId } })
     return reply.send({ ok: true })
@@ -202,8 +195,8 @@ export async function comercialRoutes(app: FastifyInstance) {
   // —— Stats para dashboard ——————————————————————————————————————————
 
   app.get('/comercial/stats', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    const workspaceId = await getWorkspaceId(sub)
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
     const [totalLeads, stages, pendingFollowUps, overdueFollowUps] = await Promise.all([
       prisma.lead.count({ where: { workspaceId } }),
       prisma.pipelineStage.findMany({
