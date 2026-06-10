@@ -3,53 +3,159 @@
 @tailwind utilities;
 
 @layer base {
+  /* ── Paleta SyncroFlow — alinhada à logo oficial ──────────────────────────
+     Verde:  #3DBE29 (Syncro) → HSL 110 65% 45%
+     Azul:   #1A3A8F (Flow)   → HSL 225 69% 33%
+     Gradiente brand: linear-gradient(135deg, #3DBE29, #1A3A8F)
+  ──────────────────────────────────────────────────────────────────────── */
+
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 245 82% 61%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 245 82% 61%;
-    --radius: 0.5rem;
+    /* Superfícies */
+    --background:        0 0% 97%;       /* #F7F7F7 — fundo geral */
+    --surface:           0 0% 100%;      /* branco — cards, sidebar */
+    --surface-raised:    0 0% 100%;
+
+    /* Texto */
+    --foreground:        225 25% 15%;    /* #1D2133 — texto principal */
+    --foreground-muted:  220 15% 45%;    /* cinza médio */
+
+    /* Brand primária — Azul Flow */
+    --primary:           225 69% 33%;    /* #1A3A8F */
+    --primary-light:     225 69% 94%;    /* azul bem claro para hover/bg */
+    --primary-foreground:0 0% 100%;
+
+    /* Brand secundária — Verde Syncro */
+    --brand-green:       110 65% 38%;    /* #3DBE29 levemente mais escuro p/ contraste */
+    --brand-green-light: 110 65% 94%;
+
+    /* Gradiente brand */
+    --gradient-brand:    linear-gradient(135deg, #3DBE29 0%, #1A3A8F 100%);
+
+    /* UI neutros */
+    --card:              0 0% 100%;
+    --card-foreground:   225 25% 15%;
+    --popover:           0 0% 100%;
+    --popover-foreground:225 25% 15%;
+    --secondary:         220 20% 95%;
+    --secondary-foreground:225 25% 20%;
+    --muted:             220 20% 95%;
+    --muted-foreground:  220 15% 50%;
+    --accent:            225 69% 94%;
+    --accent-foreground: 225 69% 25%;
+
+    /* Bordas e inputs */
+    --border:            220 20% 88%;
+    --input:             220 20% 92%;
+    --ring:              225 69% 33%;
+
+    /* Estados */
+    --destructive:       0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --success:           110 65% 38%;
+    --warning:           38 92% 50%;
+
+    --radius: 0.625rem;
+
+    /* Sidebar específico */
+    --sidebar-bg:        225 35% 15%;    /* azul escuro — sidebar light usa versão escura */
+    --sidebar-fg:        220 25% 80%;
+    --sidebar-active-bg: 225 69% 25%;
+    --sidebar-active-fg: 0 0% 100%;
+    --sidebar-hover-bg:  225 35% 22%;
+    --sidebar-border:    225 35% 22%;
+    --sidebar-section:   220 20% 55%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 245 82% 61%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 245 82% 61%;
+    /* Superfícies escuras */
+    --background:        222 25% 10%;    /* #121620 */
+    --surface:           222 25% 14%;    /* #181E2A */
+    --surface-raised:    222 25% 18%;
+
+    /* Texto */
+    --foreground:        220 20% 92%;    /* quase branco */
+    --foreground-muted:  220 15% 60%;
+
+    /* Brand — mesmos valores, ajustados p/ legibilidade no escuro */
+    --primary:           225 75% 58%;    /* azul mais claro no dark */
+    --primary-light:     225 50% 20%;
+    --primary-foreground:0 0% 100%;
+
+    --brand-green:       110 60% 48%;    /* verde mais claro no dark */
+    --brand-green-light: 110 40% 18%;
+
+    /* UI neutros escuros */
+    --card:              222 25% 14%;
+    --card-foreground:   220 20% 92%;
+    --popover:           222 25% 14%;
+    --popover-foreground:220 20% 92%;
+    --secondary:         222 25% 20%;
+    --secondary-foreground:220 20% 85%;
+    --muted:             222 25% 18%;
+    --muted-foreground:  220 15% 55%;
+    --accent:            225 50% 20%;
+    --accent-foreground: 225 75% 72%;
+
+    /* Bordas e inputs */
+    --border:            222 25% 24%;
+    --input:             222 25% 20%;
+    --ring:              225 75% 58%;
+
+    /* Estados */
+    --destructive:       0 65% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --success:           110 55% 45%;
+    --warning:           38 85% 55%;
+
+    /* Sidebar no dark — levemente diferente do bg */
+    --sidebar-bg:        222 28% 11%;
+    --sidebar-fg:        220 20% 70%;
+    --sidebar-active-bg: 225 60% 28%;
+    --sidebar-active-fg: 0 0% 100%;
+    --sidebar-hover-bg:  222 28% 18%;
+    --sidebar-border:    222 28% 20%;
+    --sidebar-section:   220 15% 45%;
   }
 }
 
 @layer base {
   * { @apply border-border; }
-  body { @apply bg-background text-foreground; }
+
+  body {
+    @apply bg-[hsl(var(--background))] text-[hsl(var(--foreground))];
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Scrollbar personalizada */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 99px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+  }
+}
+
+/* ── Utilitários de brand ──────────────────────────────────────────────────── */
+@layer utilities {
+  .brand-gradient {
+    background: linear-gradient(135deg, #3DBE29 0%, #1A3A8F 100%);
+  }
+  .brand-gradient-text {
+    background: linear-gradient(135deg, #3DBE29 0%, #1A3A8F 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .sidebar-item-active {
+    background-color: hsl(var(--sidebar-active-bg));
+    color: hsl(var(--sidebar-active-fg));
+  }
+  .sidebar-item-hover:hover {
+    background-color: hsl(var(--sidebar-hover-bg));
+    color: hsl(var(--sidebar-active-fg));
+  }
 }
