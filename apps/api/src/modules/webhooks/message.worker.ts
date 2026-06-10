@@ -181,18 +181,30 @@ export function startMessageWorker() {
       const config = agent.config
       if (isNewContact && config?.autoCreateLead) {
         try {
+          // Resolve stageId: usa o configurado no agente, ou busca a primeira etapa do workspace
+          let autoStageId: string | null = (config as any).autoLeadStageId || null
+          if (!autoStageId) {
+            const firstStage = await prisma.pipelineStage.findFirst({
+              where: { workspaceId: channel.workspaceId },
+              orderBy: { order: 'asc' },
+            })
+            autoStageId = firstStage?.id ?? null
+          }
           await prisma.lead.create({
             data: {
               workspaceId: channel.workspaceId,
               name: name || from!,
               phone: channelType === 'WHATSAPP' ? from : undefined,
               source: channelType,
-              stageId: (config as any).autoLeadStageId || null,
+              stageId: autoStageId,
               contactId: contact.id,
               agentId: agent.id,
             },
           })
-        } catch {}
+          console.log(`[WORKER] Lead criado automaticamente: ${name || from} → stage ${autoStageId}`)
+        } catch (err: any) {
+          console.error('[WORKER] Erro ao criar lead automático:', err?.message)
+        }
       }
 
       // ── Primeiro Atendimento ────────────────────────────────────────────────
