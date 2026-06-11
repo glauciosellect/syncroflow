@@ -87,6 +87,175 @@ export async function ecommerceWebhookRoutes(app: FastifyInstance) {
 
 // ─── E-commerce Integrations CRUD + OAuth ────────────────────────────────────
 
+// ─── OAuth Callbacks (públicos — chamados pela plataforma após autorização) ───
+
+export async function ecommerceOAuthCallbackRoutes(app: FastifyInstance) {
+  // Nuvemshop callback
+  app.get('/ecommerce/integrations/nuvemshop/callback', async (req, reply) => {
+    const { code, state } = req.query as { code: string; state: string }
+    let workspaceId: string
+    try {
+      workspaceId = JSON.parse(Buffer.from(state, 'base64url').toString()).workspaceId
+    } catch {
+      return reply.status(400).send({ error: 'State inválido' })
+    }
+
+    const clientId = process.env.NUVEMSHOP_CLIENT_ID ?? ''
+    const clientSecret = process.env.NUVEMSHOP_CLIENT_SECRET ?? ''
+
+    const tokenRes = await fetch(`https://www.nuvemshop.com.br/apps/authorize/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, grant_type: 'authorization_code', code }),
+    })
+
+    if (!tokenRes.ok) {
+      logger.error('Nuvemshop token exchange failed', { status: tokenRes.status })
+      return reply.status(502).send({ error: 'Falha ao obter token da Nuvemshop' })
+    }
+
+    const tokenData = await tokenRes.json() as { access_token: string; user_id: string }
+
+    const storeRes = await fetch(`https://api.nuvemshop.com.br/v1/${tokenData.user_id}/store`, {
+      headers: { Authentication: `bearer ${tokenData.access_token}`, 'User-Agent': 'SyncroFlow/1.0' },
+    })
+    const storeData = storeRes.ok ? await storeRes.json() as any : {}
+
+    await prisma.integration.upsert({
+      where: { workspaceId_platform: { workspaceId, platform: 'nuvemshop' } },
+      create: {
+        workspaceId, platform: 'nuvemshop', status: 'active',
+        accessToken: encrypt(tokenData.access_token),
+        shopId: String(tokenData.user_id),
+        shopName: storeData?.name?.pt ?? storeData?.name ?? null,
+        shopUrl: storeData?.original_domain ?? null,
+      },
+      update: {
+        accessToken: encrypt(tokenData.access_token),
+        status: 'active',
+        shopName: storeData?.name?.pt ?? storeData?.name ?? null,
+        shopUrl: storeData?.original_domain ?? null,
+      },
+    })
+
+    const frontendUrl = process.env.FRONTEND_URL ?? 'https://app.syncroflow.io'
+    return reply.redirect(`${frontendUrl}/integrations?connected=nuvemshop`)
+  })
+
+  // Mercado Livre callback
+  app.get('/ecommerce/integrations/mercadolivre/callback', async (req, reply) => {
+    const { code, state } = req.query as { code: string; state: string }
+    let workspaceId: string
+    try {
+      workspaceId = JSON.parse(Buffer.from(state, 'base64url').toString()).workspaceId
+    } catch {
+      return reply.status(400).send({ error: 'State inválido' })
+    }
+
+    const appId = process.env.MERCADOLIVRE_APP_ID ?? ''
+    const clientSecret = process.env.MERCADOLIVRE_CLIENT_SECRET ?? ''
+    const baseUrl = process.env.API_BASE_URL ?? 'https://api.syncroflow.io'
+    const redirectUri = `${baseUrl}/ecommerce/integrations/mercadolivre/callback`
+
+    const tokenRes = await fetch('https://api.mercadolibre.com/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code', client_id: appId, client_secret: clientSecret,
+        code, redirect_uri: redirectUri,
+      }),
+    })
+
+    if (!tokenRes.ok) {
+      logger.error('MercadoLivre token exchange failed', { status: tokenRes.status })
+      return reply.status(502).send({ error: 'Falha ao obter token do Mercado Livre' })
+    }
+
+    const tokenData = await tokenRes.json() as { access_token: string; refresh_token: string; expires_in: number; user_id: number }
+    const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000)
+
+    const userRes = await fetch(`https://api.mercadolibre.com/users/${tokenData.user_id}`, {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    })
+    const userData = userRes.ok ? await userRes.json() as any : {}
+
+    await prisma.integration.upsert({
+      where: { workspaceId_platform: { workspaceId, platform: 'mercadolivre' } },
+      create: {
+        workspaceId, platform: 'mercadolivre', status: 'active',
+        accessToken: encrypt(tokenData.access_token),
+        refreshToken: encrypt(tokenData.refresh_token),
+        tokenExpiresAt: expiresAt,
+        shopId: String(tokenData.user_id),
+        shopName: userData?.nickname ?? null,
+        shopUrl: userData?.permalink ?? null,
+      },
+      update: {
+        accessToken: encrypt(tokenData.access_token),
+        refreshToken: encrypt(tokenData.refresh_token),
+        tokenExpiresAt: expiresAt,
+        status: 'active',
+        shopName: userData?.nickname ?? null,
+      },
+    })
+
+    const frontendUrl = process.env.FRONTEND_URL ?? 'https://app.syncroflow.io'
+    return reply.redirect(`${frontendUrl}/integrations?connected=mercadolivre`)
+  })
+
+  // Shopify callback
+  app.get('/ecommerce/integrations/shopify/callback', async (req, reply) => {
+    const { code, state, shop } = req.query as { code: string; state: string; shop: string; hmac: string }
+    let workspaceId: string
+    try {
+      workspaceId = JSON.parse(Buffer.from(state, 'base64url').toString()).workspaceId
+    } catch {
+      return reply.status(400).send({ error: 'State inválido' })
+    }
+
+    const apiKey = process.env.SHOPIFY_API_KEY ?? ''
+    const apiSecret = process.env.SHOPIFY_API_SECRET ?? ''
+
+    const tokenRes = await fetch(`https://${shop}/admin/oauth/access_token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_id: apiKey, client_secret: apiSecret, code }),
+    })
+
+    if (!tokenRes.ok) {
+      return reply.status(502).send({ error: 'Falha ao obter token do Shopify' })
+    }
+
+    const tokenData = await tokenRes.json() as { access_token: string }
+
+    const storeRes = await fetch(`https://${shop}/admin/api/2024-01/shop.json`, {
+      headers: { 'X-Shopify-Access-Token': tokenData.access_token },
+    })
+    const storeData = storeRes.ok ? (await storeRes.json() as any).shop : {}
+
+    await prisma.integration.upsert({
+      where: { workspaceId_platform: { workspaceId, platform: 'shopify' } },
+      create: {
+        workspaceId, platform: 'shopify', status: 'active',
+        accessToken: encrypt(tokenData.access_token),
+        shopId: String(storeData?.id ?? shop),
+        shopName: storeData?.name ?? shop,
+        shopUrl: `https://${shop}`,
+      },
+      update: {
+        accessToken: encrypt(tokenData.access_token),
+        status: 'active',
+        shopName: storeData?.name ?? shop,
+      },
+    })
+
+    const frontendUrl = process.env.FRONTEND_URL ?? 'https://app.syncroflow.io'
+    return reply.redirect(`${frontendUrl}/integrations?connected=shopify`)
+  })
+}
+
+// ─── E-commerce Integrations CRUD + OAuth connect (autenticado) ──────────────
+
 export async function ecommerceIntegrationRoutes(app: FastifyInstance) {
   app.addHook('onRequest', app.authenticate)
 
@@ -155,174 +324,6 @@ export async function ecommerceIntegrationRoutes(app: FastifyInstance) {
       }
     }
   )
-
-  // ─── OAuth callbacks (sem autenticação — chamados pela plataforma) ─────────
-
-  // Nuvemshop callback
-  app.get('/ecommerce/integrations/nuvemshop/callback', async (req, reply) => {
-    const { code, state } = req.query as { code: string; state: string }
-    let workspaceId: string
-    try {
-      workspaceId = JSON.parse(Buffer.from(state, 'base64url').toString()).workspaceId
-    } catch {
-      return reply.status(400).send({ error: 'State inválido' })
-    }
-
-    const clientId = process.env.NUVEMSHOP_CLIENT_ID ?? ''
-    const clientSecret = process.env.NUVEMSHOP_CLIENT_SECRET ?? ''
-
-    const tokenRes = await fetch(`https://www.nuvemshop.com.br/apps/authorize/token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, grant_type: 'authorization_code', code }),
-    })
-
-    if (!tokenRes.ok) {
-      logger.error('Nuvemshop token exchange failed', { status: tokenRes.status })
-      return reply.status(502).send({ error: 'Falha ao obter token da Nuvemshop' })
-    }
-
-    const tokenData = await tokenRes.json() as { access_token: string; user_id: string }
-
-    // Busca dados da loja
-    const storeRes = await fetch(`https://api.nuvemshop.com.br/v1/${tokenData.user_id}/store`, {
-      headers: { Authentication: `bearer ${tokenData.access_token}`, 'User-Agent': 'SyncroFlow/1.0' },
-    })
-    const storeData = storeRes.ok ? await storeRes.json() as any : {}
-
-    await prisma.integration.upsert({
-      where: { workspaceId_platform: { workspaceId, platform: 'nuvemshop' } },
-      create: {
-        workspaceId, platform: 'nuvemshop', status: 'active',
-        accessToken: encrypt(tokenData.access_token),
-        shopId: String(tokenData.user_id),
-        shopName: storeData?.name?.pt ?? storeData?.name ?? null,
-        shopUrl: storeData?.original_domain ?? null,
-      },
-      update: {
-        accessToken: encrypt(tokenData.access_token),
-        status: 'active',
-        shopName: storeData?.name?.pt ?? storeData?.name ?? null,
-        shopUrl: storeData?.original_domain ?? null,
-      },
-    })
-
-    const frontendUrl = process.env.FRONTEND_URL ?? 'https://app.syncroflow.io'
-    return reply.redirect(`${frontendUrl}/integrations?connected=nuvemshop`)
-  })
-
-  // Mercado Livre callback
-  app.get('/ecommerce/integrations/mercadolivre/callback', async (req, reply) => {
-    const { code, state } = req.query as { code: string; state: string }
-    let workspaceId: string
-    try {
-      workspaceId = JSON.parse(Buffer.from(state, 'base64url').toString()).workspaceId
-    } catch {
-      return reply.status(400).send({ error: 'State inválido' })
-    }
-
-    const appId = process.env.MERCADOLIVRE_APP_ID ?? ''
-    const clientSecret = process.env.MERCADOLIVRE_CLIENT_SECRET ?? ''
-    const baseUrl = process.env.API_BASE_URL ?? 'https://api.syncroflow.io'
-    const redirectUri = `${baseUrl}/ecommerce/integrations/mercadolivre/callback`
-
-    const tokenRes = await fetch('https://api.mercadolibre.com/oauth/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code', client_id: appId, client_secret: clientSecret,
-        code, redirect_uri: redirectUri,
-      }),
-    })
-
-    if (!tokenRes.ok) {
-      logger.error('MercadoLivre token exchange failed', { status: tokenRes.status })
-      return reply.status(502).send({ error: 'Falha ao obter token do Mercado Livre' })
-    }
-
-    const tokenData = await tokenRes.json() as { access_token: string; refresh_token: string; expires_in: number; user_id: number }
-    const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000)
-
-    // Busca dados do usuário/vendedor
-    const userRes = await fetch(`https://api.mercadolibre.com/users/${tokenData.user_id}`, {
-      headers: { Authorization: `Bearer ${tokenData.access_token}` },
-    })
-    const userData = userRes.ok ? await userRes.json() as any : {}
-
-    await prisma.integration.upsert({
-      where: { workspaceId_platform: { workspaceId, platform: 'mercadolivre' } },
-      create: {
-        workspaceId, platform: 'mercadolivre', status: 'active',
-        accessToken: encrypt(tokenData.access_token),
-        refreshToken: encrypt(tokenData.refresh_token),
-        tokenExpiresAt: expiresAt,
-        shopId: String(tokenData.user_id),
-        shopName: userData?.nickname ?? null,
-        shopUrl: userData?.permalink ?? null,
-      },
-      update: {
-        accessToken: encrypt(tokenData.access_token),
-        refreshToken: encrypt(tokenData.refresh_token),
-        tokenExpiresAt: expiresAt,
-        status: 'active',
-        shopName: userData?.nickname ?? null,
-      },
-    })
-
-    const frontendUrl = process.env.FRONTEND_URL ?? 'https://app.syncroflow.io'
-    return reply.redirect(`${frontendUrl}/integrations?connected=mercadolivre`)
-  })
-
-  // Shopify callback
-  app.get('/ecommerce/integrations/shopify/callback', async (req, reply) => {
-    const { code, state, shop, hmac } = req.query as { code: string; state: string; shop: string; hmac: string }
-    let workspaceId: string
-    try {
-      workspaceId = JSON.parse(Buffer.from(state, 'base64url').toString()).workspaceId
-    } catch {
-      return reply.status(400).send({ error: 'State inválido' })
-    }
-
-    const apiKey = process.env.SHOPIFY_API_KEY ?? ''
-    const apiSecret = process.env.SHOPIFY_API_SECRET ?? ''
-
-    const tokenRes = await fetch(`https://${shop}/admin/oauth/access_token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ client_id: apiKey, client_secret: apiSecret, code }),
-    })
-
-    if (!tokenRes.ok) {
-      return reply.status(502).send({ error: 'Falha ao obter token do Shopify' })
-    }
-
-    const tokenData = await tokenRes.json() as { access_token: string }
-
-    // Busca dados da loja
-    const storeRes = await fetch(`https://${shop}/admin/api/2024-01/shop.json`, {
-      headers: { 'X-Shopify-Access-Token': tokenData.access_token },
-    })
-    const storeData = storeRes.ok ? (await storeRes.json() as any).shop : {}
-
-    await prisma.integration.upsert({
-      where: { workspaceId_platform: { workspaceId, platform: 'shopify' } },
-      create: {
-        workspaceId, platform: 'shopify', status: 'active',
-        accessToken: encrypt(tokenData.access_token),
-        shopId: String(storeData?.id ?? shop),
-        shopName: storeData?.name ?? shop,
-        shopUrl: `https://${shop}`,
-      },
-      update: {
-        accessToken: encrypt(tokenData.access_token),
-        status: 'active',
-        shopName: storeData?.name ?? shop,
-      },
-    })
-
-    const frontendUrl = process.env.FRONTEND_URL ?? 'https://app.syncroflow.io'
-    return reply.redirect(`${frontendUrl}/integrations?connected=shopify`)
-  })
 
   // ─── Automations CRUD ────────────────────────────────────────────────────────
 

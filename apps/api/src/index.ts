@@ -29,7 +29,7 @@ import { apiKeyRoutes } from './modules/auth/apikeys.routes'
 import { envVariableRoutes } from './modules/auth/env-variables.routes'
 import { webhookRoutes } from './modules/webhooks/webhooks.routes'
 import { comercialRoutes } from './modules/comercial/comercial.routes'
-import { ecommerceWebhookRoutes, ecommerceIntegrationRoutes } from './modules/integrations/ecommerce.routes'
+import { ecommerceWebhookRoutes, ecommerceIntegrationRoutes, ecommerceOAuthCallbackRoutes } from './modules/integrations/ecommerce.routes'
 import { startTrainingWorker } from './modules/ai/training.worker'
 import { startMessageWorker } from './modules/webhooks/message.worker'
 import { startWelcomeWorker } from './modules/welcome/welcome.worker'
@@ -107,6 +107,7 @@ async function bootstrap() {
   await app.register(webhookRoutes)
   await app.register(comercialRoutes)
   await app.register(ecommerceWebhookRoutes)
+  await app.register(ecommerceOAuthCallbackRoutes)
   await app.register(ecommerceIntegrationRoutes)
 
   app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }))
