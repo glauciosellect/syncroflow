@@ -7,6 +7,11 @@ import { encrypt, decrypt } from '../../lib/crypto'
 import { getWorkspaceId } from '../../lib/workspace'
 import { logger } from '../../lib/logger'
 
+// Shopee sign helper for token refresh endpoint (public, no access token)
+function shopeePublicSign(appKey: string, appSecret: string, path: string, timestamp: number): string {
+  return crypto.createHmac('sha256', appSecret).update(`${appKey}${path}${timestamp}`).digest('hex')
+}
+
 // ─── Assinatura por plataforma ────────────────────────────────────────────────
 
 function hmacSha256Hex(secret: string, data: Buffer | string): string {
@@ -252,6 +257,124 @@ export async function ecommerceOAuthCallbackRoutes(app: FastifyInstance) {
     const frontendUrl = process.env.FRONTEND_URL ?? 'https://app.syncroflow.io'
     return reply.redirect(`${frontendUrl}/integrations?connected=shopify`)
   })
+
+  // TikTok Shop callback
+  app.get('/ecommerce/integrations/tiktokshop/callback', async (req, reply) => {
+    const { code, state } = req.query as { code: string; state: string }
+    let workspaceId: string
+    try {
+      workspaceId = JSON.parse(Buffer.from(state, 'base64url').toString()).workspaceId
+    } catch {
+      return reply.status(400).send({ error: 'State inválido' })
+    }
+
+    const appKey = process.env.TIKTOKSHOP_APP_KEY ?? ''
+    const appSecret = process.env.TIKTOKSHOP_APP_SECRET ?? ''
+
+    const tokenRes = await fetch('https://auth.tiktok-shops.com/api/v2/token/get', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ app_key: appKey, app_secret: appSecret, auth_code: code, grant_type: 'authorized_code' }),
+    })
+
+    if (!tokenRes.ok) {
+      logger.error('TikTok Shop token exchange failed', { status: tokenRes.status })
+      return reply.status(502).send({ error: 'Falha ao obter token do TikTok Shop' })
+    }
+
+    const raw = await tokenRes.json() as any
+    const tokenData = raw?.data ?? raw
+
+    const expiresAt = new Date(Date.now() + (tokenData.access_token_expire_in ?? 3600) * 1000)
+
+    await prisma.integration.upsert({
+      where: { workspaceId_platform: { workspaceId, platform: 'tiktokshop' } },
+      create: {
+        workspaceId, platform: 'tiktokshop', status: 'active',
+        accessToken: encrypt(tokenData.access_token),
+        refreshToken: encrypt(tokenData.refresh_token),
+        tokenExpiresAt: expiresAt,
+        shopId: String(tokenData.seller_base_region ?? tokenData.open_id ?? ''),
+        shopName: tokenData.seller_name ?? null,
+      },
+      update: {
+        accessToken: encrypt(tokenData.access_token),
+        refreshToken: encrypt(tokenData.refresh_token),
+        tokenExpiresAt: expiresAt,
+        status: 'active',
+        shopName: tokenData.seller_name ?? null,
+      },
+    })
+
+    const frontendUrl = process.env.FRONTEND_URL ?? 'https://app.syncroflow.io'
+    return reply.redirect(`${frontendUrl}/integrations?connected=tiktokshop`)
+  })
+
+  // Shopee callback
+  app.get('/ecommerce/integrations/shopee/callback', async (req, reply) => {
+    const { code, shop_id, state } = req.query as { code: string; shop_id: string; state: string }
+    let workspaceId: string
+    try {
+      workspaceId = JSON.parse(Buffer.from(state, 'base64url').toString()).workspaceId
+    } catch {
+      return reply.status(400).send({ error: 'State inválido' })
+    }
+
+    const appKey = process.env.SHOPEE_PARTNER_KEY ?? ''
+    const appSecret = process.env.SHOPEE_PARTNER_SECRET ?? ''
+    const host = process.env.SHOPEE_API_HOST ?? 'https://partner.shopeemobile.com'
+    const path = '/api/v2/auth/token/get'
+    const timestamp = Math.floor(Date.now() / 1000)
+    const sign = shopeePublicSign(appKey, appSecret, path, timestamp)
+
+    const tokenRes = await fetch(`${host}${path}?partner_id=${appKey}&timestamp=${timestamp}&sign=${sign}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, shop_id: Number(shop_id), partner_id: Number(appKey) }),
+    })
+
+    if (!tokenRes.ok) {
+      logger.error('Shopee token exchange failed', { status: tokenRes.status })
+      return reply.status(502).send({ error: 'Falha ao obter token da Shopee' })
+    }
+
+    const tokenData = await tokenRes.json() as any
+    const expiresAt = new Date(Date.now() + (tokenData.expire_in ?? 14400) * 1000)
+
+    // Fetch shop info
+    const shopPath = '/api/v2/shop/get_shop_info'
+    const shopTs = Math.floor(Date.now() / 1000)
+    const shopSign = crypto.createHmac('sha256', appSecret)
+      .update(`${appKey}${shopPath}${shopTs}${tokenData.access_token}${shop_id}`)
+      .digest('hex')
+    const shopRes = await fetch(
+      `${host}${shopPath}?partner_id=${appKey}&shop_id=${shop_id}&access_token=${tokenData.access_token}&timestamp=${shopTs}&sign=${shopSign}`
+    )
+    const shopData = shopRes.ok ? (await shopRes.json() as any)?.response ?? {} : {}
+
+    await prisma.integration.upsert({
+      where: { workspaceId_platform: { workspaceId, platform: 'shopee' } },
+      create: {
+        workspaceId, platform: 'shopee', status: 'active',
+        accessToken: encrypt(tokenData.access_token),
+        refreshToken: encrypt(tokenData.refresh_token),
+        tokenExpiresAt: expiresAt,
+        shopId: String(shop_id),
+        shopName: shopData?.shop_name ?? null,
+        shopUrl: shopData?.shop_url ?? null,
+      },
+      update: {
+        accessToken: encrypt(tokenData.access_token),
+        refreshToken: encrypt(tokenData.refresh_token),
+        tokenExpiresAt: expiresAt,
+        status: 'active',
+        shopName: shopData?.shop_name ?? null,
+      },
+    })
+
+    const frontendUrl = process.env.FRONTEND_URL ?? 'https://app.syncroflow.io'
+    return reply.redirect(`${frontendUrl}/integrations?connected=shopee`)
+  })
 }
 
 // ─── E-commerce Integrations CRUD + OAuth connect (autenticado) ──────────────
@@ -317,6 +440,27 @@ export async function ecommerceIntegrationRoutes(app: FastifyInstance) {
         const redirectUri = `${baseUrl}/ecommerce/integrations/shopify/callback`
         const state = Buffer.from(JSON.stringify({ workspaceId, shop })).toString('base64url')
         const authUrl = `https://${shop}/admin/oauth/authorize?client_id=${apiKey}&scope=${scopes}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`
+        return reply.send({ authUrl })
+
+      } else if (platform === 'tiktokshop') {
+        const appKey = process.env.TIKTOKSHOP_APP_KEY
+        if (!appKey) return reply.status(503).send({ error: 'TikTok Shop não configurado' })
+        const redirectUri = `${baseUrl}/ecommerce/integrations/tiktokshop/callback`
+        const state = Buffer.from(JSON.stringify({ workspaceId })).toString('base64url')
+        const authUrl = `https://auth.tiktok-shops.com/oauth/authorize?app_key=${appKey}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`
+        return reply.send({ authUrl })
+
+      } else if (platform === 'shopee') {
+        const appKey = process.env.SHOPEE_PARTNER_KEY
+        const appSecret = process.env.SHOPEE_PARTNER_SECRET ?? ''
+        if (!appKey) return reply.status(503).send({ error: 'Shopee não configurado' })
+        const redirectUri = `${baseUrl}/ecommerce/integrations/shopee/callback`
+        const state = Buffer.from(JSON.stringify({ workspaceId })).toString('base64url')
+        const timestamp = Math.floor(Date.now() / 1000)
+        const path = '/api/v2/shop/auth_partner'
+        const host = process.env.SHOPEE_API_HOST ?? 'https://partner.shopeemobile.com'
+        const sign = shopeePublicSign(appKey, appSecret, path, timestamp)
+        const authUrl = `${host}${path}?partner_id=${appKey}&timestamp=${timestamp}&sign=${sign}&redirect=${encodeURIComponent(redirectUri)}&state=${state}`
         return reply.send({ authUrl })
 
       } else {

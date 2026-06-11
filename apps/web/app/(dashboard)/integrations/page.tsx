@@ -39,8 +39,7 @@ const PLATFORMS = [
     description: 'Comércio social em crescimento',
     logo: '🎵',
     color: '#FF0050',
-    available: false,
-    badge: 'Em breve',
+    available: true,
   },
   {
     id: 'shopee',
@@ -48,8 +47,7 @@ const PLATFORMS = [
     description: 'Marketplace com grande base no Brasil',
     logo: '🧡',
     color: '#EE4D2D',
-    available: false,
-    badge: 'Em breve',
+    available: true,
   },
 ]
 
@@ -73,6 +71,18 @@ const TRIGGERS: Record<string, { value: string; label: string }[]> = {
     { value: 'orders/paid', label: 'Pedido pago' },
     { value: 'orders/fulfilled', label: 'Pedido enviado' },
     { value: 'customers/create', label: 'Novo cliente' },
+  ],
+  tiktokshop: [
+    { value: 'order.created', label: 'Novo pedido criado' },
+    { value: 'order.status_sync', label: 'Status do pedido atualizado' },
+    { value: 'order.shipping', label: 'Pedido enviado' },
+    { value: 'order.cancellation', label: 'Pedido cancelado' },
+  ],
+  shopee: [
+    { value: 'order.create_or_update', label: 'Novo pedido / atualização' },
+    { value: 'order.status_sync', label: 'Status do pedido sincronizado' },
+    { value: 'order.tracking_update', label: 'Rastreamento atualizado' },
+    { value: 'order.cancel', label: 'Pedido cancelado' },
   ],
 }
 

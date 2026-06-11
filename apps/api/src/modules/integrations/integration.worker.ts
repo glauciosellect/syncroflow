@@ -4,6 +4,8 @@ import { prisma } from '../../lib/prisma'
 import { logger } from '../../lib/logger'
 import { processNuvemshopEvent } from './platforms/nuvemshop.handler'
 import { processMercadoLivreEvent } from './platforms/mercadolivre.handler'
+import { processTiktokShopEvent } from './platforms/tiktokshop.handler'
+import { processShopeeEvent } from './platforms/shopee.handler'
 
 export type IntegrationEventJobData = {
   workspaceId: string
@@ -39,6 +41,10 @@ async function processIntegrationEvent(job: Job<IntegrationEventJobData>) {
         result = await processNuvemshopEvent({ integration, automation, event, payload })
       } else if (platform === 'mercadolivre') {
         result = await processMercadoLivreEvent({ integration, automation, event, payload })
+      } else if (platform === 'tiktokshop') {
+        result = await processTiktokShopEvent({ integration, automation, event, payload })
+      } else if (platform === 'shopee') {
+        result = await processShopeeEvent({ integration, automation, event, payload })
       } else {
         result = { skipped: true, reason: 'platform not implemented yet' }
       }
