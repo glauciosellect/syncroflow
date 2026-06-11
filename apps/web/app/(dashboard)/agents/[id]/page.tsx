@@ -40,7 +40,7 @@ export default function AgentDetailPage() {
   const [trainingText, setTrainingText] = useState('')
   const [trainingUrl, setTrainingUrl] = useState('')
   const [showIntentionForm, setShowIntentionForm] = useState(false)
-  const [intentionForm, setIntentionForm] = useState({ name: '', description: '', actionType: 'INTERNAL', fixedMessage: '', calendarAction: 'SCHEDULE' })
+  const [intentionForm, setIntentionForm] = useState({ name: '', description: '', actionType: 'INTERNAL', fixedMessage: '', calendarAction: 'SCHEDULE', transferToAgentId: '' })
   const [editingIntention, setEditingIntention] = useState<any>(null)
   const [showFlowForm, setShowFlowForm] = useState(false)
   const [flowForm, setFlowForm] = useState({ name: '', trigger: '', script: '' })
@@ -102,7 +102,7 @@ export default function AgentDetailPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['agent', id] })
       setShowIntentionForm(false)
-      setIntentionForm({ name: '', description: '', actionType: 'INTERNAL', fixedMessage: '', calendarAction: 'SCHEDULE' })
+      setIntentionForm({ name: '', description: '', actionType: 'INTERNAL', fixedMessage: '', calendarAction: 'SCHEDULE', transferToAgentId: '' })
       toast({ title: 'Intenção criada!' })
     },
     onError: () => toast({ title: 'Erro ao criar intenção', variant: 'destructive' }),
@@ -126,6 +126,11 @@ export default function AgentDetailPage() {
   const { data: flows = [] } = useQuery({
     queryKey: ['flows', id],
     queryFn: () => api.get(`/agents/${id}/flows`).then(r => r.data),
+  })
+
+  const { data: workspaceAgents = [] } = useQuery({
+    queryKey: ['agents-list'],
+    queryFn: () => api.get('/agents').then(r => r.data),
   })
 
   const createFlowMutation = useMutation({
@@ -181,10 +186,15 @@ export default function AgentDetailPage() {
   }
 
   const handleSaveIntention = () => {
-    const { name, description, actionType, fixedMessage, calendarAction } = intentionForm
-    const payload = actionType === 'CALENDAR'
-      ? { name, description: description || null, actionType: 'CALENDAR', calendarAction, responseMode: 'FIXED_MESSAGE', webhookBody: null }
-      : { name, description: description || null, actionType: 'INTERNAL', responseMode: 'FIXED_MESSAGE', webhookBody: fixedMessage ? { fixedMessage } : null }
+    const { name, description, actionType, fixedMessage, calendarAction, transferToAgentId } = intentionForm
+    let payload: any
+    if (actionType === 'CALENDAR') {
+      payload = { name, description: description || null, actionType: 'CALENDAR', calendarAction, responseMode: 'FIXED_MESSAGE', webhookBody: null }
+    } else if (actionType === 'AGENT_TRANSFER') {
+      payload = { name, description: description || null, actionType: 'AGENT_TRANSFER', transferToAgentId: transferToAgentId || null, responseMode: 'FIXED_MESSAGE', webhookBody: null }
+    } else {
+      payload = { name, description: description || null, actionType: 'INTERNAL', responseMode: 'FIXED_MESSAGE', webhookBody: fixedMessage ? { fixedMessage } : null }
+    }
     if (editingIntention) {
       updateIntentionMutation.mutate({ intentId: editingIntention.id, data: payload })
     } else {
@@ -199,6 +209,7 @@ export default function AgentDetailPage() {
       actionType: intention.actionType || 'INTERNAL',
       fixedMessage: intention.webhookBody?.fixedMessage || '',
       calendarAction: (intention as any).calendarAction || 'SCHEDULE',
+      transferToAgentId: (intention as any).transferToAgentId || '',
     })
     setEditingIntention(intention)
     setShowIntentionForm(true)
@@ -602,7 +613,7 @@ export default function AgentDetailPage() {
                 <p className="text-xs text-gray-400 mt-0.5">Ações automáticas quando o agente detecta uma intenção do cliente</p>
               </div>
               {!showIntentionForm && (
-                <Button onClick={() => { setEditingIntention(null); setIntentionForm({ name: '', description: '', actionType: 'INTERNAL', fixedMessage: '', calendarAction: 'SCHEDULE' }); setShowIntentionForm(true) }} className="bg-[#1565C0] hover:bg-[#0D47A1]" size="sm">
+                <Button onClick={() => { setEditingIntention(null); setIntentionForm({ name: '', description: '', actionType: 'INTERNAL', fixedMessage: '', calendarAction: 'SCHEDULE', transferToAgentId: '' }); setShowIntentionForm(true) }} className="bg-[#1565C0] hover:bg-[#0D47A1]" size="sm">
                   <Plus className="w-3 h-3 mr-1" /> Nova Intenção
                 </Button>
               )}
@@ -618,14 +629,15 @@ export default function AgentDetailPage() {
                   </div>
                   <div>
                     <Label>Tipo de ação</Label>
-                    <div className="flex gap-2 mt-1">
+                    <div className="flex gap-2 mt-1 flex-wrap">
                       {[
                         { value: 'INTERNAL', label: '💬 Mensagem fixa' },
                         { value: 'CALENDAR', label: '📅 Google Calendar' },
+                        { value: 'AGENT_TRANSFER', label: '🤝 Transferir agente' },
                       ].map(opt => (
                         <button key={opt.value} type="button"
                           onClick={() => setIntentionForm(p => ({ ...p, actionType: opt.value }))}
-                          className={cn('flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-colors',
+                          className={cn('flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-colors min-w-[130px]',
                             intentionForm.actionType === opt.value ? 'border-[#1565C0] bg-blue-50 text-[#1565C0]' : 'border-gray-200 text-gray-600 hover:border-gray-300')}>
                           {opt.label}
                         </button>
@@ -641,6 +653,20 @@ export default function AgentDetailPage() {
                       onChange={e => setIntentionForm(p => ({ ...p, description: e.target.value }))}
                     />
                   </div>
+                  {intentionForm.actionType === 'AGENT_TRANSFER' && (
+                    <div>
+                      <Label>Agente de destino</Label>
+                      <select className="mt-1 w-full border border-input rounded-md px-3 py-2 text-sm"
+                        value={intentionForm.transferToAgentId}
+                        onChange={e => setIntentionForm(p => ({ ...p, transferToAgentId: e.target.value }))}>
+                        <option value="">Selecione o agente especialista...</option>
+                        {(workspaceAgents as any[]).filter((a: any) => a.id !== id).map((a: any) => (
+                          <option key={a.id} value={a.id}>{a.name}</option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-gray-400 mt-1">Quando esta intenção for detectada, a conversa será transferida para este agente especialista.</p>
+                    </div>
+                  )}
                   {intentionForm.actionType === 'CALENDAR' && (
                     <div>
                       <Label>Ação no calendário</Label>
@@ -701,6 +727,9 @@ export default function AgentDetailPage() {
                         {intention.description && <p className="text-xs text-gray-500 mb-1">{intention.description}</p>}
                         {intention.webhookBody?.fixedMessage && (
                           <p className="text-xs text-gray-400 bg-gray-50 rounded px-2 py-1 mt-1 truncate">"{intention.webhookBody.fixedMessage}"</p>
+                        )}
+                        {intention.actionType === 'AGENT_TRANSFER' && intention.transferToAgentId && (
+                          <p className="text-xs text-blue-500 mt-1">🤝 Transfere para: {(workspaceAgents as any[]).find((a: any) => a.id === intention.transferToAgentId)?.name || intention.transferToAgentId}</p>
                         )}
                       </div>
                       <div className="flex items-center gap-1 shrink-0">

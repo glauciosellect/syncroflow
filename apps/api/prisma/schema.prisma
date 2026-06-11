@@ -243,24 +243,25 @@ model AgentKnowledgeBase {
 }
 
 model Intention {
-  id              String                @id @default(cuid())
-  agentId         String
-  name            String
-  description     String?
-  fields          Json?
-  actionType      IntentionAction       @default(WEBHOOK)
-  calendarAction  String?
-  webhookUrl      String?
-  webhookMethod   String                @default("POST")
-  webhookHeaders  Json?
-  webhookParams   Json?
-  webhookBody     Json?
-  outputVariables Json?
-  responseMode    IntentionResponseMode @default(INTERPRET_API)
-  isActive        Boolean               @default(true)
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @default(now()) @updatedAt
-  agent           Agent                 @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  id                String                @id @default(cuid())
+  agentId           String
+  name              String
+  description       String?
+  fields            Json?
+  actionType        IntentionAction       @default(WEBHOOK)
+  calendarAction    String?
+  transferToAgentId String?
+  webhookUrl        String?
+  webhookMethod     String                @default("POST")
+  webhookHeaders    Json?
+  webhookParams     Json?
+  webhookBody       Json?
+  outputVariables   Json?
+  responseMode      IntentionResponseMode @default(INTERPRET_API)
+  isActive          Boolean               @default(true)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @default(now()) @updatedAt
+  agent             Agent                 @relation(fields: [agentId], references: [id], onDelete: Cascade)
 }
 
 model Flow {
@@ -548,6 +549,7 @@ enum IntentionAction {
   WEBHOOK
   INTERNAL
   CALENDAR
+  AGENT_TRANSFER
 }
 
 enum IntentionResponseMode {

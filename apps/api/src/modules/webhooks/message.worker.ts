@@ -144,7 +144,8 @@ export function startMessageWorker() {
 
       const agentChannel = channel.agentChannels[0]
       if (!agentChannel) return
-      const agent = agentChannel.agent
+      // agente padrão do canal (usado ao criar nova conversa)
+      const defaultAgent = agentChannel.agent
 
       const workspace = await prisma.workspace.findUnique({ where: { id: channel.workspaceId } })
       if (!workspace) return
@@ -192,12 +193,23 @@ export function startMessageWorker() {
         conversation = await prisma.conversation.create({
           data: {
             workspaceId: channel.workspaceId,
-            agentId: agent.id,
+            agentId: defaultAgent.id,
             channelId,
             contactId: contact.id,
             status: 'AI_ACTIVE',
           },
         })
+      }
+
+      // Usa o agente vinculado à conversa (pode ter sido trocado por transferência entre agentes)
+      // Se o agente da conversa for diferente do padrão do canal, carrega ele completo
+      let agent = defaultAgent
+      if (conversation.agentId !== defaultAgent.id) {
+        const conversationAgent = await prisma.agent.findUnique({
+          where: { id: conversation.agentId },
+          include: { config: true, intentions: true, flows: { where: { isActive: true } } },
+        })
+        if (conversationAgent) agent = conversationAgent as typeof defaultAgent
       }
 
       // ── Auto-criar Lead ──────────────────────────────────────────────────────
@@ -433,6 +445,50 @@ export function startMessageWorker() {
 
       if (calendarHandled) {
         // já processado acima
+      } else if (intention && (intention.actionType as string) === 'AGENT_TRANSFER' && (intention as any).transferToAgentId) {
+        // Transferência para outro agente especialista
+        const targetAgentId = (intention as any).transferToAgentId as string
+        const targetAgent = await prisma.agent.findFirst({
+          where: { id: targetAgentId, workspaceId: channel.workspaceId },
+          include: { config: true, intentions: true, flows: { where: { isActive: true } } },
+        })
+
+        if (targetAgent) {
+          // Atualiza conversa para usar o novo agente
+          await prisma.conversation.update({
+            where: { id: conversation.id },
+            data: { agentId: targetAgentId },
+          })
+
+          // Mensagem de sistema informando a transferência
+          const transferMsg = await prisma.message.create({
+            data: { conversationId: conversation.id, role: 'SYSTEM', content: `Transferido para o agente: ${targetAgent.name}`, creditsUsed: 0 },
+          })
+          try { emitNewMessage(channel.workspaceId, conversation.id, transferMsg) } catch {}
+
+          // Processa a resposta com o agente de destino
+          const conversationHistory = history.map((m) => ({
+            role: (m.role === 'USER' ? 'user' : 'assistant') as 'user' | 'assistant',
+            content: m.content,
+          }))
+          const alreadyIntroduced = history.some(m => m.role === 'ASSISTANT' && m.content.length > 0)
+          const transferContext = `\n\n[CONTEXTO INTERNO: Você acaba de assumir esta conversa como especialista de ${targetAgent.name}. ${alreadyIntroduced ? 'O cliente já foi atendido anteriormente. Continue de forma natural sem se reapresentar.' : 'Apresente-se brevemente pelo seu nome.'}]`
+          const aiRes = await processAgentResponse({
+            agent: targetAgent as any,
+            conversationHistory,
+            userMessage: text + transferContext,
+            agentId: targetAgentId,
+          })
+          responseText = aiRes.content
+          creditsUsed = aiRes.creditsUsed
+
+          console.log(`[WORKER] Transferência de agente: ${agent.name} → ${targetAgent.name} (conv: ${conversation.id})`)
+        } else {
+          // Agente de destino não encontrado — resposta padrão
+          responseText = 'Estou transferindo você para o setor especializado. Por favor, aguarde.'
+          creditsUsed = 0
+        }
+
       } else if (intention && intention.actionType === 'INTERNAL') {
         // Intenção interna — mensagem fixa, zero créditos de IA
         responseText = (intention.webhookBody as any)?.fixedMessage || intention.name
