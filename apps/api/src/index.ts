@@ -29,9 +29,11 @@ import { apiKeyRoutes } from './modules/auth/apikeys.routes'
 import { envVariableRoutes } from './modules/auth/env-variables.routes'
 import { webhookRoutes } from './modules/webhooks/webhooks.routes'
 import { comercialRoutes } from './modules/comercial/comercial.routes'
+import { ecommerceWebhookRoutes, ecommerceIntegrationRoutes } from './modules/integrations/ecommerce.routes'
 import { startTrainingWorker } from './modules/ai/training.worker'
 import { startMessageWorker } from './modules/webhooks/message.worker'
 import { startWelcomeWorker } from './modules/welcome/welcome.worker'
+import { integrationWorker } from './modules/integrations/integration.worker'
 import { initSocket } from './lib/socket'
 
 const app = Fastify({ logger: process.env.NODE_ENV === 'development' })
@@ -104,12 +106,15 @@ async function bootstrap() {
   await app.register(envVariableRoutes)
   await app.register(webhookRoutes)
   await app.register(comercialRoutes)
+  await app.register(ecommerceWebhookRoutes)
+  await app.register(ecommerceIntegrationRoutes)
 
   app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }))
 
   startTrainingWorker()
   startMessageWorker()
   startWelcomeWorker()
+  integrationWorker // registra worker de integrações e-commerce
 
   const port = Number(process.env.PORT) || 3001
   await app.listen({ port, host: '0.0.0.0' })

@@ -23,6 +23,7 @@ const connection = getRedisConnection()
 export const messageQueue = new Queue('messages', { connection })
 export const trainingQueue = new Queue('training', { connection })
 export const welcomeQueue = new Queue('welcome', { connection })
+export const integrationQueue = new Queue('integration-events', { connection })
 
 export type MessageJobData = {
   channelId: string

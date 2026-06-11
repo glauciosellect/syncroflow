@@ -63,6 +63,8 @@ model Workspace {
   pipelineStages  PipelineStage[]
   followUps       FollowUp[]
   welcomeMessages WelcomeMessage[]
+  integrations    Integration[]
+  automations     Automation[]
 }
 
 model WorkspaceMember {
@@ -616,5 +618,51 @@ enum SubscriptionStatus {
   PAST_DUE
   CANCELED
   TRIALING
+}
+
+model Integration {
+  id             String       @id @default(cuid())
+  workspaceId    String
+  platform       String
+  status         String       @default("active")
+  accessToken    String?
+  refreshToken   String?
+  tokenExpiresAt DateTime?
+  shopId         String?
+  shopName       String?
+  shopUrl        String?
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @default(now()) @updatedAt
+  workspace      Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  automations    Automation[]
+
+  @@unique([workspaceId, platform])
+}
+
+model Automation {
+  id            String                @id @default(cuid())
+  workspaceId   String
+  integrationId String
+  name          String
+  trigger       String
+  actions       Json
+  isActive      Boolean               @default(true)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @default(now()) @updatedAt
+  workspace     Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  integration   Integration           @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  executions    AutomationExecution[]
+}
+
+model AutomationExecution {
+  id           String     @id @default(cuid())
+  automationId String
+  status       String
+  triggerData  Json
+  result       Json?
+  errorMsg     String?
+  createdAt    DateTime   @default(now())
+  automation   Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
 }
 
