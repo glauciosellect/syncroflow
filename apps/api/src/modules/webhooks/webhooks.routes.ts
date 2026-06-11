@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import { prisma } from '../../lib/prisma'
 import { messageQueue } from '../../lib/queue'
 import { redis } from '../../lib/redis'
+import { emitConversationUpdated } from '../../lib/socket'
 
 const OWNER_SILENCE_TTL = 60 * 60 // 1 hora em segundos
 
@@ -53,16 +54,60 @@ export async function webhookRoutes(app: FastifyInstance) {
         body?.data?.message?.extendedTextMessage?.text ||
         body?.text?.message || ''
 
+      // Busca o contato pelo número (ownerTo = número do cliente com quem o operador está falando)
+      const contactForConv = await prisma.contact.findUnique({
+        where: { workspaceId_channelId_externalId: { workspaceId: channel.workspaceId, channelId, externalId: ownerTo } },
+      })
+
       const cmd = ownerText.trim().toLowerCase()
       if (cmd === '#jarbas on' || cmd === '#on' || cmd === '#ativar') {
         // Reativa o agente para este contato
         await redis.del(silenceKey)
+        if (contactForConv) {
+          const conv = await prisma.conversation.findFirst({
+            where: { channelId, contactId: contactForConv.id, status: { in: ['HUMAN_ACTIVE', 'WAITING_HUMAN'] } },
+            orderBy: { startedAt: 'desc' },
+          })
+          if (conv) {
+            const updated = await prisma.conversation.update({
+              where: { id: conv.id },
+              data: { status: 'AI_ACTIVE', assignedToId: null },
+            })
+            try { emitConversationUpdated(channel.workspaceId, updated) } catch {}
+          }
+        }
       } else if (cmd === '#jarbas' || cmd === '#jarbas off' || cmd === '#off' || cmd === '#parar' || cmd === '#silenciar') {
-        // Para o agente para este contato por 24h
+        // Para o agente para este contato por 24h e assume a conversa
         await redis.set(silenceKey, '1', 'EX', 24 * 60 * 60)
+        if (contactForConv) {
+          const conv = await prisma.conversation.findFirst({
+            where: { channelId, contactId: contactForConv.id, status: { not: 'CLOSED' } },
+            orderBy: { startedAt: 'desc' },
+          })
+          if (conv && conv.status === 'AI_ACTIVE') {
+            const updated = await prisma.conversation.update({
+              where: { id: conv.id },
+              data: { status: 'HUMAN_ACTIVE' },
+            })
+            try { emitConversationUpdated(channel.workspaceId, updated) } catch {}
+          }
+        }
       } else {
-        // Qualquer outro texto do dono = silencia por 1h (modo humano)
+        // Qualquer outro texto do operador = silencia por 1h e assume a conversa automaticamente
         await redis.set(silenceKey, '1', 'EX', OWNER_SILENCE_TTL)
+        if (contactForConv) {
+          const conv = await prisma.conversation.findFirst({
+            where: { channelId, contactId: contactForConv.id, status: { not: 'CLOSED' } },
+            orderBy: { startedAt: 'desc' },
+          })
+          if (conv && conv.status === 'AI_ACTIVE') {
+            const updated = await prisma.conversation.update({
+              where: { id: conv.id },
+              data: { status: 'HUMAN_ACTIVE' },
+            })
+            try { emitConversationUpdated(channel.workspaceId, updated) } catch {}
+          }
+        }
       }
 
       return reply.send({ ok: true })
