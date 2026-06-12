@@ -13,7 +13,7 @@ import { ArrowLeft, Save, Loader2, Bot, Send, X, Plus, Trash2, Pencil, Volume2, 
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 
-const tabs = ['Perfil', 'Treinamentos', 'Intenções', 'Fluxos', 'Configurações']
+const tabs = ['Perfil', 'Treinamentos', 'Intenções', 'Fluxos', 'IA Tools', 'Configurações']
 const modelOptions = [
   { value: 'claude-haiku-4-5', label: 'Claude Haiku', desc: 'Rápido e econômico', creditsPerMsg: 1, color: 'text-green-600' },
   { value: 'claude-3-5-sonnet-20241022', label: 'Claude Sonnet', desc: 'Equilibrado', creditsPerMsg: 3, color: 'text-blue-600' },
@@ -841,6 +841,11 @@ export default function AgentDetailPage() {
           </div>
         )}
 
+        {/* ABA: IA TOOLS */}
+        {activeTab === 'IA Tools' && (
+          <IAToolsTab agentId={id} />
+        )}
+
         {/* ABA: CONFIGURAÇÕES */}
         {activeTab === 'Configurações' && (
           <Card>
@@ -1048,3 +1053,213 @@ export default function AgentDetailPage() {
     </div>
   )
 }
+
+// ─── Componente IA Tools ──────────────────────────────────────────────────────
+
+const ALL_TOOLS = [
+  {
+    name: 'consultar_pedido',
+    label: 'Consultar Pedido',
+    icon: '📦',
+    description: 'Busca pedidos na Nuvemshop pelo número ou telefone do cliente. O agente responde com status, valor e previsão de entrega.',
+    requires: 'Nuvemshop conectada',
+  },
+  {
+    name: 'gerar_link_pagamento',
+    label: 'Gerar Link de Pagamento',
+    icon: '💳',
+    description: 'Cria um cliente e uma cobrança PIX no Asaas automaticamente e envia o link de pagamento para o cliente.',
+    requires: 'Asaas conectado',
+  },
+  {
+    name: 'agendar_horario',
+    label: 'Agendar Horário',
+    icon: '📅',
+    description: 'Registra solicitações de agendamento. Se o Google Calendar estiver conectado, cria o evento automaticamente.',
+    requires: 'Google Calendar (opcional)',
+  },
+  {
+    name: 'criar_lead',
+    label: 'Criar Lead',
+    icon: '🎯',
+    description: 'Captura o nome, telefone e interesse do cliente e cria um lead no CRM interno do SyncroFlow.',
+    requires: 'Nenhum pré-requisito',
+  },
+  {
+    name: 'verificar_estoque',
+    label: 'Verificar Estoque',
+    icon: '🏪',
+    description: 'Consulta a disponibilidade de produtos na Nuvemshop em tempo real durante a conversa.',
+    requires: 'Nuvemshop conectada',
+  },
+  {
+    name: 'transferir_para_humano',
+    label: 'Transferir para Humano',
+    icon: '👤',
+    description: 'Transfere o atendimento para um agente humano quando o cliente solicitar ou quando a IA não souber responder.',
+    requires: 'Nenhum pré-requisito',
+  },
+]
+
+function IAToolsTab({ agentId }: { agentId: string }) {
+  const { toast } = useToast()
+  const queryClient = useQueryClient()
+  const [nlDesc, setNlDesc] = useState('')
+  const [nlResult, setNlResult] = useState<any>(null)
+
+  const { data: toolsData, isLoading } = useQuery<{ enabledTools: string[] }>({
+    queryKey: ['agent-tools', agentId],
+    queryFn: () => api.get(`/agents/${agentId}/tools`).then(r => r.data),
+  })
+
+  const enabledTools = toolsData?.enabledTools ?? []
+
+  const saveMutation = useMutation({
+    mutationFn: (tools: string[]) => api.put(`/agents/${agentId}/tools`, { enabledTools: tools }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['agent-tools', agentId] })
+      toast({ title: '✅ Tools atualizadas!' })
+    },
+    onError: () => toast({ title: 'Erro ao salvar', variant: 'destructive' }),
+  })
+
+  const builderMutation = useMutation({
+    mutationFn: (descricao: string) => api.post('/agents/builder/natural-language', { descricao }).then(r => r.data),
+    onSuccess: (data) => setNlResult(data.config),
+    onError: () => toast({ title: 'Erro ao processar descrição', variant: 'destructive' }),
+  })
+
+  const applyBuilderMutation = useMutation({
+    mutationFn: () => api.post(`/agents/${agentId}/apply-builder-config`, nlResult),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['agent-tools', agentId] })
+      toast({ title: '✅ Configuração aplicada ao agente!' })
+      setNlResult(null)
+      setNlDesc('')
+    },
+    onError: () => toast({ title: 'Erro ao aplicar configuração', variant: 'destructive' }),
+  })
+
+  const toggleTool = (name: string) => {
+    const next = enabledTools.includes(name)
+      ? enabledTools.filter(t => t !== name)
+      : [...enabledTools, name]
+    saveMutation.mutate(next)
+  }
+
+  if (isLoading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+
+  return (
+    <div className="space-y-6">
+
+      {/* Builder de linguagem natural */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            ✨ Configurar com linguagem natural
+          </CardTitle>
+          <p className="text-sm text-gray-500">
+            Descreva o que seu agente deve fazer e a IA configura automaticamente as tools necessárias.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <textarea
+            className="w-full px-3 py-2 text-sm border rounded-lg bg-background resize-none"
+            rows={3}
+            placeholder="Ex: Quero um agente para loja de roupas que consulte pedidos, gere cobranças PIX e transfira para humano quando necessário..."
+            value={nlDesc}
+            onChange={e => setNlDesc(e.target.value)}
+          />
+          <Button size="sm" className="text-xs"
+            disabled={nlDesc.trim().length < 10 || builderMutation.isPending}
+            onClick={() => builderMutation.mutate(nlDesc)}>
+            {builderMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : '🤖 '}
+            Gerar configuração com IA
+          </Button>
+
+          {nlResult && (
+            <div className="border rounded-xl p-4 space-y-3 bg-blue-50/50">
+              <p className="text-xs font-semibold text-[#1565C0] uppercase tracking-wider">Sugestão da IA</p>
+              <div className="space-y-1">
+                <p className="text-sm font-medium">{nlResult.name}</p>
+                <p className="text-xs text-gray-500 line-clamp-3">{nlResult.behavior}</p>
+              </div>
+              {nlResult.enabledTools?.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium mb-1.5">Tools sugeridas:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {nlResult.enabledTools.map((t: string) => (
+                      <span key={t} className="text-xs px-2 py-0.5 rounded-full bg-[#1565C0] text-white font-medium">
+                        {ALL_TOOLS.find(a => a.name === t)?.label ?? t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {nlResult.refinementQuestions?.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium mb-1">Perguntas para refinar:</p>
+                  <ul className="space-y-0.5">
+                    {nlResult.refinementQuestions.map((q: string, i: number) => (
+                      <li key={i} className="text-xs text-gray-500">• {q}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <div className="flex gap-2 pt-1">
+                <Button size="sm" className="text-xs bg-[#1565C0] hover:bg-[#0D47A1]"
+                  onClick={() => applyBuilderMutation.mutate()}
+                  disabled={applyBuilderMutation.isPending}>
+                  {applyBuilderMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
+                  Aplicar ao agente
+                </Button>
+                <Button size="sm" variant="ghost" className="text-xs" onClick={() => setNlResult(null)}>Descartar</Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Lista de tools */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Tools disponíveis</CardTitle>
+          <p className="text-sm text-gray-500">
+            Ative as ferramentas que este agente pode usar durante as conversas. {enabledTools.length} de {ALL_TOOLS.length} ativas.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {ALL_TOOLS.map(tool => {
+            const active = enabledTools.includes(tool.name)
+            return (
+              <div key={tool.name}
+                className={cn('flex items-start justify-between gap-4 p-4 rounded-xl border transition-all',
+                  active ? 'border-[#1565C0] bg-blue-50/40' : 'border-gray-100 bg-background'
+                )}>
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl shrink-0 mt-0.5">{tool.icon}</span>
+                  <div className="space-y-0.5">
+                    <p className={cn('text-sm font-semibold', active ? 'text-[#1565C0]' : 'text-gray-800')}>{tool.label}</p>
+                    <p className="text-xs text-gray-500">{tool.description}</p>
+                    <p className="text-[10px] text-gray-400 mt-1">Requer: {tool.requires}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => toggleTool(tool.name)}
+                  disabled={saveMutation.isPending}
+                  className={cn('w-11 h-6 rounded-full transition-colors shrink-0 mt-1',
+                    active ? 'bg-[#1565C0]' : 'bg-gray-200'
+                  )}>
+                  <div className={cn('w-5 h-5 bg-white rounded-full shadow transition-transform mx-0.5',
+                    active ? 'translate-x-5' : 'translate-x-0'
+                  )} />
+                </button>
+              </div>
+            )
+          })}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
