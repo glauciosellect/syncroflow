@@ -39,11 +39,11 @@ export class UazApiProvider implements WhatsAppProvider {
     if (!instanceToken) throw new Error('UazAPI não retornou token da instância')
 
     // 2. Configura webhook na instância recém-criada
-    await axios.post(`${this.baseUrl}/webhook/set`, {
+    await axios.post(`${this.baseUrl}/webhook`, {
       enabled: true,
       url: webhookUrl,
-      events: 'messages',
-      excludeMessages: 'wasSentByApi,isGroupYes',
+      events: ['messages'],
+      excludeMessages: ['wasSentByApi', 'isGroupYes'],
     }, { headers: this.instanceHeaders(instanceToken) }).catch((err) => {
       console.error('[UAZAPI] Erro ao configurar webhook:', err?.response?.data || err?.message)
     })
