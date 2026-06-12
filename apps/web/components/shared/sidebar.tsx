@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Bot, Users, MessageSquare, Contact, Settings, TrendingUp, CalendarDays, X, Menu, Plug } from 'lucide-react'
+import { LayoutDashboard, Bot, Users, MessageSquare, Contact, Settings, TrendingUp, CalendarDays, X, Menu, Plug, LayoutTemplate } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth.store'
 import { planLabel } from '@/lib/utils'
@@ -14,7 +14,7 @@ const navItems = [
   { section: 'COMERCIAL', items: [{ href: '/comercial', label: 'Comercial', icon: TrendingUp }] },
   { section: 'COMUNICAÇÃO', items: [{ href: '/chat', label: 'Chat', icon: MessageSquare }, { href: '/contacts', label: 'Contatos', icon: Contact }] },
   { section: 'AGENDA', items: [{ href: '/agenda', label: 'Agenda', icon: CalendarDays }] },
-  { section: 'INTEGRAÇÕES', items: [{ href: '/integrations', label: 'Integrações', icon: Plug }] },
+  { section: 'INTEGRAÇÕES', items: [{ href: '/integrations', label: 'Integrações', icon: Plug }, { href: '/templates', label: 'Templates', icon: LayoutTemplate }] },
   { section: 'SISTEMA', items: [{ href: '/settings', label: 'Configurações', icon: Settings }] },
 ]
 
