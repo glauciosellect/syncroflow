@@ -1,11 +1,15 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'next/navigation'
 import api from '@/lib/api'
+import { useAuthStore } from '@/store/auth.store'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
-import { Loader2, Plug, Unplug, Plus, ChevronRight, CheckCircle, Zap, Key, ExternalLink } from 'lucide-react'
+import { Loader2, Plug, Unplug, Plus, ChevronRight, CheckCircle, Zap, Key, ExternalLink, Eye, EyeOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
 // ─── Catálogos ────────────────────────────────────────────────────────────────
 
@@ -42,10 +46,11 @@ const ECOMMERCE_TRIGGERS: Record<string, { value: string; label: string }[]> = {
 }
 
 const TABS = [
-  { id: 'ecommerce', label: 'E-commerce', icon: '🛍️' },
-  { id: 'crm',       label: 'CRM',        icon: '🤝' },
-  { id: 'finance',   label: 'Financeiro', icon: '💰' },
-  { id: 'marketing', label: 'Marketing',  icon: '📣' },
+  { id: 'ecommerce',   label: 'E-commerce',  icon: '🛍️' },
+  { id: 'crm',         label: 'CRM',         icon: '🤝' },
+  { id: 'finance',     label: 'Financeiro',  icon: '💰' },
+  { id: 'marketing',   label: 'Marketing',   icon: '📣' },
+  { id: 'produtividade', label: 'Produtividade', icon: '⚙️' },
 ]
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -61,7 +66,7 @@ interface MarketingConnection { id: string; platform: string; status: string; ac
 export default function IntegrationsPage() {
   const { toast } = useToast()
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState<'ecommerce' | 'crm' | 'finance' | 'marketing'>('ecommerce')
+  const [activeTab, setActiveTab] = useState<'ecommerce' | 'crm' | 'finance' | 'marketing' | 'produtividade'>('ecommerce')
 
   // E-commerce state
   const [selectedIntegration, setSelectedIntegration] = useState<EcommerceIntegration | null>(null)
@@ -72,6 +77,16 @@ export default function IntegrationsPage() {
 
   // CRM/Finance/Marketing state — apikey forms
   const [apiKeyForm, setApiKeyForm] = useState<Record<string, { key: string; url: string }>>({})
+
+  // ElevenLabs state
+  const [elApiKey, setElApiKey] = useState('')
+  const [elVoiceId, setElVoiceId] = useState('')
+  const [elShowKey, setElShowKey] = useState(false)
+  const [elOpen, setElOpen] = useState(false)
+
+  // Auth tokens para Google
+  const { token, refreshToken } = useAuthStore()
+  const searchParams = useSearchParams()
 
   // ─── Queries ────────────────────────────────────────────────────────────────
 
@@ -103,6 +118,24 @@ export default function IntegrationsPage() {
     queryFn: () => api.get('/marketing/connections').then(r => r.data),
     enabled: activeTab === 'marketing',
   })
+
+  const { data: googleStatus, refetch: refetchGoogle } = useQuery({
+    queryKey: ['google-integration'],
+    queryFn: () => api.get('/integrations/google').then(r => r.data),
+    enabled: activeTab === 'produtividade',
+  })
+
+  const { data: elevenStatus, refetch: refetchEleven } = useQuery({
+    queryKey: ['elevenlabs-status'],
+    queryFn: () => api.get('/integrations/elevenlabs').then(r => r.data).catch(() => ({ connected: false })),
+    enabled: activeTab === 'produtividade',
+  })
+
+  useEffect(() => {
+    const result = searchParams.get('google')
+    if (result === 'success') { refetchGoogle(); toast({ title: '✅ Google Calendar conectado!' }) }
+    if (result === 'error') toast({ title: 'Erro ao conectar Google Calendar', variant: 'destructive' })
+  }, [searchParams])
 
   // ─── Mutations E-commerce ────────────────────────────────────────────────────
 
@@ -212,6 +245,28 @@ export default function IntegrationsPage() {
       queryClient.invalidateQueries({ queryKey: ['marketing-connections'] })
       toast({ title: 'Desconectado' })
     },
+  })
+
+  // ─── Mutations Produtividade ─────────────────────────────────────────────────
+
+  const disconnectGoogleMutation = useMutation({
+    mutationFn: () => api.delete('/integrations/google'),
+    onSuccess: () => { refetchGoogle(); toast({ title: 'Google Calendar desconectado' }) },
+  })
+
+  const saveElevenMutation = useMutation({
+    mutationFn: () => api.post('/integrations/elevenlabs', { apiKey: elApiKey, voiceId: elVoiceId }),
+    onSuccess: () => {
+      refetchEleven()
+      toast({ title: '✅ ElevenLabs configurado!' })
+      setElApiKey(''); setElVoiceId(''); setElOpen(false)
+    },
+    onError: () => toast({ title: 'Erro ao salvar', variant: 'destructive' }),
+  })
+
+  const disconnectElevenMutation = useMutation({
+    mutationFn: () => api.delete('/integrations/elevenlabs'),
+    onSuccess: () => { refetchEleven(); toast({ title: 'ElevenLabs desconectado' }) },
   })
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -672,6 +727,145 @@ export default function IntegrationsPage() {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* ── ABA PRODUTIVIDADE ───────────────────────────────────────────────────── */}
+      {activeTab === 'produtividade' && (
+        <div className="space-y-4 max-w-2xl">
+
+          {/* Google Calendar */}
+          <div className={cn('p-5 border rounded-2xl bg-card space-y-3', googleStatus?.connected ? 'border-green-200' : '')}>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-white border flex items-center justify-center shrink-0 shadow-sm">
+                  <svg viewBox="0 0 24 24" className="w-6 h-6">
+                    <path d="M19 3h-1V1h-2v2H8V1H6v2H5C3.9 3 3 3.9 3 5v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z" fill="#4285F4"/>
+                  </svg>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-sm">Google Calendar</p>
+                    {googleStatus?.connected ? (
+                      <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full font-medium">
+                        <CheckCircle className="w-3 h-3" /> Conectado
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Não conectado</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {googleStatus?.connected
+                      ? `Conta: ${googleStatus.email}${googleStatus.tokenExpired ? ' · ⚠️ Token expirado' : ''}`
+                      : 'Agentes criam agendamentos automaticamente no seu calendário'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                {googleStatus?.connected ? (
+                  <>
+                    {googleStatus.tokenExpired && (
+                      <Button size="sm" className="text-xs bg-[#4285F4] hover:bg-[#3367D6] text-white"
+                        onClick={() => { window.location.href = `${API_URL}/integrations/google/connect?token=${refreshToken || token}` }}>
+                        Reconectar
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" className="text-xs text-red-600 hover:bg-red-50 border-red-200"
+                      onClick={() => disconnectGoogleMutation.mutate()} disabled={disconnectGoogleMutation.isPending}>
+                      {disconnectGoogleMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Unplug className="w-3 h-3 mr-1" />}
+                      Desconectar
+                    </Button>
+                  </>
+                ) : (
+                  <Button size="sm" className="text-xs bg-[#4285F4] hover:bg-[#3367D6] text-white"
+                    onClick={() => { window.location.href = `${API_URL}/integrations/google/connect?token=${refreshToken || token}` }}>
+                    <ExternalLink className="w-3 h-3 mr-1" /> Conectar
+                  </Button>
+                )}
+              </div>
+            </div>
+            {googleStatus?.connected && (
+              <p className="text-xs text-muted-foreground border-t pt-3">
+                Agentes com intenção de agendamento criarão eventos automaticamente neste calendário durante as conversas.
+              </p>
+            )}
+          </div>
+
+          {/* ElevenLabs */}
+          <div className={cn('p-5 border rounded-2xl bg-card space-y-3', elevenStatus?.connected ? 'border-green-200' : '')}>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-muted border flex items-center justify-center text-2xl shrink-0">🎙️</div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-sm">ElevenLabs</p>
+                    {elevenStatus?.connected ? (
+                      <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full font-medium">
+                        <CheckCircle className="w-3 h-3" /> Conectado
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Não configurado</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {elevenStatus?.connected
+                      ? `Voice ID: ${elevenStatus.voiceId || '—'} · Respostas em áudio humanizado`
+                      : 'Ative respostas em áudio com voz humanizada no WhatsApp'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                {elevenStatus?.connected ? (
+                  <>
+                    <Button size="sm" variant="outline" className="text-xs" onClick={() => setElOpen(o => !o)}>Reconfigurar</Button>
+                    <Button size="sm" variant="outline" className="text-xs text-red-600 hover:bg-red-50 border-red-200"
+                      onClick={() => disconnectElevenMutation.mutate()} disabled={disconnectElevenMutation.isPending}>
+                      {disconnectElevenMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Unplug className="w-3 h-3 mr-1" />}
+                      Desconectar
+                    </Button>
+                  </>
+                ) : (
+                  <Button size="sm" className="text-xs" onClick={() => setElOpen(o => !o)}>
+                    <Key className="w-3 h-3 mr-1" /> Configurar
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {elOpen && (
+              <div className="border-t pt-4 space-y-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">API Key do ElevenLabs</label>
+                  <div className="relative">
+                    <input type={elShowKey ? 'text' : 'password'} value={elApiKey}
+                      onChange={e => setElApiKey(e.target.value)} placeholder="sk_..."
+                      className="w-full px-3 py-2 text-sm border rounded-lg bg-background font-mono pr-10" />
+                    <button type="button" onClick={() => setElShowKey(v => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                      {elShowKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">elevenlabs.io → Profile → API Key</p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Voice ID</label>
+                  <input value={elVoiceId} onChange={e => setElVoiceId(e.target.value)}
+                    placeholder="Ex: pNInz6obpgDQGcFmaJgB"
+                    className="w-full px-3 py-2 text-sm border rounded-lg bg-background font-mono" />
+                  <p className="text-xs text-muted-foreground">elevenlabs.io → Voice Library → copie o ID</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" className="text-xs"
+                    disabled={!elApiKey.trim() || !elVoiceId.trim() || saveElevenMutation.isPending}
+                    onClick={() => saveElevenMutation.mutate()}>
+                    {saveElevenMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
+                    Salvar
+                  </Button>
+                  <Button size="sm" variant="ghost" className="text-xs" onClick={() => setElOpen(false)}>Cancelar</Button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

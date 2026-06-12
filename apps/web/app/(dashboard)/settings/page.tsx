@@ -968,7 +968,6 @@ const tabs = [
   { key: 'profile',      label: 'Perfil',            icon: User      },
   { key: 'billing',      label: 'Planos e Pagamento', icon: CreditCard },
   { key: 'channels',     label: 'Canais',             icon: Radio     },
-  { key: 'integrations', label: 'Integrações',        icon: Plug      },
   { key: 'apikeys',      label: 'Chaves de API',      icon: KeyRound  },
 ]
 
@@ -1005,7 +1004,6 @@ function SettingsContent() {
         {active === 'profile'      && <ProfileTab />}
         {active === 'billing'      && <BillingTab />}
         {active === 'channels'     && <ChannelsTab />}
-        {active === 'integrations' && <IntegrationsTab />}
         {active === 'apikeys'      && <ApiKeysTab />}
       </div>
     </div>
