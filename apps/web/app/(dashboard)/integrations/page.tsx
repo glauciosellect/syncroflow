@@ -8,7 +8,7 @@ import { Loader2, Plug, Unplug, Plus, ChevronRight, CheckCircle, XCircle, Clock,
 import { cn } from '@/lib/utils'
 
 // Catálogo de plataformas disponíveis
-const PLATFORMS = [
+const PLATFORMS: { id: string; name: string; description: string; logo: string; color: string; available: boolean; badge?: string }[] = [
   {
     id: 'nuvemshop',
     name: 'Nuvemshop',
