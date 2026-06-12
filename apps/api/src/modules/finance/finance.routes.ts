@@ -77,13 +77,19 @@ export async function financeRoutes(app: FastifyInstance) {
       let accountName: string | null = null
 
       if (platform === 'asaas') {
-        const isProduction = apiKey.startsWith('$aact_')
-        const host = isProduction ? 'https://api.asaas.com' : 'https://sandbox.asaas.com'
-        const testRes = await fetch(`${host}/api/v3/myAccount`, {
-          headers: { access_token: apiKey },
-        })
-        if (!testRes.ok) return reply.status(400).send({ error: 'API Key do Asaas inválida' })
-        const data = await testRes.json() as any
+        // Tenta produção primeiro, depois sandbox
+        const hosts = ['https://api.asaas.com', 'https://sandbox.asaas.com']
+        let data: any = null
+        for (const host of hosts) {
+          const testRes = await fetch(`${host}/api/v3/myAccount`, {
+            headers: { access_token: apiKey },
+          })
+          if (testRes.ok) {
+            data = await testRes.json()
+            break
+          }
+        }
+        if (!data) return reply.status(400).send({ error: 'API Key do Asaas inválida' })
         accountId = data?.id ?? null
         accountName = data?.name ?? null
 
