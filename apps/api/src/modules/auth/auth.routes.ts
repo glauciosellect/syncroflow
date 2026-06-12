@@ -26,13 +26,16 @@ export async function authRoutes(app: FastifyInstance) {
     refreshToken: app.jwt.sign({ sub: userId, type: 'refresh' }, { expiresIn: '7d' }),
   })
 
-  app.post('/auth/register', async (req, reply) => {
+  // Rate limit estrito: 10 tentativas por 15 minutos por IP
+  const authRateLimit = { config: { rateLimit: { max: 10, timeWindow: '15 minutes' } } }
+
+  app.post('/auth/register', authRateLimit, async (req, reply) => {
     const input = registerSchema.parse(req.body)
     const result = await registerUser(input, signTokens)
     return reply.status(201).send(result)
   })
 
-  app.post('/auth/login', async (req, reply) => {
+  app.post('/auth/login', authRateLimit, async (req, reply) => {
     const input = loginSchema.parse(req.body)
     const result = await loginUser(input, signTokens)
     return reply.send(result)
@@ -50,13 +53,13 @@ export async function authRoutes(app: FastifyInstance) {
     return reply.send({ ok: true })
   })
 
-  app.post('/auth/forgot-password', async (req, reply) => {
+  app.post('/auth/forgot-password', authRateLimit, async (req, reply) => {
     const { email } = forgotPasswordSchema.parse(req.body)
     await forgotPassword(email)
     return reply.send({ ok: true })
   })
 
-  app.post('/auth/reset-password', async (req, reply) => {
+  app.post('/auth/reset-password', authRateLimit, async (req, reply) => {
     const { token, password } = resetPasswordSchema.parse(req.body)
     await resetPassword(token, password)
     return reply.send({ ok: true })

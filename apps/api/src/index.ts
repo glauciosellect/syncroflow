@@ -65,11 +65,26 @@ async function bootstrap() {
     credentials: true,
   })
 
-  await app.register(helmet, { contentSecurityPolicy: false })
+  await app.register(helmet, {
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    hsts: { maxAge: 31536000, includeSubDomains: true },
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+    xFrameOptions: { action: 'deny' },
+    xContentTypeOptions: true,
+  })
 
   await app.register(jwt, { secret: process.env.JWT_SECRET || 'dev-secret-change-in-prod' })
 
-  await app.register(rateLimit, { global: true, max: 100, timeWindow: '1 minute', redis })
+  // Rate limit global: 200 req/min por IP
+  await app.register(rateLimit, {
+    global: true,
+    max: 200,
+    timeWindow: '1 minute',
+    redis,
+    keyGenerator: (req) => req.ip,
+    errorResponseBuilder: () => ({ error: 'Muitas requisições. Tente novamente em instantes.' }),
+  })
 
   app.decorate('authenticate', async (req: any, reply: any) => {
     try {

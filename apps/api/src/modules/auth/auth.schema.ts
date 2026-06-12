@@ -1,9 +1,15 @@
 import { z } from 'zod'
 
+const strongPassword = z.string()
+  .min(8, 'Mínimo 8 caracteres')
+  .max(128)
+  .refine(p => /[A-Z]/.test(p), 'Deve conter ao menos uma letra maiúscula')
+  .refine(p => /[0-9]/.test(p), 'Deve conter ao menos um número')
+
 export const registerSchema = z.object({
   name: z.string().min(2).max(100),
   email: z.string().email(),
-  password: z.string().min(8).max(128),
+  password: strongPassword,
   workspaceName: z.string().min(2).max(64).optional(),
   phone: z.string().max(20).optional(),
   segment: z.string().max(64).optional(),
@@ -27,7 +33,7 @@ export const forgotPasswordSchema = z.object({
 
 export const resetPasswordSchema = z.object({
   token: z.string(),
-  password: z.string().min(8).max(128),
+  password: strongPassword,
 })
 
 export const verify2FASchema = z.object({

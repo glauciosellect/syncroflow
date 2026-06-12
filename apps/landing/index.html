@@ -1240,6 +1240,16 @@
           <span>Auditoria</span>
           <small>Log completo de todas as ações sensíveis no workspace</small>
         </div>
+        <div class="security-badge">
+          <div class="security-badge-icon" style="background:#f1f8e9">🚦</div>
+          <span>Rate Limiting</span>
+          <small>Proteção contra força bruta: máx. 10 tentativas de login por 15min por IP</small>
+        </div>
+        <div class="security-badge">
+          <div class="security-badge-icon" style="background:#fff3e0">🔐</div>
+          <span>Senha Forte</span>
+          <small>Validação obrigatória: maiúscula + número + mínimo 8 caracteres</small>
+        </div>
       </div>
 
       <div class="security-highlight fade-up">
@@ -1248,6 +1258,8 @@
         <div class="security-pill"><span class="dot"></span>API Keys criptografadas no banco</div>
         <div class="security-pill"><span class="dot"></span>Zero acesso da Syncroflow às suas mensagens</div>
         <div class="security-pill"><span class="dot"></span>Isolamento total por workspace</div>
+        <div class="security-pill"><span class="dot"></span>Headers HTTP de segurança (HSTS, X-Frame-Options)</div>
+        <div class="security-pill"><span class="dot"></span>Tokens JWT de curta duração (15 min)</div>
       </div>
     </div>
   </section>
@@ -1293,6 +1305,8 @@
             <li><a href="#">WhatsApp</a></li>
             <li><a href="#">Instagram</a></li>
             <li><a href="#">Facebook</a></li>
+            <li><a href="#">Telegram</a></li>
+            <li><a href="#">LinkedIn</a></li>
           </ul>
         </div>
         <div class="footer-col">
