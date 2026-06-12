@@ -499,6 +499,97 @@
     }
     .security-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: #69F0AE; animation: pulse-dot 2s ease-in-out infinite; flex-shrink: 0; }
 
+    /* ── ECOMMERCE SELLERS SECTION ── */
+    .sellers-section {
+      padding: 100px 0;
+      background: var(--gray-900);
+      position: relative; overflow: hidden;
+    }
+    .sellers-section::before {
+      content: '';
+      position: absolute; top: -200px; right: -200px;
+      width: 600px; height: 600px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(21,101,192,0.25) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .sellers-section::after {
+      content: '';
+      position: absolute; bottom: -150px; left: -150px;
+      width: 500px; height: 500px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(46,125,50,0.2) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .sellers-label {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 12px; font-weight: 700; letter-spacing: 2px;
+      text-transform: uppercase; color: #69F0AE;
+      background: rgba(105,240,174,0.12); padding: 6px 16px; border-radius: 50px;
+      margin-bottom: 20px; border: 1px solid rgba(105,240,174,0.25);
+    }
+    .sellers-section h2 { color: white; font-size: clamp(28px, 4vw, 48px); font-weight: 900; line-height: 1.15; margin-bottom: 16px; }
+    .sellers-section h2 em { font-style: normal; color: #69F0AE; }
+    .sellers-subtitle { font-size: 18px; color: rgba(255,255,255,0.65); max-width: 560px; line-height: 1.6; margin-bottom: 48px; }
+    .sellers-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
+    @media (max-width: 768px) { .sellers-grid { grid-template-columns: 1fr; gap: 32px; } }
+
+    /* Pain cards — lado esquerdo */
+    .pain-cards { display: flex; flex-direction: column; gap: 16px; }
+    .pain-card {
+      display: flex; align-items: flex-start; gap: 16px;
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px; padding: 20px 22px;
+      transition: background 0.3s, border-color 0.3s, transform 0.3s;
+    }
+    .pain-card:hover { background: rgba(255,255,255,0.09); border-color: rgba(105,240,174,0.3); transform: translateX(6px); }
+    .pain-icon { font-size: 28px; flex-shrink: 0; margin-top: 2px; }
+    .pain-text strong { display: block; color: white; font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .pain-text span { font-size: 13px; color: rgba(255,255,255,0.6); line-height: 1.5; }
+    .pain-badge {
+      margin-left: auto; flex-shrink: 0; align-self: center;
+      background: rgba(105,240,174,0.15); color: #69F0AE;
+      font-size: 11px; font-weight: 700; padding: 4px 10px;
+      border-radius: 20px; white-space: nowrap; border: 1px solid rgba(105,240,174,0.25);
+    }
+
+    /* Benefit list — lado direito */
+    .sellers-benefits { display: flex; flex-direction: column; gap: 0; }
+    .sellers-benefit {
+      display: flex; align-items: flex-start; gap: 16px;
+      padding: 20px 0; border-bottom: 1px solid rgba(255,255,255,0.07);
+      transition: padding-left 0.3s;
+    }
+    .sellers-benefit:last-child { border-bottom: none; }
+    .sellers-benefit:hover { padding-left: 8px; }
+    .sellers-benefit-icon {
+      width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 20px;
+    }
+    .sellers-benefit-text strong { display: block; color: white; font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .sellers-benefit-text p { font-size: 13px; color: rgba(255,255,255,0.6); line-height: 1.6; margin: 0; }
+    .sellers-benefit-text .stat { color: #69F0AE; font-weight: 700; }
+
+    /* Stats row */
+    .sellers-stats { display: flex; gap: 0; margin-top: 48px; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; overflow: hidden; }
+    .sellers-stat { flex: 1; text-align: center; padding: 28px 20px; border-right: 1px solid rgba(255,255,255,0.1); }
+    .sellers-stat:last-child { border-right: none; }
+    .sellers-stat strong { display: block; font-size: 36px; font-weight: 900; color: #69F0AE; line-height: 1; margin-bottom: 6px; }
+    .sellers-stat span { font-size: 13px; color: rgba(255,255,255,0.55); line-height: 1.4; display: block; }
+    @media (max-width: 600px) { .sellers-stats { flex-direction: column; } .sellers-stat { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.1); } .sellers-stat:last-child { border-bottom: none; } }
+
+    /* CTA dentro da seção */
+    .sellers-cta { margin-top: 40px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .btn-green {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: linear-gradient(135deg, #2E7D32, #4CAF50);
+      color: white; font-weight: 700; font-size: 15px;
+      padding: 14px 28px; border-radius: 50px; border: none;
+      cursor: pointer; text-decoration: none;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 20px rgba(46,125,50,0.4);
+    }
+    .btn-green:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(46,125,50,0.5); }
+    .sellers-cta-note { font-size: 13px; color: rgba(255,255,255,0.45); }
+
     /* ── CTA SECTION ── */
     .cta-section {
       padding: 100px 0;
@@ -591,6 +682,7 @@
           <li><a href="#canais">Canais</a></li>
           <li><a href="#multi-agentes">Multi-Agentes</a></li>
           <li><a href="#recursos">Recursos</a></li>
+          <li><a href="#vendedores" style="color:#4CAF50;font-weight:700">🛒 Vendedores</a></li>
           <li><a href="#como-funciona">Como funciona</a></li>
           <li><a href="#planos">Planos</a></li>
           <li><a href="#seguranca">Segurança</a></li>
@@ -933,6 +1025,122 @@
           <p>API REST completa e webhooks para integrar com seu CRM, ERP ou qualquer ferramenta externa.</p>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- VENDEDORES ONLINE -->
+  <section class="sellers-section" id="vendedores">
+    <div class="container" style="position:relative;z-index:1">
+
+      <div class="fade-up" style="text-align:center;margin-bottom:64px">
+        <div class="sellers-label">🛒 Para quem vende pela internet</div>
+        <h2>Você atende 50 clientes por dia<br>no <em>WhatsApp, Mercado Livre e Instagram</em>.<br>Quanto tempo você perde?</h2>
+        <p class="sellers-subtitle" style="margin:16px auto 0">A maioria das perguntas são sempre as mesmas: "chegou?", "qual o prazo?", "tem em estoque?". Enquanto você responde manualmente, seus concorrentes já automatizaram.</p>
+      </div>
+
+      <div class="sellers-grid">
+        <!-- Coluna esquerda: dores reais -->
+        <div class="pain-cards fade-left">
+          <div class="pain-card">
+            <span class="pain-icon">😫</span>
+            <div class="pain-text">
+              <strong>3h por dia respondendo as mesmas perguntas</strong>
+              <span>"Qual o prazo de entrega?" "Tem esse produto em outra cor?" "Já enviou meu pedido?" — toda hora, todo dia.</span>
+            </div>
+            <div class="pain-badge">-3h/dia</div>
+          </div>
+          <div class="pain-card">
+            <span class="pain-icon">💸</span>
+            <div class="pain-text">
+              <strong>Venda perdida por demora na resposta</strong>
+              <span>O cliente perguntou. Você estava ocupado. Ele comprou do concorrente. Acontece todo dia e você nem sabe.</span>
+            </div>
+            <div class="pain-badge">-40% conversão</div>
+          </div>
+          <div class="pain-card">
+            <span class="pain-icon">⭐</span>
+            <div class="pain-text">
+              <strong>Avaliação ruim por atendimento lento</strong>
+              <span>No ML e Shopee, tempo de resposta impacta direto na sua reputação. Uma estrela a menos custa caro.</span>
+            </div>
+            <div class="pain-badge">Reputação ↓</div>
+          </div>
+          <div class="pain-card">
+            <span class="pain-icon">🌙</span>
+            <div class="pain-text">
+              <strong>Cliente não espera até amanhã de manhã</strong>
+              <span>Compras acontecem à noite e nos fins de semana. Sem atendimento, o carrinho é abandonado.</span>
+            </div>
+            <div class="pain-badge">24/7 resolve</div>
+          </div>
+        </div>
+
+        <!-- Coluna direita: solução -->
+        <div class="sellers-benefits fade-right">
+          <div class="sellers-benefit">
+            <div class="sellers-benefit-icon" style="background:rgba(105,240,174,0.12)">🤖</div>
+            <div class="sellers-benefit-text">
+              <strong>Agente responde por você instantaneamente</strong>
+              <p>Prazo, estoque, status do pedido — tudo respondido em segundos, direto do seu Mercado Livre, Nuvemshop ou Shopee. <span class="stat">Resposta em menos de 5 segundos.</span></p>
+            </div>
+          </div>
+          <div class="sellers-benefit">
+            <div class="sellers-benefit-icon" style="background:rgba(41,182,246,0.12)">💳</div>
+            <div class="sellers-benefit-text">
+              <strong>Gera link de pagamento PIX na hora</strong>
+              <p>Integrado com Asaas e Pagar.me. O cliente pede, o agente gera o link e envia — sem você tocar no celular. <span class="stat">Cobranças no automático.</span></p>
+            </div>
+          </div>
+          <div class="sellers-benefit">
+            <div class="sellers-benefit-icon" style="background:rgba(105,240,174,0.12)">📦</div>
+            <div class="sellers-benefit-text">
+              <strong>Consulta pedidos e rastreio em tempo real</strong>
+              <p>O cliente pergunta "cadê meu pedido?" — o agente puxa o código de rastreio e responde. Você não precisa fazer nada. <span class="stat">Zero chamados desnecessários.</span></p>
+            </div>
+          </div>
+          <div class="sellers-benefit">
+            <div class="sellers-benefit-icon" style="background:rgba(41,182,246,0.12)">🌙</div>
+            <div class="sellers-benefit-text">
+              <strong>Atende enquanto você dorme</strong>
+              <p>Fim de semana, feriado, madrugada. Seu agente nunca descansa. <span class="stat">+37% de vendas fora do horário comercial</span> em média.</p>
+            </div>
+          </div>
+          <div class="sellers-benefit">
+            <div class="sellers-benefit-icon" style="background:rgba(105,240,174,0.12)">⭐</div>
+            <div class="sellers-benefit-text">
+              <strong>Melhora sua reputação no ML e Shopee</strong>
+              <p>Tempo de resposta curto = mais medalhas = mais visibilidade. <span class="stat">Vendedores com IA têm 2× mais avaliações positivas.</span></p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats row -->
+      <div class="sellers-stats fade-up" style="margin-top:56px">
+        <div class="sellers-stat">
+          <strong>3h</strong>
+          <span>economizadas por dia em respostas repetitivas</span>
+        </div>
+        <div class="sellers-stat">
+          <strong>87%</strong>
+          <span>das perguntas respondidas sem intervenção humana</span>
+        </div>
+        <div class="sellers-stat">
+          <strong>24/7</strong>
+          <span>atendimento ativo sem você estar online</span>
+        </div>
+        <div class="sellers-stat">
+          <strong>5s</strong>
+          <span>tempo médio de resposta do agente IA</span>
+        </div>
+      </div>
+
+      <!-- CTA -->
+      <div class="sellers-cta fade-up" style="justify-content:center;margin-top:48px">
+        <a href="https://app.syncroflow.io/register" class="btn-green">🚀 Quero automatizar minhas vendas →</a>
+        <span class="sellers-cta-note">✓ 14 dias grátis &nbsp; ✓ Conecta com ML, Nuvemshop, Shopee &nbsp; ✓ Sem cartão</span>
+      </div>
+
     </div>
   </section>
 
