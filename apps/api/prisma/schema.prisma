@@ -63,8 +63,12 @@ model Workspace {
   pipelineStages  PipelineStage[]
   followUps       FollowUp[]
   welcomeMessages WelcomeMessage[]
-  integrations    Integration[]
-  automations     Automation[]
+  integrations         Integration[]
+  automations          Automation[]
+  crmConnections       CrmConnection[]
+  financeConnections   FinanceConnection[]
+  marketingConnections MarketingConnection[]
+  auditLogs            AuditLog[]
 }
 
 model WorkspaceMember {
@@ -518,7 +522,9 @@ enum Plan {
 enum MemberRole {
   OWNER
   ADMIN
+  MEMBER
   AGENT
+  VIEWER
 }
 
 enum AgentPurpose {
@@ -664,5 +670,98 @@ model AutomationExecution {
   errorMsg     String?
   createdAt    DateTime   @default(now())
   automation   Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+}
+
+// ─── CRM Integrations (M4) ────────────────────────────────────────────────────
+
+model CrmConnection {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  platform     String    // 'hubspot' | 'pipedrive' | 'rdcrm'
+  status       String    @default("active")
+  accessToken  String?
+  refreshToken String?
+  tokenExpiresAt DateTime?
+  accountId    String?
+  accountName  String?
+  metadata     Json?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now()) @updatedAt
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, platform])
+}
+
+// ─── Finance Integrations (M5) ───────────────────────────────────────────────
+
+model FinanceConnection {
+  id          String    @id @default(cuid())
+  workspaceId String
+  platform    String    // 'asaas' | 'pagarme'
+  status      String    @default("active")
+  apiKey      String?
+  accountId   String?
+  accountName String?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, platform])
+}
+
+// ─── Marketing Integrations (M6) ─────────────────────────────────────────────
+
+model MarketingConnection {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  platform     String    // 'rdmarketing' | 'activecampaign'
+  status       String    @default("active")
+  accessToken  String?
+  refreshToken String?
+  tokenExpiresAt DateTime?
+  apiKey       String?
+  accountUrl   String?
+  accountId    String?
+  accountName  String?
+  metadata     Json?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now()) @updatedAt
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, platform])
+}
+
+// ─── Audit Log (M8) ──────────────────────────────────────────────────────────
+
+model AuditLog {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  userId       String?
+  action       String    // 'workflow.created' | 'integration.connected' | etc
+  resourceType String?
+  resourceId   String?
+  metadata     Json?
+  ipAddress    String?
+  createdAt    DateTime  @default(now())
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+// ─── Public Templates Marketplace (M10) ──────────────────────────────────────
+
+model PublicTemplate {
+  id                 String    @id @default(cuid())
+  title              String
+  description        String?
+  category           String    // 'ecommerce' | 'crm' | 'finance' | 'marketing' | 'ai' | 'general'
+  connectorsRequired String[]  @default([])
+  workflowConfig     Json
+  usesCount          Int       @default(0)
+  isFeatured         Boolean   @default(false)
+  isApproved         Boolean   @default(true)
+  createdByWorkspace String?
+  tags               String[]  @default([])
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @default(now()) @updatedAt
 }
 

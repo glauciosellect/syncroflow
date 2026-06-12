@@ -30,6 +30,13 @@ import { envVariableRoutes } from './modules/auth/env-variables.routes'
 import { webhookRoutes } from './modules/webhooks/webhooks.routes'
 import { comercialRoutes } from './modules/comercial/comercial.routes'
 import { ecommerceWebhookRoutes, ecommerceIntegrationRoutes, ecommerceOAuthCallbackRoutes } from './modules/integrations/ecommerce.routes'
+import { crmWebhookRoutes, crmOAuthCallbackRoutes, crmRoutes } from './modules/crm/crm.routes'
+import { financeWebhookRoutes, financeRoutes } from './modules/finance/finance.routes'
+import { marketingWebhookRoutes, marketingOAuthCallbackRoutes, marketingRoutes } from './modules/marketing/marketing.routes'
+import { agentToolsRoutes } from './modules/ai/agent-tools.routes'
+import { rbacRoutes } from './modules/rbac/rbac.routes'
+import { statusRoutes } from './modules/status/status.routes'
+import { templateRoutes, seedTemplates } from './modules/templates/templates.routes'
 import { startTrainingWorker } from './modules/ai/training.worker'
 import { startMessageWorker } from './modules/webhooks/message.worker'
 import { startWelcomeWorker } from './modules/welcome/welcome.worker'
@@ -110,12 +117,39 @@ async function bootstrap() {
   await app.register(ecommerceOAuthCallbackRoutes)
   await app.register(ecommerceIntegrationRoutes)
 
-  app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }))
+  // M4 — CRM
+  await app.register(crmWebhookRoutes)
+  await app.register(crmOAuthCallbackRoutes)
+  await app.register(crmRoutes)
+
+  // M5 — Financeiro
+  await app.register(financeWebhookRoutes)
+  await app.register(financeRoutes)
+
+  // M6 — Marketing
+  await app.register(marketingWebhookRoutes)
+  await app.register(marketingOAuthCallbackRoutes)
+  await app.register(marketingRoutes)
+
+  // M7 — IA Tools
+  await app.register(agentToolsRoutes)
+
+  // M8 — RBAC
+  await app.register(rbacRoutes)
+
+  // M9 — Status Page
+  await app.register(statusRoutes)
+
+  // M10 — Templates
+  await app.register(templateRoutes)
 
   startTrainingWorker()
   startMessageWorker()
   startWelcomeWorker()
-  integrationWorker // registra worker de integrações e-commerce
+  integrationWorker
+
+  // Seed de templates iniciais (só roda se o banco estiver vazio)
+  await seedTemplates().catch(err => logger.error('Seed templates error', err))
 
   const port = Number(process.env.PORT) || 3001
   await app.listen({ port, host: '0.0.0.0' })
