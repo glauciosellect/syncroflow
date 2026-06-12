@@ -40,9 +40,13 @@ export class UazApiProvider implements WhatsAppProvider {
 
     // 2. Configura webhook na instância recém-criada
     await axios.post(`${this.baseUrl}/webhook/set`, {
+      enabled: true,
       url: webhookUrl,
-      events: { onMessage: true },
-    }, { headers: this.instanceHeaders(instanceToken) }).catch(() => {})
+      events: 'messages',
+      excludeMessages: 'wasSentByApi,isGroupYes',
+    }, { headers: this.instanceHeaders(instanceToken) }).catch((err) => {
+      console.error('[UAZAPI] Erro ao configurar webhook:', err?.response?.data || err?.message)
+    })
 
     // 3. Salva instanceId e instanceToken no canal
     await prisma.channel.update({
