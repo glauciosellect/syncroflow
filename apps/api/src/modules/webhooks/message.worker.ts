@@ -225,7 +225,15 @@ export function startMessageWorker() {
       if (isNewContact && config?.autoCreateLead) {
         try {
           // Resolve stageId: usa o configurado no agente, ou busca a primeira etapa do workspace
-          let autoStageId: string | null = (config as any).autoLeadStageId || null
+          let autoStageId: string | null = null
+          const configuredStageId = (config as any).autoLeadStageId
+          if (configuredStageId) {
+            // Valida que o stage existe e pertence ao workspace
+            const stage = await prisma.pipelineStage.findFirst({
+              where: { id: configuredStageId, workspaceId: channel.workspaceId },
+            })
+            autoStageId = stage?.id ?? null
+          }
           if (!autoStageId) {
             const firstStage = await prisma.pipelineStage.findFirst({
               where: { workspaceId: channel.workspaceId },
@@ -239,7 +247,7 @@ export function startMessageWorker() {
               name: name || from!,
               phone: channelType === 'WHATSAPP' ? from : undefined,
               source: channelType,
-              stageId: autoStageId,
+              stageId: autoStageId || undefined,
               contactId: contact.id,
               agentId: agent.id,
             },
