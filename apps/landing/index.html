@@ -396,6 +396,29 @@
     .author-name { font-size: 14px; font-weight: 700; }
     .author-role { font-size: 12px; color: var(--gray-600); }
 
+    /* ── MULTI-AGENT SECTION ── */
+    .multiagent-section { padding: 90px 0; background: white; }
+    .multiagent-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; margin-top: 48px; }
+    @media (max-width: 768px) { .multiagent-grid { grid-template-columns: 1fr; gap: 32px; } }
+    .agent-flow {
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .agent-node {
+      display: flex; align-items: center; gap: 16px;
+      background: white; border: 2px solid #e2e8f0; border-radius: 16px;
+      padding: 16px 20px; transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .agent-node:hover { border-color: #1565C0; box-shadow: 0 4px 16px rgba(21,101,192,0.12); }
+    .agent-node.active { border-color: #3DBE29; background: #f0fdf4; }
+    .agent-node-icon { font-size: 28px; }
+    .agent-node-info { flex: 1; }
+    .agent-node-info strong { display: block; font-size: 14px; font-weight: 700; }
+    .agent-node-info span { font-size: 12px; color: #64748b; }
+    .agent-arrow { text-align: center; font-size: 20px; color: #94a3b8; }
+    .multiagent-benefits { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 16px; }
+    .multiagent-benefits li { display: flex; align-items: flex-start; gap: 12px; }
+    .multiagent-benefits li .check { width: 22px; height: 22px; background: #3DBE29; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; shrink: 0; flex-shrink: 0; margin-top: 1px; }
+
     /* ── SECURITY SECTION ── */
     .security-section { padding: 90px 0; background: #f8fafc; }
     .security-badges { display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; margin-top: 48px; }
@@ -514,6 +537,7 @@
         </a>
         <ul class="nav-links">
           <li><a href="#canais">Canais</a></li>
+          <li><a href="#multi-agentes">Multi-Agentes</a></li>
           <li><a href="#recursos">Recursos</a></li>
           <li><a href="#seguranca">Segurança</a></li>
           <li><a href="#como-funciona">Como funciona</a></li>
@@ -548,6 +572,7 @@
       </div>
       <ul class="mobile-menu-links">
         <li><a href="#canais" class="menu-link">Canais</a></li>
+        <li><a href="#multi-agentes" class="menu-link">Multi-Agentes</a></li>
         <li><a href="#recursos" class="menu-link">Recursos</a></li>
         <li><a href="#seguranca" class="menu-link">Segurança</a></li>
         <li><a href="#como-funciona" class="menu-link">Como funciona</a></li>
@@ -567,15 +592,15 @@
         <div>
           <div class="hero-badge">
             <div class="dot"></div>
-            Novo: Áudio, imagem e PDF com IA
+            Novo: Multi-agentes, E-commerce, Financeiro e Segurança LGPD
           </div>
           <h1>
             Atendimento<br>
-            <span class="gradient-text">Inteligente</span><br>
-            no WhatsApp
+            <span class="gradient-text">Omnichannel</span><br>
+            com IA
           </h1>
           <p>
-            Crie agentes de IA que atendem seus clientes 24 horas por dia. Sem código, sem complicação. Conecte WhatsApp, Instagram, Facebook e mais em minutos.
+            Crie múltiplos agentes de IA especializados que atendem 24/7 no WhatsApp, Instagram, Telegram, LinkedIn e mais. Integre e-commerce, financeiro e CRM — sem código.
           </p>
           <div class="hero-btns">
             <a href="https://app.syncroflow.io/register" class="btn-primary">Começar grátis — 14 dias →</a>
@@ -651,7 +676,7 @@
     <div class="container">
       <div class="stats-grid">
         <div class="stat-item fade-up">
-          <strong>3+</strong>
+          <strong>7+</strong>
           <span>Canais integrados</span>
         </div>
         <div class="stat-item fade-up">
@@ -663,8 +688,8 @@
           <span>Para configurar</span>
         </div>
         <div class="stat-item fade-up">
-          <strong>5</strong>
-          <span>Modelos de IA</span>
+          <strong>∞</strong>
+          <span>Agentes por workspace</span>
         </div>
       </div>
     </div>
@@ -694,6 +719,95 @@
           <h3>Facebook</h3>
           <p>Messenger integrado</p>
         </div>
+        <div class="channel-card fade-up">
+          <span class="channel-icon">✈️</span>
+          <h3>Telegram</h3>
+          <p>Bot com webhook próprio</p>
+        </div>
+        <div class="channel-card fade-up">
+          <span class="channel-icon">💼</span>
+          <h3>LinkedIn</h3>
+          <p>Mensagens e comentários</p>
+        </div>
+        <div class="channel-card fade-up">
+          <span class="channel-icon">💬</span>
+          <h3>Chat Widget</h3>
+          <p>Embed no seu site</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MULTI-AGENTES -->
+  <section class="multiagent-section" id="multi-agentes">
+    <div class="container">
+      <div class="section-header fade-up">
+        <span class="section-label">Multi-Agentes</span>
+        <h2>Uma equipe de IAs <span class="gradient-text">trabalhando juntas</span></h2>
+        <p>Crie agentes especializados que se transferem automaticamente — cada um focado no que faz melhor.</p>
+      </div>
+      <div class="multiagent-grid fade-up">
+        <div class="agent-flow">
+          <div class="agent-node active">
+            <span class="agent-node-icon">👋</span>
+            <div class="agent-node-info">
+              <strong>Agente A — Atendimento Inicial</strong>
+              <span>Recebe, qualifica e entende a necessidade do cliente</span>
+            </div>
+          </div>
+          <div class="agent-arrow">↓ transfere automaticamente</div>
+          <div class="agent-node">
+            <span class="agent-node-icon">💰</span>
+            <div class="agent-node-info">
+              <strong>Agente B — Financeiro</strong>
+              <span>Gera links de pagamento PIX, verifica cobranças, emite boletos</span>
+            </div>
+          </div>
+          <div class="agent-arrow">↓ ou transfere para</div>
+          <div class="agent-node">
+            <span class="agent-node-icon">🛒</span>
+            <div class="agent-node-info">
+              <strong>Agente C — Comercial</strong>
+              <span>Consulta estoque, processa pedidos, acompanha entrega</span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <h3 style="font-size:22px;font-weight:800;margin-bottom:24px">Por que usar multi-agentes?</h3>
+          <ul class="multiagent-benefits">
+            <li>
+              <div class="check">✓</div>
+              <div>
+                <strong style="display:block;margin-bottom:4px">Especialização real</strong>
+                <span style="color:#64748b;font-size:14px">Cada agente tem treinamento, tom e ferramentas específicos para sua função</span>
+              </div>
+            </li>
+            <li>
+              <div class="check">✓</div>
+              <div>
+                <strong style="display:block;margin-bottom:4px">Transferência fluida</strong>
+                <span style="color:#64748b;font-size:14px">O cliente não percebe a mudança — a conversa continua naturalmente</span>
+              </div>
+            </li>
+            <li>
+              <div class="check">✓</div>
+              <div>
+                <strong style="display:block;margin-bottom:4px">Escalabilidade</strong>
+                <span style="color:#64748b;font-size:14px">Adicione novos agentes conforme o negócio cresce, sem refazer tudo</span>
+              </div>
+            </li>
+            <li>
+              <div class="check">✓</div>
+              <div>
+                <strong style="display:block;margin-bottom:4px">Controle por canal</strong>
+                <span style="color:#64748b;font-size:14px">WhatsApp usa Agente A, e-mail usa Agente B — cada canal com seu especialista</span>
+              </div>
+            </li>
+          </ul>
+          <a href="https://app.syncroflow.io/register" class="btn-primary" style="display:inline-flex;margin-top:32px">
+            Criar minha equipe de IAs →
+          </a>
+        </div>
       </div>
     </div>
   </section>
@@ -707,6 +821,21 @@
         <p>Funcionalidades pensadas para empresas que querem resultados reais, não apenas automação.</p>
       </div>
       <div class="features-grid">
+        <div class="feature-card fade-up">
+          <div class="feature-icon">🤝</div>
+          <h3>Multi-agentes especializados</h3>
+          <p>Crie agentes separados para Atendimento, Comercial e Financeiro. Eles se transferem automaticamente conforme a conversa evolui.</p>
+        </div>
+        <div class="feature-card fade-up">
+          <div class="feature-icon">🛒</div>
+          <h3>E-commerce integrado</h3>
+          <p>Conecte Nuvemshop, Mercado Livre, Shopee ou TikTok Shop. O agente consulta pedidos e estoque em tempo real.</p>
+        </div>
+        <div class="feature-card fade-up">
+          <div class="feature-icon">💳</div>
+          <h3>Financeiro com IA</h3>
+          <p>Integre Asaas ou Pagar.me. O agente gera links de pagamento PIX, verifica boletos e envia cobranças automaticamente.</p>
+        </div>
         <div class="feature-card fade-up">
           <div class="feature-icon">🤖</div>
           <h3>Multi-modelo de IA</h3>
@@ -728,9 +857,14 @@
           <p>O agente entende mensagens de voz, analisa imagens e lê documentos enviados pelos clientes.</p>
         </div>
         <div class="feature-card fade-up">
+          <div class="feature-icon">📋</div>
+          <h3>Templates prontos</h3>
+          <p>Marketplace com fluxos prontos para e-commerce, clínicas, jurídico, imobiliário e mais. Ative em 1 clique.</p>
+        </div>
+        <div class="feature-card fade-up">
           <div class="feature-icon">👥</div>
-          <h3>Atendimento humano</h3>
-          <p>Inbox ao vivo para sua equipe assumir conversas, transferir e encerrar atendimentos em tempo real.</p>
+          <h3>Equipe com permissões</h3>
+          <p>RBAC completo: Owner, Admin, Membro, Agente e Viewer. Controle quem acessa o quê com log de auditoria.</p>
         </div>
         <div class="feature-card fade-up">
           <div class="feature-icon">📊</div>
@@ -739,18 +873,13 @@
         </div>
         <div class="feature-card fade-up">
           <div class="feature-icon">🔐</div>
-          <h3>Segurança total</h3>
-          <p>2FA, JWT, criptografia AES-256 para suas chaves de API. Seus dados e os do seu cliente protegidos.</p>
+          <h3>Segurança LGPD</h3>
+          <p>AES-256, JWT 15min, rate limiting anti-brute force, HSTS e conformidade com a LGPD. Dados no Brasil.</p>
         </div>
         <div class="feature-card fade-up">
           <div class="feature-icon">🔗</div>
           <h3>API & Webhooks</h3>
           <p>API REST completa e webhooks para integrar com seu CRM, ERP ou qualquer ferramenta externa.</p>
-        </div>
-        <div class="feature-card fade-up">
-          <div class="feature-icon">⚡</div>
-          <h3>Fácil de configurar</h3>
-          <p>Interface visual sem código. Crie, treine e conecte seu agente em menos de 5 minutos.</p>
         </div>
       </div>
     </div>
