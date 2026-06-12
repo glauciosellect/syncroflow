@@ -4,65 +4,60 @@ import { prisma } from '../../../../lib/prisma'
 
 export class UazApiProvider implements WhatsAppProvider {
   private baseUrl = process.env.UAZAPI_URL!
-  private adminToken = process.env.UAZAPI_TOKEN!
+  private adminToken = process.env.UAZAPI_ADMIN_TOKEN || process.env.UAZAPI_TOKEN!
 
-  // Headers para admin (criar/listar instâncias)
   private adminHeaders() {
-    return { 'token': this.adminToken, 'Content-Type': 'application/json' }
+    return { 'admintoken': this.adminToken, 'Content-Type': 'application/json' }
   }
 
-  // Headers para uma instância específica
   private instanceHeaders(instanceToken: string) {
     return { 'token': instanceToken, 'Content-Type': 'application/json' }
   }
 
-  // Busca o token da instância a partir do channelId
   private async getInstanceConfig(channelId: string): Promise<{ instanceId: string; instanceToken: string }> {
     const channel = await prisma.channel.findUnique({ where: { id: channelId } })
     const config = channel?.config as any
-    const instanceId = config?.instanceId
-    const instanceToken = config?.instanceToken || this.adminToken
-    if (!instanceId) throw new Error(`Canal ${channelId} sem instanceId configurado`)
-    return { instanceId, instanceToken }
+    if (!config?.instanceId || !config?.instanceToken) {
+      throw new Error(`Canal ${channelId} sem instância configurada`)
+    }
+    return { instanceId: config.instanceId, instanceToken: config.instanceToken }
   }
 
-  // Cria instância na UazAPI e salva instanceId + instanceToken no canal
+  // Chamado ao criar canal — cria instância na UazAPI e salva token no banco
   async createInstance(channelId: string) {
-    const instanceId = `sf_${channelId.slice(-12)}`
+    const instanceName = `sf_${channelId.slice(-12)}`
     const webhookUrl = `${process.env.API_URL}/webhooks/whatsapp/${channelId}`
 
-    try {
-      // Cria a instância na UazAPI
-      const res = await axios.post(`${this.baseUrl}/instance/create`, {
-        name: instanceId,
-        webhook: webhookUrl,
-        webhookEvents: { onMessage: true },
-      }, { headers: this.adminHeaders() })
+    // 1. Cria instância via admin API
+    const createRes = await axios.post(`${this.baseUrl}/instance/create`, {
+      name: instanceName,
+      adminField01: channelId,
+      adminField02: 'syncroflow',
+    }, { headers: this.adminHeaders() })
 
-      const instanceToken = res.data?.token || res.data?.instance?.token || this.adminToken
+    const instanceToken = createRes.data?.token
+    if (!instanceToken) throw new Error('UazAPI não retornou token da instância')
 
-      // Salva instanceId e instanceToken no config do canal
-      await prisma.channel.update({
-        where: { id: channelId },
-        data: { config: { provider: 'uazapi', instanceId, instanceToken, webhookUrl } },
-      })
-    } catch (err: any) {
-      console.error('[UAZAPI] Erro ao criar instância:', err?.response?.data || err?.message)
-      // Fallback: salva só o instanceId sem token próprio
-      await prisma.channel.update({
-        where: { id: channelId },
-        data: { config: { provider: 'uazapi', instanceId, instanceToken: this.adminToken, webhookUrl } },
-      })
-    }
+    // 2. Configura webhook na instância recém-criada
+    await axios.post(`${this.baseUrl}/webhook/set`, {
+      url: webhookUrl,
+      events: { onMessage: true },
+    }, { headers: this.instanceHeaders(instanceToken) }).catch(() => {})
+
+    // 3. Salva instanceId e instanceToken no canal
+    await prisma.channel.update({
+      where: { id: channelId },
+      data: { config: { provider: 'uazapi', instanceId: instanceName, instanceToken, webhookUrl } },
+    })
   }
 
   async getQRCode(channelId: string): Promise<string> {
     try {
-      const { instanceId, instanceToken } = await this.getInstanceConfig(channelId)
-      const res = await axios.get(`${this.baseUrl}/instance/qrcode`, {
-        headers: this.instanceHeaders(instanceToken),
-        params: { name: instanceId },
-      })
+      const { instanceToken } = await this.getInstanceConfig(channelId)
+      // Inicia conexão — retorna QR code
+      const res = await axios.post(`${this.baseUrl}/instance/connect`, {
+        browser: 'auto',
+      }, { headers: this.instanceHeaders(instanceToken) })
       return res.data?.qrcode || res.data?.instance?.qrcode || ''
     } catch {
       return ''
@@ -71,15 +66,13 @@ export class UazApiProvider implements WhatsAppProvider {
 
   async getStatus(channelId: string): Promise<'connected' | 'disconnected' | 'qr_required'> {
     try {
-      const { instanceId, instanceToken } = await this.getInstanceConfig(channelId)
+      const { instanceToken } = await this.getInstanceConfig(channelId)
       const res = await axios.get(`${this.baseUrl}/instance/status`, {
         headers: this.instanceHeaders(instanceToken),
-        params: { name: instanceId },
       })
-      const connected = res.data?.status?.connected ?? res.data?.connected
-      const qrcode = res.data?.instance?.qrcode ?? res.data?.qrcode
-      if (connected === true) return 'connected'
-      if (qrcode) return 'qr_required'
+      const status = res.data?.status || res.data?.instance?.status
+      if (status === 'connected') return 'connected'
+      if (status === 'connecting') return 'qr_required'
       return 'disconnected'
     } catch {
       return 'disconnected'
@@ -137,7 +130,7 @@ export class UazApiProvider implements WhatsAppProvider {
         generate_mp3: true,
         transcribe: true,
         openai_apikey: process.env.OPENAI_API_KEY,
-      }, { headers: this.adminHeaders(), timeout: 30000 })
+      }, { headers: { 'token': this.adminToken, 'Content-Type': 'application/json' }, timeout: 30000 })
       console.log('[UAZAPI] downloadMedia resposta:', JSON.stringify(res.data)?.slice(0, 300))
       return res.data || {}
     } catch (err: any) {
@@ -148,10 +141,8 @@ export class UazApiProvider implements WhatsAppProvider {
 
   parseWebhook(payload: any): WhatsAppMessage | null {
     if (!payload) return null
-
     const msg = payload.message
     if (!msg) return null
-
     if (msg.fromMe === true) return null
     if (msg.isGroup === true) return null
 
@@ -160,13 +151,11 @@ export class UazApiProvider implements WhatsAppProvider {
     if (!phone) return null
 
     const text = typeof msg.text === 'string' && msg.text ? msg.text : undefined
-
     const contentObj = typeof msg.content === 'object' && msg.content !== null ? msg.content : null
     const mimetype: string = msg.mimetype || msg.Mimetype || contentObj?.mimetype || ''
     const messageId: string = msg.messageid || msg.id || ''
 
     let mediaType: WhatsAppMessage['mediaType'] | undefined
-
     const isAudio = mimetype.startsWith('audio') || msg.type === 'ptt' || msg.type === 'audio' || msg.PTT === true || contentObj?.PTT === true
     const isImage = mimetype.startsWith('image') || msg.type === 'image'
     const isVideo = mimetype.startsWith('video') || msg.type === 'video'
@@ -194,10 +183,9 @@ export class UazApiProvider implements WhatsAppProvider {
 
   async deleteInstance(channelId: string) {
     try {
-      const { instanceId, instanceToken } = await this.getInstanceConfig(channelId)
+      const { instanceToken } = await this.getInstanceConfig(channelId)
       await axios.delete(`${this.baseUrl}/instance/delete`, {
         headers: this.instanceHeaders(instanceToken),
-        data: { name: instanceId },
       })
     } catch {}
   }
