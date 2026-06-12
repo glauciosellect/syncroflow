@@ -20,4 +20,4 @@ WORKDIR /app/apps/api
 
 EXPOSE 3001
 
-CMD ["sh", "-c", "npx prisma db push --schema=./prisma/schema.prisma --accept-data-loss && node dist/index.js"]
+CMD ["sh", "-c", "npx prisma generate --schema=./prisma/schema.prisma && node dist/index.js"]
