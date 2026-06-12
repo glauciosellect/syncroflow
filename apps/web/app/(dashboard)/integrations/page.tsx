@@ -159,7 +159,7 @@ export default function IntegrationsPage() {
   })
 
   const disconnectCrmMutation = useMutation({
-    mutationFn: (platform: string) => api.delete(`/crm/connections/${platform}`),
+    mutationFn: (id: string) => api.delete(`/crm/connections/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['crm-connections'] })
       toast({ title: 'CRM desconectado' })
@@ -170,7 +170,7 @@ export default function IntegrationsPage() {
 
   const connectFinanceMutation = useMutation({
     mutationFn: ({ platform, apiKey }: { platform: string; apiKey: string }) =>
-      api.post('/finance/connect', { platform, apiKey }),
+      api.post(`/finance/${platform}/connect`, { apiKey }),
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ['finance-connections'] })
       setApiKeyForm(p => ({ ...p, [vars.platform]: { key: '', url: '' } }))
@@ -180,7 +180,7 @@ export default function IntegrationsPage() {
   })
 
   const disconnectFinanceMutation = useMutation({
-    mutationFn: (platform: string) => api.delete(`/finance/connections/${platform}`),
+    mutationFn: (id: string) => api.delete(`/finance/connections/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['finance-connections'] })
       toast({ title: 'Desconectado' })
@@ -197,7 +197,7 @@ export default function IntegrationsPage() {
 
   const connectMarketingApiKeyMutation = useMutation({
     mutationFn: ({ platform, apiKey, accountUrl }: { platform: string; apiKey: string; accountUrl?: string }) =>
-      api.post('/marketing/connect/apikey', { platform, apiKey, accountUrl }),
+      api.post(`/marketing/${platform}/connect`, { apiKey, accountUrl }),
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ['marketing-connections'] })
       setApiKeyForm(p => ({ ...p, [vars.platform]: { key: '', url: '' } }))
@@ -207,7 +207,7 @@ export default function IntegrationsPage() {
   })
 
   const disconnectMarketingMutation = useMutation({
-    mutationFn: (platform: string) => api.delete(`/marketing/connections/${platform}`),
+    mutationFn: (id: string) => api.delete(`/marketing/connections/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['marketing-connections'] })
       toast({ title: 'Desconectado' })
@@ -458,7 +458,7 @@ export default function IntegrationsPage() {
                             </span>
                           </div>
                           <Button variant="outline" size="sm" className="w-full text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => disconnectCrmMutation.mutate(conn.platform)}
+                            onClick={() => disconnectCrmMutation.mutate(conn.id)}
                             disabled={disconnectCrmMutation.isPending}>
                             <Unplug className="w-3 h-3 mr-1" /> Desconectar
                           </Button>
@@ -527,7 +527,7 @@ export default function IntegrationsPage() {
                             </span>
                           </div>
                           <Button variant="outline" size="sm" className="w-full text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => disconnectFinanceMutation.mutate(conn.platform)}
+                            onClick={() => disconnectFinanceMutation.mutate(conn.id)}
                             disabled={disconnectFinanceMutation.isPending}>
                             <Unplug className="w-3 h-3 mr-1" /> Desconectar
                           </Button>
@@ -606,7 +606,7 @@ export default function IntegrationsPage() {
                             </span>
                           </div>
                           <Button variant="outline" size="sm" className="w-full text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => disconnectMarketingMutation.mutate(conn.platform)}
+                            onClick={() => disconnectMarketingMutation.mutate(conn.id)}
                             disabled={disconnectMarketingMutation.isPending}>
                             <Unplug className="w-3 h-3 mr-1" /> Desconectar
                           </Button>
