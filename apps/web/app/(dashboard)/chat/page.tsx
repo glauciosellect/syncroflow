@@ -140,6 +140,20 @@ function ContactPanel({ contactId, workspaceId }: { contactId: string; workspace
         {/* ABA: INFO */}
         {activeSection === 'info' && (
           <>
+            {/* Somente Humano */}
+            <div className={`flex items-center justify-between rounded-lg px-3 py-2 border transition-colors ${contact.humanOnly ? 'bg-orange-50 border-orange-200' : 'bg-gray-50 border-gray-200'}`}>
+              <div>
+                <p className="text-xs font-semibold text-gray-700">Somente atendimento humano</p>
+                <p className="text-xs text-gray-400">IA não responde este contato</p>
+              </div>
+              <button
+                onClick={() => updateMutation.mutate({ humanOnly: !contact.humanOnly })}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${contact.humanOnly ? 'bg-orange-500' : 'bg-gray-300'}`}
+              >
+                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${contact.humanOnly ? 'translate-x-[18px]' : 'translate-x-1'}`} />
+              </button>
+            </div>
+
             {/* Tags */}
             <div>
               <div className="flex items-center justify-between mb-2">

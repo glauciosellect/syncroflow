@@ -319,6 +319,7 @@ model Contact {
   variables     Json?
   tags          String[]       @default([])
   notes         String?
+  humanOnly     Boolean        @default(false)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @default(now()) @updatedAt
   workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)

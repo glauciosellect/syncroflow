@@ -49,6 +49,7 @@ export async function contactRoutes(app: FastifyInstance) {
       tags: z.array(z.string()).optional(),
       notes: z.string().optional().nullable(),
       variables: z.any().optional(),
+      humanOnly: z.boolean().optional(),
     }).parse(req.body)
 
     const updated = await prisma.contact.updateMany({ where: { id, workspaceId }, data })

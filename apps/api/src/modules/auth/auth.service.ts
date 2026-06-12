@@ -134,7 +134,12 @@ export async function registerUser(input: RegisterInput, signTokens: (userId: st
 export async function loginUser(input: LoginInput, signTokens: (userId: string, workspaceId?: string) => { accessToken: string; refreshToken: string }) {
   const user = await prisma.user.findUnique({
     where: { email: input.email },
-    include: { workspaceMembers: { include: { workspace: true }, orderBy: { createdAt: 'asc' }, take: 1 } },
+    include: {
+      workspaceMembers: {
+        include: { workspace: true },
+        orderBy: { createdAt: 'asc' },
+      },
+    },
   })
   if (!user || !user.passwordHash) throw new Error('Credenciais inválidas')
 
@@ -152,7 +157,14 @@ export async function loginUser(input: LoginInput, signTokens: (userId: string, 
     if (!verified) throw new Error('Código 2FA inválido')
   }
 
-  const workspace = user.workspaceMembers[0]?.workspace
+  // Prioriza workspace onde o usuário é OWNER, depois ADMIN, depois o mais antigo
+  const members = user.workspaceMembers
+  const preferred =
+    members.find(m => m.role === 'OWNER') ??
+    members.find(m => m.role === 'ADMIN') ??
+    members[0]
+
+  const workspace = preferred?.workspace
   const tokens = signTokens(user.id, workspace?.id)
   await saveRefreshToken(user.id, tokens.refreshToken)
 

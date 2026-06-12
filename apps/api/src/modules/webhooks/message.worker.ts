@@ -328,6 +328,15 @@ export function startMessageWorker() {
         return
       }
 
+      // Contato marcado como "somente humano" — IA nunca responde
+      if ((contact as any).humanOnly) {
+        console.log(`[WORKER] Silenciado: contato ${contact.id} marcado como humanOnly`)
+        if (conversation.status !== 'WAITING_HUMAN') {
+          await prisma.conversation.update({ where: { id: conversation.id }, data: { status: 'WAITING_HUMAN' } })
+        }
+        return
+      }
+
       if (config?.maxInteractionsPerChat && conversation.interactionCount >= config.maxInteractionsPerChat) {
         console.log(`[WORKER] Silenciado: conversa ${conversation.id} atingiu limite de ${config.maxInteractionsPerChat} interações (atual: ${conversation.interactionCount})`)
         return
