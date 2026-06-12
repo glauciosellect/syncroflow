@@ -84,6 +84,33 @@ export async function channelRoutes(app: FastifyInstance) {
     return reply.status(201).send(channel)
   })
 
+  // LinkedIn — via Webhook URL + Page Access Token
+  app.post('/channels/linkedin', async (req, reply) => {
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
+    const { name, accessToken, organizationId } = z.object({
+      name: z.string().min(1),
+      accessToken: z.string().min(10),
+      organizationId: z.string().optional(),
+    }).parse(req.body)
+
+    // Valida o token contra a API do LinkedIn
+    const testRes = await fetch('https://api.linkedin.com/v2/me', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (!testRes.ok) return reply.status(400).send({ error: 'Access Token do LinkedIn inválido' })
+    const profile = await testRes.json() as any
+    const linkedinId = profile?.id || organizationId || ''
+
+    const channel = await prisma.channel.create({
+      data: {
+        workspaceId, type: 'LINKEDIN', name,
+        config: { accessToken, organizationId, linkedinId, profileName: profile?.localizedFirstName || name },
+      },
+    })
+    return reply.status(201).send(channel)
+  })
+
   app.delete('/channels/:id', async (req, reply) => {
     const { sub, wid } = req.user as { sub: string; wid?: string }
     const workspaceId = await getWorkspaceId(sub, wid)

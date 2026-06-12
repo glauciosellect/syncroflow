@@ -216,4 +216,14 @@ export async function webhookRoutes(app: FastifyInstance) {
     })
     return reply.send({ ok: true })
   })
+
+  // Webhook LinkedIn — recebe mensagens de comentários/DMs
+  app.post('/webhooks/linkedin/:channelId', async (req, reply) => {
+    const { channelId } = req.params as { channelId: string }
+    await messageQueue.add('process', { channelId, channelType: 'LINKEDIN', payload: req.body }, {
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 1000 },
+    })
+    return reply.send({ ok: true })
+  })
 }

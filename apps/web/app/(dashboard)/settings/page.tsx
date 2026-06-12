@@ -335,14 +335,21 @@ function BillingTab() {
 
 // ─── ABA: CANAIS ─────────────────────────────────────────────────────────────
 const channelIcons: Record<string, string> = {
-  WHATSAPP: '📱', INSTAGRAM: '📸', FACEBOOK: '📘', TELEGRAM: '✈️', WIDGET: '💬', EMAIL: '📧', SMS: '📩',
+  WHATSAPP: '📱', INSTAGRAM: '📸', FACEBOOK: '📘', TELEGRAM: '✈️', WIDGET: '💬', EMAIL: '📧', SMS: '📩', LINKEDIN: '💼',
 }
 
 function ChannelsTab() {
   const { toast } = useToast()
   const qc = useQueryClient()
   const [showWhatsAppForm, setShowWhatsAppForm] = useState(false)
+  const [showTelegramForm, setShowTelegramForm] = useState(false)
+  const [showLinkedInForm, setShowLinkedInForm] = useState(false)
   const [whatsAppName, setWhatsAppName] = useState('')
+  const [telegramName, setTelegramName] = useState('')
+  const [telegramToken, setTelegramToken] = useState('')
+  const [linkedinName, setLinkedinName] = useState('')
+  const [linkedinToken, setLinkedinToken] = useState('')
+  const [linkedinOrgId, setLinkedinOrgId] = useState('')
   const [qrData, setQrData] = useState<Record<string, { qr: string; status: string }>>({})
   const [selectedAgents, setSelectedAgents] = useState<Record<string, string>>({})
   const searchParams = useSearchParams()
@@ -381,6 +388,27 @@ function ChannelsTab() {
     mutationFn: () => api.post('/channels/whatsapp', { name: whatsAppName }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['channels'] }); setShowWhatsAppForm(false); setWhatsAppName('') },
     onError: (err: any) => toast({ title: 'Erro', description: err.response?.data?.error || 'Erro ao conectar', variant: 'destructive' }),
+  })
+
+  const createTelegramMutation = useMutation({
+    mutationFn: () => api.post('/channels/telegram', { name: telegramName, botToken: telegramToken }),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['channels'] })
+      setShowTelegramForm(false); setTelegramName(''); setTelegramToken('')
+      const webhookUrl = `${API_URL}/webhooks/telegram/${res.data.id}`
+      toast({ title: '✅ Telegram conectado!', description: `Webhook: ${webhookUrl}` })
+    },
+    onError: (err: any) => toast({ title: 'Erro', description: err.response?.data?.error || 'Erro ao conectar Telegram', variant: 'destructive' }),
+  })
+
+  const createLinkedInMutation = useMutation({
+    mutationFn: () => api.post('/channels/linkedin', { name: linkedinName, accessToken: linkedinToken, organizationId: linkedinOrgId }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['channels'] })
+      setShowLinkedInForm(false); setLinkedinName(''); setLinkedinToken(''); setLinkedinOrgId('')
+      toast({ title: '✅ LinkedIn conectado!' })
+    },
+    onError: (err: any) => toast({ title: 'Erro', description: err.response?.data?.error || 'Token inválido', variant: 'destructive' }),
   })
 
   const deleteMutation = useMutation({
@@ -422,6 +450,14 @@ function ChannelsTab() {
             className="border-blue-200 text-blue-700 hover:bg-blue-50">
             <Plus className="w-3 h-3 mr-1" />Facebook
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowTelegramForm(true)}
+            className="border-sky-200 text-sky-700 hover:bg-sky-50">
+            <Plus className="w-3 h-3 mr-1" />Telegram
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowLinkedInForm(true)}
+            className="border-blue-300 text-blue-800 hover:bg-blue-50">
+            <Plus className="w-3 h-3 mr-1" />LinkedIn
+          </Button>
         </div>
       </div>
 
@@ -439,6 +475,64 @@ function ChannelsTab() {
                 Conectar
               </Button>
               <Button variant="ghost" onClick={() => { setShowWhatsAppForm(false); setWhatsAppName('') }}>Cancelar</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {showTelegramForm && (
+        <Card>
+          <CardHeader><CardTitle className="text-base">✈️ Conectar Telegram Bot</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <div className="p-3 bg-sky-50 border border-sky-200 rounded-lg text-sm text-sky-800">
+              <strong>Como criar um bot:</strong> No Telegram, abra <strong>@BotFather</strong>, envie <code>/newbot</code>, escolha um nome e copie o token fornecido.
+            </div>
+            <div>
+              <Label>Nome da conexão</Label>
+              <Input placeholder="Ex: Bot de Atendimento" value={telegramName} onChange={e => setTelegramName(e.target.value)} className="mt-1" />
+            </div>
+            <div>
+              <Label>Token do Bot</Label>
+              <Input placeholder="1234567890:ABCdefGHIjklMNOpqrSTUvwxYZ" value={telegramToken} onChange={e => setTelegramToken(e.target.value)} className="mt-1 font-mono text-sm" />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={() => createTelegramMutation.mutate()} className="bg-sky-600 hover:bg-sky-700 text-white"
+                disabled={createTelegramMutation.isPending || !telegramName.trim() || !telegramToken.trim()}>
+                {createTelegramMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Conectar
+              </Button>
+              <Button variant="ghost" onClick={() => { setShowTelegramForm(false); setTelegramName(''); setTelegramToken('') }}>Cancelar</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {showLinkedInForm && (
+        <Card>
+          <CardHeader><CardTitle className="text-base">💼 Conectar LinkedIn</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+              <strong>Como obter o token:</strong> Acesse o <strong>LinkedIn Developer Portal</strong>, crie um app, gere um Access Token com permissão <code>w_messages</code> e cole abaixo.
+            </div>
+            <div>
+              <Label>Nome da conexão</Label>
+              <Input placeholder="Ex: Página da Empresa" value={linkedinName} onChange={e => setLinkedinName(e.target.value)} className="mt-1" />
+            </div>
+            <div>
+              <Label>Access Token</Label>
+              <Input placeholder="AQV..." value={linkedinToken} onChange={e => setLinkedinToken(e.target.value)} className="mt-1 font-mono text-sm" />
+            </div>
+            <div>
+              <Label>ID da Organização (opcional)</Label>
+              <Input placeholder="123456789" value={linkedinOrgId} onChange={e => setLinkedinOrgId(e.target.value)} className="mt-1" />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={() => createLinkedInMutation.mutate()} className="bg-blue-700 hover:bg-blue-800 text-white"
+                disabled={createLinkedInMutation.isPending || !linkedinName.trim() || !linkedinToken.trim()}>
+                {createLinkedInMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Conectar
+              </Button>
+              <Button variant="ghost" onClick={() => { setShowLinkedInForm(false); setLinkedinName(''); setLinkedinToken(''); setLinkedinOrgId('') }}>Cancelar</Button>
             </div>
           </CardContent>
         </Card>

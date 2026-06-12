@@ -574,6 +574,7 @@ enum ChannelType {
   WIDGET
   EMAIL
   SMS
+  LINKEDIN
 }
 
 enum ConversationStatus {

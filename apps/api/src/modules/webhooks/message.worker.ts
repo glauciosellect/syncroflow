@@ -119,6 +119,14 @@ export function startMessageWorker() {
         name = payload.message?.from?.first_name || 'Usuário'
         text = payload.message?.text
         if (!text) return
+      } else if (channelType === 'LINKEDIN') {
+        // LinkedIn Messaging API: payload vem como evento de mensagem direta
+        const event = payload?.value ?? payload
+        from = event?.sender?.accountUrn || event?.from || String(Math.random())
+        name = event?.senderName || 'Usuário LinkedIn'
+        text = event?.message?.text || event?.body || event?.content?.text
+        if (!text) return
+
       } else if (channelType === 'META' || channelType === 'INSTAGRAM' || channelType === 'FACEBOOK') {
         console.log('[META] payload raw:', JSON.stringify(payload).slice(0, 800))
 
@@ -661,6 +669,19 @@ export function startMessageWorker() {
           chat_id: from,
           text: responseText,
         })
+      } else if (channelType === 'LINKEDIN') {
+        const accessToken = (channel.config as any).accessToken
+        if (accessToken && from) {
+          try {
+            await axios.post('https://api.linkedin.com/v2/messages', {
+              recipients: [{ 'com.linkedin.voyager.messaging.MessagingMember': { 'com.linkedin.common.UrnId': from } }],
+              subject: '',
+              body: responseText,
+            }, { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } })
+          } catch (err: any) {
+            console.error('[LINKEDIN-SEND]', err?.response?.data || err?.message)
+          }
+        }
       } else if (channelType === 'META' || channelType === 'INSTAGRAM' || channelType === 'FACEBOOK') {
         const pageToken = (channel.config as any).pageAccessToken
         // Para Instagram usa igAccountId; para Facebook/META usa pageId
