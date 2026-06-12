@@ -78,7 +78,7 @@ export async function financeRoutes(app: FastifyInstance) {
 
       if (platform === 'asaas') {
         // Tenta produção primeiro, depois sandbox
-        const hosts = ['https://api.asaas.com', 'https://sandbox.asaas.com']
+        const hosts = ['https://www.asaas.com', 'https://sandbox.asaas.com']
         let data: any = null
         for (const host of hosts) {
           const testRes = await fetch(`${host}/api/v3/myAccount`, {
