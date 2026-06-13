@@ -17,7 +17,11 @@ function PwaInstallBanner() {
 
   return (
     <button
-      onClick={async () => { prompt.prompt(); const { outcome } = await prompt.userChoice; if (outcome === 'accepted') setInstalled(true) }}
+      onClick={async () => {
+        prompt.prompt()
+        const { outcome } = await prompt.userChoice
+        if (outcome === 'accepted') setInstalled(true)
+      }}
       style={{ display:'flex', alignItems:'center', gap:'8px', width:'100%', marginTop:'16px', padding:'10px 16px', borderRadius:'12px', border:'1px solid #BFDBFE', background:'#EFF6FF', color:'#1565C0', fontSize:'14px', fontWeight:500, cursor:'pointer' }}
     >
       <Download style={{ width:16, height:16, flexShrink:0 }} />
@@ -30,41 +34,36 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   return (
     <>
       <style>{`
-        /* ── Reset base ── */
-        .al-root { display: flex; min-height: 100vh; background: #fff; }
+        html, body { margin: 0; padding: 0; }
 
-        /* ── Mobile: coluna única ── */
-        .al-panel { display: none; }
-
-        .al-right {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
+        /* ══ MOBILE (padrão, < 768px) ══════════════════════════════════════ */
+        .al-root {
+          display: block;
+          min-height: 100vh;
           background: #fff;
         }
 
-        /* faixa criativo topo */
+        /* Faixa do criativo no topo */
         .al-banner {
           position: relative;
           width: 100%;
           height: 160px;
           overflow: hidden;
-          flex-shrink: 0;
         }
-        .al-banner img {
+        .al-banner-img {
           position: absolute;
           inset: 0;
           width: 100%;
           height: 100%;
           object-fit: cover;
-          object-position: center 22%;
+          object-position: center 20%;
         }
-        .al-banner-overlay {
+        .al-banner-grad {
           position: absolute;
           inset: 0;
-          background: linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.65) 100%);
+          background: linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.6) 100%);
         }
-        .al-banner-brand {
+        .al-banner-logo {
           position: absolute;
           bottom: 12px;
           left: 16px;
@@ -72,49 +71,46 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           align-items: center;
           gap: 8px;
         }
-        .al-banner-brand img { height: 26px; filter: brightness(0) invert(1); }
-        .al-banner-brand span {
+        .al-banner-logo img { height: 24px; filter: brightness(0) invert(1); }
+        .al-banner-logo span {
           color: #fff;
           font-weight: 700;
           font-size: 15px;
           text-shadow: 0 1px 4px rgba(0,0,0,0.7);
         }
 
-        /* área do formulário */
+        /* Formulário */
         .al-form {
-          flex: 1;
           display: flex;
-          align-items: flex-start;
           justify-content: center;
           padding: 28px 20px 48px;
         }
-        .al-form-inner {
-          width: 100%;
-          max-width: 380px;
-        }
+        .al-form-inner { width: 100%; max-width: 380px; }
 
-        /* ── Desktop: lado a lado ── */
+        /* Painel desktop — oculto no mobile */
+        .al-desktop-panel { display: none; }
+
+        /* ══ DESKTOP (>= 768px) ═════════════════════════════════════════════ */
         @media (min-width: 768px) {
+
+          /* Grid de 2 colunas, cada uma com 100vh — a página não cresce */
           .al-root {
-            flex-direction: row;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 100vh;
             height: 100vh;
-            max-height: 100vh;
             overflow: hidden;
-            position: relative;
           }
 
-          /* painel esquerdo — fixo na metade esquerda */
-          .al-panel {
+          /* Coluna esquerda: painel da imagem */
+          .al-desktop-panel {
             display: block;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 50%;
+            grid-column: 1;
+            grid-row: 1;
             height: 100vh;
             overflow: hidden;
-            z-index: 0;
           }
-          .al-panel img {
+          .al-desktop-panel img {
             width: 100%;
             height: 100%;
             object-fit: cover;
@@ -122,55 +118,59 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             display: block;
           }
 
-          /* lado direito — margem esquerda de 50% para não sobrepor o painel */
-          .al-right {
-            margin-left: 50%;
-            width: 50%;
+          /* Coluna direita: formulário */
+          .al-right-col {
+            grid-column: 2;
+            grid-row: 1;
             height: 100vh;
             overflow-y: auto;
-            position: relative;
-            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
           }
 
-          /* esconde faixa mobile */
+          /* Esconde faixa mobile */
           .al-banner { display: none; }
 
-          /* centraliza formulário vertical e horizontal */
+          /* Centraliza formulário no desktop */
           .al-form {
-            height: 100%;
+            flex: 1;
             align-items: center;
-            justify-content: center;
             padding: 40px 48px;
           }
         }
       `}</style>
 
       <div className="al-root">
-        {/* Painel esquerdo — criativo — só desktop */}
-        <div className="al-panel">
-          <img src="/criativo-auth.png" alt="SyncroFlow — Atendimento Inteligente que Vende 24h" />
+
+        {/* ── Desktop: painel esquerdo ── */}
+        <div className="al-desktop-panel">
+          <img src="/criativo-auth.png" alt="SyncroFlow" />
         </div>
 
-        {/* Coluna direita — mobile ocupa tudo, desktop ocupa 50% */}
-        <div className="al-right">
-          {/* Faixa criativo no topo — só mobile */}
+        {/* ── Coluna direita (e tudo no mobile) ── */}
+        <div className="al-right-col" style={{ display:'flex', flexDirection:'column', background:'#fff' }}>
+
+          {/* Faixa criativo — só mobile */}
           <div className="al-banner">
-            <img src="/criativo-auth.png" alt="" />
-            <div className="al-banner-overlay" />
-            <div className="al-banner-brand">
+            <img className="al-banner-img" src="/criativo-auth.png" alt="" />
+            <div className="al-banner-grad" />
+            <div className="al-banner-logo">
               <img src="/icone.png" alt="" />
               <span>SyncroFlow</span>
             </div>
           </div>
 
-          {/* Formulário centralizado */}
+          {/* Formulário */}
           <div className="al-form">
             <div className="al-form-inner">
               {children}
               <PwaInstallBanner />
             </div>
           </div>
+
         </div>
+
       </div>
     </>
   )
