@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { Download } from 'lucide-react'
+import Image from 'next/image'
 
 function PwaInstallBanner() {
   const [prompt, setPrompt] = useState<any>(null)
@@ -36,32 +37,22 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <style>{`
         html, body { margin: 0; padding: 0; }
 
-        /* ══ MOBILE (padrão, < 768px) ══════════════════════════════════════ */
-        .al-root {
-          display: block;
-          min-height: 100vh;
-          background: #fff;
-        }
+        /* MOBILE */
+        .al-root { display: block; min-height: 100vh; background: #fff; }
 
-        /* Faixa do criativo no topo */
+        .al-desktop-panel { display: none; }
+
         .al-banner {
           position: relative;
           width: 100%;
           height: 160px;
           overflow: hidden;
         }
-        .al-banner-img {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          object-position: center 20%;
-        }
         .al-banner-grad {
           position: absolute;
           inset: 0;
           background: linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.6) 100%);
+          z-index: 1;
         }
         .al-banner-logo {
           position: absolute;
@@ -70,6 +61,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           display: flex;
           align-items: center;
           gap: 8px;
+          z-index: 2;
         }
         .al-banner-logo img { height: 24px; filter: brightness(0) invert(1); }
         .al-banner-logo span {
@@ -79,7 +71,6 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           text-shadow: 0 1px 4px rgba(0,0,0,0.7);
         }
 
-        /* Formulário */
         .al-form {
           display: flex;
           justify-content: center;
@@ -87,41 +78,23 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         }
         .al-form-inner { width: 100%; max-width: 380px; }
 
-        /* Painel desktop — oculto no mobile */
-        .al-desktop-panel { display: none; }
-
-        /* ══ DESKTOP (>= 768px) ═════════════════════════════════════════════ */
+        /* DESKTOP */
         @media (min-width: 768px) {
-
-          /* Grid de 2 colunas, cada uma com 100vh — a página não cresce */
           .al-root {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            grid-template-rows: 100vh;
             height: 100vh;
             overflow: hidden;
           }
 
-          /* Coluna esquerda: painel da imagem */
           .al-desktop-panel {
             display: block;
-            grid-column: 1;
-            grid-row: 1;
+            position: relative;
             height: 100vh;
             overflow: hidden;
           }
-          .al-desktop-panel img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            object-position: center top;
-            display: block;
-          }
 
-          /* Coluna direita: formulário */
           .al-right-col {
-            grid-column: 2;
-            grid-row: 1;
             height: 100vh;
             overflow-y: auto;
             display: flex;
@@ -129,10 +102,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             background: #fff;
           }
 
-          /* Esconde faixa mobile */
           .al-banner { display: none; }
 
-          /* Centraliza formulário no desktop */
           .al-form {
             flex: 1;
             align-items: center;
@@ -143,17 +114,29 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
       <div className="al-root">
 
-        {/* ── Desktop: painel esquerdo ── */}
+        {/* Painel esquerdo — desktop */}
         <div className="al-desktop-panel">
-          <img src="/criativo-auth.png" alt="SyncroFlow" />
+          <Image
+            src="/criativo-auth.jpg"
+            alt="SyncroFlow"
+            fill
+            style={{ objectFit: 'cover', objectPosition: 'center top' }}
+            priority
+          />
         </div>
 
-        {/* ── Coluna direita (e tudo no mobile) ── */}
+        {/* Coluna direita */}
         <div className="al-right-col" style={{ display:'flex', flexDirection:'column', background:'#fff' }}>
 
-          {/* Faixa criativo — só mobile */}
+          {/* Banner mobile */}
           <div className="al-banner">
-            <img className="al-banner-img" src="/criativo-auth.png" alt="" />
+            <Image
+              src="/criativo-auth.jpg"
+              alt=""
+              fill
+              style={{ objectFit: 'cover', objectPosition: 'center 20%' }}
+              priority
+            />
             <div className="al-banner-grad" />
             <div className="al-banner-logo">
               <img src="/icone.png" alt="" />
@@ -170,7 +153,6 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </div>
 
         </div>
-
       </div>
     </>
   )
