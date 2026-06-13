@@ -326,16 +326,40 @@ export default function AgentDetailPage() {
               </div>
               <div>
                 <Label>Função do agente</Label>
-                <select
-                  className="w-full mt-1 border border-input rounded-md px-3 py-2 text-sm bg-white"
-                  value={f.funcao ?? ''}
-                  onChange={e => setForm((p: any) => ({ ...(p || agent), funcao: e.target.value }))}
-                >
-                  <option value="">Selecione uma função</option>
-                  {['Atendimento ao Cliente','Vendas','Suporte Técnico','Financeiro','Recursos Humanos','Marketing','Jurídico','Agendamentos','E-commerce','Outro'].map(func => (
-                    <option key={func} value={func}>{func}</option>
-                  ))}
-                </select>
+                {(() => {
+                  const FUNCOES_LIST = ['Atendimento ao Cliente','Vendas','Suporte Técnico','Financeiro','Recursos Humanos','Marketing','Jurídico','Agendamentos','E-commerce','Outro']
+                  const currentVal = f.funcao ?? ''
+                  const isPreset = FUNCOES_LIST.includes(currentVal)
+                  const selectVal = isPreset ? currentVal : (currentVal ? 'Outro' : '')
+                  return (
+                    <>
+                      <select
+                        className="w-full mt-1 border border-input rounded-md px-3 py-2 text-sm bg-white"
+                        value={selectVal}
+                        onChange={e => {
+                          if (e.target.value !== 'Outro') {
+                            setForm((p: any) => ({ ...(p || agent), funcao: e.target.value }))
+                          } else {
+                            setForm((p: any) => ({ ...(p || agent), funcao: '' }))
+                          }
+                        }}
+                      >
+                        <option value="">Selecione uma função</option>
+                        {FUNCOES_LIST.map(func => (
+                          <option key={func} value={func}>{func}</option>
+                        ))}
+                      </select>
+                      {(selectVal === 'Outro' || (!isPreset && currentVal)) && (
+                        <Input
+                          className="mt-2 text-sm"
+                          placeholder="Descreva a função personalizada..."
+                          value={isPreset ? '' : currentVal}
+                          onChange={e => setForm((p: any) => ({ ...(p || agent), funcao: e.target.value }))}
+                        />
+                      )}
+                    </>
+                  )
+                })()}
               </div>
               <div>
                 <Label>Estilo de comunicação</Label>

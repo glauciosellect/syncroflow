@@ -1,6 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
-import { X, Send, ChevronDown } from 'lucide-react'
+import { X, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const TUTORIAL_STEPS = [
@@ -41,45 +41,49 @@ const TUTORIAL_STEPS = [
   },
   {
     step: 8,
+    title: 'Ativar IA Tools (Ferramentas)',
+    content: 'Na aba **IA Tools**, ative as ferramentas que o agente pode usar: **Consultar Pedido** (Nuvemshop), **Gerar Link de Pagamento** (Asaas), **Agendar Horário** (Google Calendar), **Criar Lead no CRM**, **Consultar Clima** e outras. Cada tool expande o que o agente consegue fazer automaticamente durante a conversa. Para ativar, basta ligar o toggle da tool desejada — algumas requerem uma integração conectada.',
+  },
+  {
+    step: 9,
     title: 'Configurar Google Calendar',
     content: 'Vá em **Configurações → Integrações** e clique em **Conectar** no Google Calendar. Autorize o acesso e o agente poderá criar agendamentos automaticamente durante conversas.',
   },
   {
-    step: 9,
+    step: 10,
     title: 'Gerenciar Contatos e Leads',
     content: 'Em **Contatos** você encontra todos que já conversaram. Em **Comercial** (via Dashboard) gerencie seu funil de vendas com leads organizados por etapa do pipeline.',
   },
   {
-    step: 10,
+    step: 11,
     title: 'Monitorar pelo Chat',
     content: 'Em **Chat** você vê todas as conversas em tempo real. Pode responder manualmente, ativar o modo **Human Only** para atender um cliente pessoalmente, ou transferir de volta para o agente.',
   },
   {
-    step: 11,
+    step: 12,
     title: 'Configurar Plano e Créditos',
     content: 'Em **Configurações → Planos e Pagamento** escolha seu plano. Cada mensagem processada pelo agente consome créditos. Você pode comprar créditos avulsos a qualquer momento.',
   },
   {
-    step: 12,
+    step: 13,
     title: 'Adicionar Equipe',
     content: 'Em **Equipe** convide colaboradores pelo e-mail. Defina o papel: Admin (acesso total) ou Agente (só atendimento). Eles recebem o convite por e-mail.',
   },
 ]
 
 const FAQ = [
-  { q: 'Como conectar o WhatsApp?', step: 2 },
   { q: 'Como criar um agente?', step: 1 },
+  { q: 'Como conectar o WhatsApp?', step: 2 },
   { q: 'Como treinar meu agente?', step: 4 },
   { q: 'Como testar o agente?', step: 6 },
   { q: 'Como vincular agente ao canal?', step: 3 },
+  { q: 'O que são IA Tools?', step: 8 },
   { q: 'Como criar fluxos automáticos?', step: 7 },
-  { q: 'Como conectar Google Calendar?', step: 8 },
-  { q: 'Como gerenciar leads?', step: 9 },
-  { q: 'Como adicionar equipe?', step: 12 },
-  { q: 'Como funciona os créditos?', step: 11 },
+  { q: 'Como conectar Google Calendar?', step: 9 },
+  { q: 'Como gerenciar leads?', step: 10 },
+  { q: 'Como adicionar equipe?', step: 13 },
+  { q: 'Como funciona os créditos?', step: 12 },
 ]
-
-type Message = { from: 'user' | 'bot'; text: string }
 
 function renderMarkdown(text: string) {
   return text
@@ -89,30 +93,29 @@ function renderMarkdown(text: string) {
 
 export function MascoteHelper() {
   const [open, setOpen] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([
-    { from: 'bot', text: 'Olá! 👋 Sou o assistente do SyncroFlow. Como posso te ajudar hoje?' },
-  ])
+  const [expandedFaq, setExpandedFaq] = useState<number | null>(null)
   const [showTutorial, setShowTutorial] = useState(false)
   const [tutorialStep, setTutorialStep] = useState(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, open])
+    if (expandedFaq !== null) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }, [expandedFaq])
 
-  const handleFaq = (faq: typeof FAQ[0]) => {
-    const step = TUTORIAL_STEPS.find(s => s.step === faq.step)
-    if (!step) return
-    setMessages(prev => [
-      ...prev,
-      { from: 'user', text: faq.q },
-      { from: 'bot', text: `**Passo ${step.step}: ${step.title}**\n\n${step.content}` },
-    ])
+  const toggleFaq = (index: number) => {
+    setExpandedFaq(prev => prev === index ? null : index)
   }
 
   const openTutorial = (stepIndex: number) => {
     setTutorialStep(stepIndex)
     setShowTutorial(true)
+  }
+
+  const handleFaqStep = (faq: typeof FAQ[0]) => {
+    const stepIndex = TUTORIAL_STEPS.findIndex(s => s.step === faq.step)
+    if (stepIndex >= 0) openTutorial(stepIndex)
   }
 
   return (
@@ -126,9 +129,9 @@ export function MascoteHelper() {
         <img src="/mascote.png" alt="Mascote SyncroFlow" className="w-full h-full object-cover object-top" />
       </button>
 
-      {/* Janela do chat */}
+      {/* Janela do assistente */}
       {open && (
-        <div className="fixed bottom-24 right-6 z-50 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 flex flex-col overflow-hidden" style={{ maxHeight: '520px' }}>
+        <div className="fixed bottom-24 right-6 z-50 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 flex flex-col overflow-hidden" style={{ maxHeight: '560px' }}>
           {/* Header */}
           <div className="flex items-center gap-3 p-4 text-white shrink-0" style={{ background: 'linear-gradient(135deg, #1565C0, #2E7D32)' }}>
             <img src="/mascote.png" alt="" className="w-9 h-9 rounded-full object-cover object-top border-2 border-white/30" />
@@ -141,55 +144,50 @@ export function MascoteHelper() {
             </button>
           </div>
 
-          {/* Mensagens */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-3">
-            {messages.map((msg, i) => (
-              <div key={i} className={cn('flex', msg.from === 'user' ? 'justify-end' : 'justify-start')}>
-                {msg.from === 'bot' && (
-                  <img src="/mascote.png" alt="" className="w-6 h-6 rounded-full object-cover object-top mr-2 shrink-0 mt-1" />
-                )}
-                <div
-                  className={cn(
-                    'max-w-[85%] px-3 py-2 rounded-2xl text-sm leading-relaxed',
-                    msg.from === 'user'
-                      ? 'bg-[#1565C0] text-white rounded-br-sm'
-                      : 'bg-gray-100 text-gray-800 rounded-bl-sm'
-                  )}
-                  dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.text) }}
-                />
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
+          {/* Perguntas frequentes em accordion */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-3 pb-0">
+              <p className="text-xs text-gray-400 font-medium mb-2">Perguntas frequentes — clique para ver a resposta:</p>
+            </div>
+            <div className="px-3 space-y-1.5 pb-3">
+              {FAQ.map((faq, i) => {
+                const step = TUTORIAL_STEPS.find(s => s.step === faq.step)
+                const isOpen = expandedFaq === i
+                return (
+                  <div key={i} className={cn('rounded-xl border transition-all overflow-hidden', isOpen ? 'border-[#1565C0] bg-blue-50' : 'border-gray-100 bg-gray-50 hover:border-gray-200')}>
+                    <button
+                      onClick={() => toggleFaq(i)}
+                      className="w-full flex items-center justify-between px-3 py-2.5 text-left"
+                    >
+                      <span className={cn('text-xs font-medium leading-snug', isOpen ? 'text-[#1565C0]' : 'text-gray-700')}>{faq.q}</span>
+                      <ChevronDown className={cn('w-3.5 h-3.5 shrink-0 ml-2 transition-transform', isOpen ? 'rotate-180 text-[#1565C0]' : 'text-gray-400')} />
+                    </button>
+                    {isOpen && step && (
+                      <div className="px-3 pb-3">
+                        <p
+                          className="text-xs text-gray-600 leading-relaxed"
+                          dangerouslySetInnerHTML={{ __html: renderMarkdown(step.content) }}
+                        />
+                        <button
+                          onClick={() => handleFaqStep(faq)}
+                          className="mt-2.5 text-xs font-semibold text-[#1565C0] hover:underline flex items-center gap-1"
+                        >
+                          Ver no tutorial completo →
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+              <div ref={messagesEndRef} />
+            </div>
           </div>
 
-          {/* Perguntas rápidas */}
+          {/* Botão tutorial */}
           <div className="p-3 border-t border-gray-100 shrink-0">
-            <p className="text-xs text-gray-400 mb-2 font-medium">Perguntas frequentes:</p>
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {FAQ.slice(0, 5).map(faq => (
-                <button
-                  key={faq.q}
-                  onClick={() => handleFaq(faq)}
-                  className="text-xs px-2.5 py-1 bg-blue-50 text-[#1565C0] rounded-full hover:bg-blue-100 transition-colors border border-blue-100"
-                >
-                  {faq.q}
-                </button>
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-1.5 mb-3">
-              {FAQ.slice(5).map(faq => (
-                <button
-                  key={faq.q}
-                  onClick={() => handleFaq(faq)}
-                  className="text-xs px-2.5 py-1 bg-blue-50 text-[#1565C0] rounded-full hover:bg-blue-100 transition-colors border border-blue-100"
-                >
-                  {faq.q}
-                </button>
-              ))}
-            </div>
             <button
               onClick={() => openTutorial(0)}
-              className="w-full py-2 text-xs font-semibold text-white rounded-xl transition-opacity hover:opacity-90"
+              className="w-full py-2.5 text-xs font-semibold text-white rounded-xl transition-opacity hover:opacity-90"
               style={{ background: 'linear-gradient(135deg, #1565C0, #2E7D32)' }}
             >
               📖 Ver tutorial completo ({TUTORIAL_STEPS.length} passos)
@@ -250,7 +248,7 @@ export function MascoteHelper() {
               </button>
 
               {/* Índice rápido */}
-              <div className="flex gap-1">
+              <div className="flex gap-1 flex-wrap justify-center max-w-[160px]">
                 {TUTORIAL_STEPS.map((_, i) => (
                   <button
                     key={i}

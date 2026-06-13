@@ -22,7 +22,7 @@ const FUNCOES = [
 
 const schema = z.object({
   name: z.string().min(1, 'Nome obrigatório'),
-  funcao: z.string().min(1, 'Função obrigatória'),
+  funcao: z.string().min(1, 'Função obrigatória').max(100),
   purpose: z.enum(['SUPPORT', 'SALES', 'PERSONAL']),
   companyName: z.string().optional(),
   companyDesc: z.string().max(500).optional(),
@@ -40,6 +40,7 @@ export function AgentWizard({ onClose, onSuccess }: { onClose: () => void; onSuc
   const [done, setDone] = useState(false)
   const [purpose, setPurpose] = useState<'SUPPORT' | 'SALES' | 'PERSONAL'>('SUPPORT')
   const [funcao, setFuncao] = useState('')
+  const [funcaoCustom, setFuncaoCustom] = useState('')
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -126,7 +127,15 @@ export function AgentWizard({ onClose, onSuccess }: { onClose: () => void; onSuc
                   <button
                     key={f}
                     type="button"
-                    onClick={() => { setFuncao(f); setValue('funcao', f) }}
+                    onClick={() => {
+                      setFuncao(f)
+                      if (f !== 'Outro') {
+                        setValue('funcao', f)
+                        setFuncaoCustom('')
+                      } else {
+                        setValue('funcao', funcaoCustom || '')
+                      }
+                    }}
                     className={cn(
                       'text-left px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all',
                       funcao === f ? 'border-[#1565C0] bg-blue-50 text-[#1565C0]' : 'border-gray-200 text-gray-600 hover:border-gray-300'
@@ -136,6 +145,20 @@ export function AgentWizard({ onClose, onSuccess }: { onClose: () => void; onSuc
                   </button>
                 ))}
               </div>
+              {funcao === 'Outro' && (
+                <div className="mt-2">
+                  <Input
+                    placeholder="Digite a função do agente..."
+                    value={funcaoCustom}
+                    onChange={e => {
+                      setFuncaoCustom(e.target.value)
+                      setValue('funcao', e.target.value)
+                    }}
+                    className="text-sm"
+                    autoFocus
+                  />
+                </div>
+              )}
               {errors.funcao && <p className="text-red-500 text-sm mt-1">{errors.funcao.message}</p>}
             </div>
           )}
