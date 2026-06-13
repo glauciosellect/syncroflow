@@ -98,30 +98,38 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           .al-root {
             flex-direction: row;
             height: 100vh;
+            max-height: 100vh;
             overflow: hidden;
+            position: relative;
           }
 
-          /* painel esquerdo com criativo */
+          /* painel esquerdo — fixo na metade esquerda */
           .al-panel {
             display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
             width: 50%;
-            flex-shrink: 0;
             height: 100vh;
             overflow: hidden;
+            z-index: 0;
           }
           .al-panel img {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            object-position: center center;
+            object-position: center top;
             display: block;
           }
 
-          /* lado direito */
+          /* lado direito — margem esquerda de 50% para não sobrepor o painel */
           .al-right {
+            margin-left: 50%;
             width: 50%;
             height: 100vh;
             overflow-y: auto;
+            position: relative;
+            z-index: 1;
           }
 
           /* esconde faixa mobile */
