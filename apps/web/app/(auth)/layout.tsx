@@ -18,9 +18,9 @@ function PwaInstallBanner() {
   return (
     <button
       onClick={async () => { prompt.prompt(); const { outcome } = await prompt.userChoice; if (outcome === 'accepted') setInstalled(true) }}
-      className="flex items-center gap-2 w-full mt-4 px-4 py-2.5 rounded-xl border border-blue-200 bg-blue-50 text-[#1565C0] text-sm font-medium hover:bg-blue-100 transition-colors"
+      style={{ display:'flex', alignItems:'center', gap:'8px', width:'100%', marginTop:'16px', padding:'10px 16px', borderRadius:'12px', border:'1px solid #BFDBFE', background:'#EFF6FF', color:'#1565C0', fontSize:'14px', fontWeight:500, cursor:'pointer' }}
     >
-      <Download className="w-4 h-4 shrink-0" />
+      <Download style={{ width:16, height:16, flexShrink:0 }} />
       <span>Instalar SyncroFlow no seu dispositivo</span>
     </button>
   )
@@ -30,35 +30,41 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   return (
     <>
       <style>{`
-        .auth-wrapper {
-          min-height: 100vh;
+        /* ── Reset base ── */
+        .al-root { display: flex; min-height: 100vh; background: #fff; }
+
+        /* ── Mobile: coluna única ── */
+        .al-panel { display: none; }
+
+        .al-right {
+          flex: 1;
           display: flex;
           flex-direction: column;
           background: #fff;
         }
 
-        /* Faixa do criativo no topo — mobile */
-        .auth-banner {
+        /* faixa criativo topo */
+        .al-banner {
           position: relative;
           width: 100%;
-          height: 170px;
+          height: 160px;
           overflow: hidden;
           flex-shrink: 0;
         }
-        .auth-banner img.criativo {
+        .al-banner img {
           position: absolute;
           inset: 0;
           width: 100%;
           height: 100%;
           object-fit: cover;
-          object-position: center 20%;
+          object-position: center 22%;
         }
-        .auth-banner .overlay {
+        .al-banner-overlay {
           position: absolute;
           inset: 0;
-          background: linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.65) 100%);
+          background: linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.65) 100%);
         }
-        .auth-banner .brand {
+        .al-banner-brand {
           position: absolute;
           bottom: 12px;
           left: 16px;
@@ -66,96 +72,96 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           align-items: center;
           gap: 8px;
         }
-        .auth-banner .brand img {
-          height: 28px;
-          filter: brightness(0) invert(1);
-        }
-        .auth-banner .brand span {
+        .al-banner-brand img { height: 26px; filter: brightness(0) invert(1); }
+        .al-banner-brand span {
           color: #fff;
           font-weight: 700;
-          font-size: 16px;
-          text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+          font-size: 15px;
+          text-shadow: 0 1px 4px rgba(0,0,0,0.7);
         }
 
-        /* Painel lateral — oculto no mobile */
-        .auth-side {
-          display: none;
-        }
-
-        /* Área do formulário */
-        .auth-form-area {
+        /* área do formulário */
+        .al-form {
           flex: 1;
           display: flex;
           align-items: flex-start;
           justify-content: center;
-          padding: 24px 20px 40px;
+          padding: 28px 20px 48px;
         }
-        .auth-form-inner {
+        .al-form-inner {
           width: 100%;
-          max-width: 360px;
+          max-width: 380px;
         }
 
-        /* Desktop: >= 768px */
+        /* ── Desktop: lado a lado ── */
         @media (min-width: 768px) {
-          .auth-wrapper {
+          .al-root {
             flex-direction: row;
             height: 100vh;
             overflow: hidden;
           }
-          .auth-banner {
-            display: none;
-          }
-          .auth-side {
+
+          /* painel esquerdo com criativo */
+          .al-panel {
             display: block;
             width: 50%;
             flex-shrink: 0;
             height: 100vh;
             overflow: hidden;
           }
-          .auth-side img {
+          .al-panel img {
             width: 100%;
             height: 100%;
             object-fit: cover;
             object-position: center center;
+            display: block;
           }
-          .auth-form-area {
+
+          /* lado direito */
+          .al-right {
             width: 50%;
             height: 100vh;
             overflow-y: auto;
+          }
+
+          /* esconde faixa mobile */
+          .al-banner { display: none; }
+
+          /* centraliza formulário vertical e horizontal */
+          .al-form {
+            height: 100%;
             align-items: center;
-            padding: 40px 32px;
+            justify-content: center;
+            padding: 40px 48px;
           }
         }
       `}</style>
 
-      <div className="auth-wrapper">
-
-        {/* Painel esquerdo — criativo (desktop) */}
-        <div className="auth-side">
+      <div className="al-root">
+        {/* Painel esquerdo — criativo — só desktop */}
+        <div className="al-panel">
           <img src="/criativo-auth.png" alt="SyncroFlow — Atendimento Inteligente que Vende 24h" />
         </div>
 
-        {/* Área direita / mobile */}
-        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, background: '#fff' }}>
-
-          {/* Faixa do criativo no topo — mobile */}
-          <div className="auth-banner">
-            <img className="criativo" src="/criativo-auth.png" alt="SyncroFlow" />
-            <div className="overlay" />
-            <div className="brand">
+        {/* Coluna direita — mobile ocupa tudo, desktop ocupa 50% */}
+        <div className="al-right">
+          {/* Faixa criativo no topo — só mobile */}
+          <div className="al-banner">
+            <img src="/criativo-auth.png" alt="" />
+            <div className="al-banner-overlay" />
+            <div className="al-banner-brand">
               <img src="/icone.png" alt="" />
               <span>SyncroFlow</span>
             </div>
           </div>
 
-          {/* Formulário */}
-          <div className="auth-form-area">
-            <div className="auth-form-inner">
+          {/* Formulário centralizado */}
+          <div className="al-form">
+            <div className="al-form-inner">
               {children}
               <PwaInstallBanner />
             </div>
           </div>
-
         </div>
       </div>
     </>
