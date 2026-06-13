@@ -119,6 +119,28 @@ export async function analyticsRoutes(app: FastifyInstance) {
     return reply.send(Object.values(grouped).sort((a, b) => b.interactions - a.interactions).slice(0, 10))
   })
 
+  app.get('/analytics/realtime', async (req, reply) => {
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
+    const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000)
+
+    const [openConversations, waitingHuman, channels, agents, recentConversations, newContactsToday] = await prisma.$transaction([
+      prisma.conversation.count({ where: { workspaceId, status: { in: ['OPEN', 'BOT'] } } }),
+      prisma.conversation.count({ where: { workspaceId, status: 'WAITING_HUMAN' } }),
+      prisma.channel.findMany({ where: { workspaceId }, select: { id: true, name: true, type: true, isActive: true } }),
+      prisma.agent.findMany({ where: { workspaceId }, select: { id: true, name: true, funcao: true, isActive: true, _count: { select: { conversations: true } } } }),
+      prisma.conversation.findMany({
+        where: { workspaceId, updatedAt: { gte: since24h } },
+        orderBy: { updatedAt: 'desc' },
+        take: 8,
+        select: { id: true, status: true, updatedAt: true, creditsUsed: true, interactionCount: true, contact: { select: { name: true, phone: true } }, agent: { select: { name: true } }, channel: { select: { type: true } } },
+      }),
+      prisma.contact.count({ where: { workspaceId, createdAt: { gte: since24h } } }),
+    ])
+
+    return reply.send({ openConversations, waitingHuman, channels, agents, recentConversations, newContactsToday })
+  })
+
   app.get('/analytics/attendance', async (req, reply) => {
     const { sub, wid } = req.user as { sub: string; wid?: string }
     const workspaceId = await getWorkspaceId(sub, wid)
