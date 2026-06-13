@@ -263,6 +263,38 @@
     .float-badge-2 { bottom: 40px; left: -30px; animation: float 3.5s ease-in-out infinite 1s; }
     .badge-icon { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
 
+    /* Hero mini-preview — só mobile */
+    .hero-mobile-preview { display: none; }
+    @media (max-width: 900px) {
+      .hero-mobile-preview {
+        display: block; margin: 28px auto 0; max-width: 340px;
+        background: white; border-radius: 18px; overflow: hidden;
+        box-shadow: 0 12px 40px rgba(21,101,192,0.15); border: 1px solid var(--gray-200);
+      }
+      .hmp-topbar {
+        background: linear-gradient(135deg, #0D47A1, #1565C0);
+        padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;
+        color: white; font-size: 12px; font-weight: 600;
+      }
+      .hmp-body { padding: 14px; background: #F8FAFC; }
+      .hmp-msg { display: flex; gap: 8px; margin-bottom: 10px; align-items: flex-end; }
+      .hmp-msg.user { flex-direction: row-reverse; }
+      .hmp-avatar {
+        width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #1565C0, #2E7D32);
+        display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: white; flex-shrink: 0;
+      }
+      .hmp-bubble {
+        background: white; border-radius: 12px; padding: 8px 12px; font-size: 12px;
+        line-height: 1.5; box-shadow: 0 1px 4px rgba(0,0,0,0.06); max-width: 220px; color: var(--gray-900);
+      }
+      .hmp-bubble.user { background: linear-gradient(135deg, #1565C0, #2E7D32); color: white; }
+      .hmp-channels {
+        display: flex; gap: 8px; padding: 10px 14px; background: #F1F5F9;
+        border-top: 1px solid var(--gray-200); flex-wrap: wrap; justify-content: center;
+      }
+      .hmp-channels span { font-size: 11px; font-weight: 600; color: #2E7D32; }
+    }
+
     /* ── STATS BAR ── */
     .stats-bar { background: white; border-top: 1px solid var(--gray-200); border-bottom: 1px solid var(--gray-200); padding: 40px 0; }
     .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; }
@@ -640,9 +672,9 @@
       .nav-hamburger { display: block; }
       .logo-wordmark { height: 72px; }
 
-      .hero { padding: 120px 0 60px; min-height: auto; }
+      .hero { padding: 100px 0 48px; min-height: auto !important; }
       .hero-grid { grid-template-columns: 1fr; gap: 32px; text-align: center; }
-      .hero-visual { display: none; }
+      .hero-visual { display: none !important; }
       .hero-btns { justify-content: center; }
       .hero-stats { justify-content: center; }
 
@@ -682,21 +714,24 @@
       section { padding: 56px 0 !important; }
       .section-header { margin-bottom: 36px; }
       .section-header h2 { font-size: clamp(22px, 7vw, 34px) !important; }
-      .section-header p { font-size: 14px; }
+      .section-header p { font-size: 15px; }
 
-      /* Hero — nav compacto ~72px + 16px folga */
-      .hero { padding: 88px 0 48px; min-height: auto; text-align: center; }
-      .hero h1 { font-size: clamp(28px, 9vw, 42px); line-height: 1.15; }
-      .hero p { font-size: 15px; line-height: 1.6; }
-      .hero-badge { font-size: 11px; padding: 5px 12px; justify-content: center; }
+      /* Hero — sem min-height pra não ficar com espaço vazio sem o visual */
+      .hero { padding: 80px 0 40px; min-height: auto !important; text-align: center; }
+      .hero h1 { font-size: clamp(30px, 9vw, 42px); line-height: 1.12; margin-bottom: 16px; }
+      .hero p { font-size: 15px; line-height: 1.65; margin-bottom: 28px; }
+      .hero-badge { font-size: 11px; padding: 6px 14px; justify-content: center; margin-bottom: 18px; }
       .hero-btns { flex-direction: column; align-items: stretch; gap: 12px; }
-      .hero-btns .btn-primary, .hero-btns .btn-outline { justify-content: center; text-align: center; width: 100%; }
-      .hero-stats { justify-content: center; gap: 24px; flex-wrap: wrap; }
-      .hero-stat strong { font-size: 22px; }
-      .hero-stat span { font-size: 11px; }
-      .hero-visual { display: none; }
+      .hero-btns .btn-primary, .hero-btns .btn-outline { justify-content: center; text-align: center; width: 100%; font-size: 16px; padding: 16px 24px; border-radius: 14px; }
+      .hero-stats { justify-content: center; gap: 0; flex-wrap: nowrap; margin-top: 32px; background: white; border-radius: 16px; padding: 20px 0; box-shadow: 0 4px 20px rgba(0,0,0,0.07); }
+      .hero-stat { flex: 1; text-align: center; padding: 0 16px; border-right: 1px solid var(--gray-200); }
+      .hero-stat:last-child { border-right: none; }
+      .hero-stat strong { font-size: 20px; display: block; }
+      .hero-stat span { font-size: 11px; color: var(--gray-600); }
+      .hero-visual { display: none !important; }
 
       /* Stats bar */
+      .stats-bar { padding: 32px 0; }
       .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 0; }
       .stat-item { padding: 20px 12px; border-right: 1px solid var(--gray-200); border-bottom: 1px solid var(--gray-200); }
       .stat-item:nth-child(2) { border-right: none; }
@@ -706,7 +741,7 @@
 
       /* Channels */
       .channels-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
-      .channel-card { padding: 20px 12px; }
+      .channel-card { padding: 20px 12px; border-radius: 14px; }
       .channel-icon { font-size: 28px; }
       .channel-card h3 { font-size: 13px; }
       .channel-card p { font-size: 11px; }
@@ -719,12 +754,12 @@
       .agent-node-info span { font-size: 11px; }
       .multiagent-benefits li { gap: 10px; }
 
-      /* Features */
-      .features-grid { grid-template-columns: 1fr; gap: 16px; }
-      .feature-card { padding: 24px 20px; }
-      .feature-icon { width: 48px; height: 48px; font-size: 20px; margin-bottom: 14px; }
-      .feature-card h3 { font-size: 16px; }
-      .feature-card p { font-size: 13px; }
+      /* Features — layout horizontal no mobile: ícone à esquerda, texto à direita */
+      .features-grid { grid-template-columns: 1fr; gap: 12px; }
+      .feature-card { padding: 20px 18px; border-radius: 16px; display: flex; align-items: flex-start; gap: 16px; flex-direction: row; }
+      .feature-icon { width: 44px; height: 44px; font-size: 20px; margin-bottom: 0; flex-shrink: 0; border-radius: 12px; }
+      .feature-card h3 { font-size: 15px; margin-bottom: 4px; }
+      .feature-card p { font-size: 13px; line-height: 1.55; }
 
       /* Vendedores */
       .sellers-section { padding: 56px 0; }
@@ -871,6 +906,27 @@
             <a href="https://app.syncroflow.io/register" class="btn-primary">Começar grátis — 14 dias →</a>
             <a href="#como-funciona" class="btn-outline">Ver como funciona</a>
           </div>
+          <!-- Mini preview mobile — visível só no mobile via CSS -->
+          <div class="hero-mobile-preview">
+            <div class="hmp-topbar">
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style="width:8px;height:8px;border-radius:50%;background:#4CAF50;animation:pulse-dot 1.5s ease infinite"></div>
+                <span>💬 SyncroFlow — IA ativa</span>
+              </div>
+              <span style="font-size:11px;opacity:0.7">Haiku · 1 crédito</span>
+            </div>
+            <div class="hmp-body">
+              <div class="hmp-msg bot"><div class="hmp-avatar">S</div><div class="hmp-bubble">Olá! Sou o Jarbas. Como posso ajudar você hoje? 😊</div></div>
+              <div class="hmp-msg user"><div class="hmp-bubble user">Quero saber sobre os planos</div></div>
+              <div class="hmp-msg bot"><div class="hmp-avatar">S</div><div class="hmp-bubble">Temos Basic, Standard e Corporate. Qual o tamanho da sua operação?</div></div>
+            </div>
+            <div class="hmp-channels">
+              <span>📱 WhatsApp ✓</span>
+              <span>📸 Instagram ✓</span>
+              <span>💬 Telegram ✓</span>
+            </div>
+          </div>
+
           <div class="hero-stats">
             <div class="hero-stat">
               <strong>14 dias</strong>
