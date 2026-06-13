@@ -11,7 +11,6 @@ import { useState, useEffect } from 'react'
 const navItems = [
   { section: 'VISÃO GERAL', items: [{ href: '/dashboard', label: 'Dashboards', icon: LayoutDashboard }] },
   { section: 'CADASTROS', items: [{ href: '/agents', label: 'Agentes', icon: Bot }, { href: '/team', label: 'Equipe', icon: Users }] },
-  { section: 'COMERCIAL', items: [{ href: '/comercial', label: 'Comercial', icon: TrendingUp }] },
   { section: 'COMUNICAÇÃO', items: [{ href: '/chat', label: 'Chat', icon: MessageSquare }, { href: '/contacts', label: 'Contatos', icon: Contact }] },
   { section: 'AGENDA', items: [{ href: '/agenda', label: 'Agenda', icon: CalendarDays }] },
   { section: 'INTEGRAÇÕES', items: [{ href: '/integrations', label: 'Integrações', icon: Plug }, { href: '/templates', label: 'Templates', icon: LayoutTemplate }] },

@@ -120,6 +120,7 @@ model ApiKey {
 model Agent {
   id                 String               @id @default(cuid())
   name               String
+  funcao             String?
   avatarUrl          String?
   purpose            AgentPurpose         @default(SUPPORT)
   companyName        String?

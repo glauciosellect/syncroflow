@@ -14,8 +14,15 @@ import { cn } from '@/lib/utils'
 
 const steps = ['Nome', 'Objetivo', 'Empresa', 'Configurações']
 
+const FUNCOES = [
+  'Atendimento ao Cliente', 'Vendas', 'Suporte Técnico', 'Financeiro',
+  'Recursos Humanos', 'Marketing', 'Jurídico', 'Agendamentos',
+  'E-commerce', 'Outro',
+]
+
 const schema = z.object({
   name: z.string().min(1, 'Nome obrigatório'),
+  funcao: z.string().min(1, 'Função obrigatória'),
   purpose: z.enum(['SUPPORT', 'SALES', 'PERSONAL']),
   companyName: z.string().optional(),
   companyDesc: z.string().max(500).optional(),
@@ -32,15 +39,16 @@ export function AgentWizard({ onClose, onSuccess }: { onClose: () => void; onSuc
   const [step, setStep] = useState(0)
   const [done, setDone] = useState(false)
   const [purpose, setPurpose] = useState<'SUPPORT' | 'SALES' | 'PERSONAL'>('SUPPORT')
+  const [funcao, setFuncao] = useState('')
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { purpose: 'SUPPORT', transferToHuman: true, useEmojis: false, restrictTopics: false, splitLongMessages: false },
+    defaultValues: { purpose: 'SUPPORT', funcao: '', transferToHuman: true, useEmojis: false, restrictTopics: false, splitLongMessages: false },
   })
 
   const mutation = useMutation({
     mutationFn: async (data: FormData) => {
-      const agent = await api.post('/agents', { name: data.name, purpose: data.purpose, companyName: data.companyName, companyDesc: data.companyDesc })
+      const agent = await api.post('/agents', { name: data.name, funcao: data.funcao, purpose: data.purpose, companyName: data.companyName, companyDesc: data.companyDesc })
       await api.patch(`/agents/${agent.data.id}/config`, { transferToHuman: data.transferToHuman, useEmojis: data.useEmojis, restrictTopics: data.restrictTopics, splitLongMessages: data.splitLongMessages })
       return agent.data
     },
@@ -111,6 +119,24 @@ export function AgentWizard({ onClose, onSuccess }: { onClose: () => void; onSuc
               <Label>Qual o nome do seu agente?</Label>
               <Input placeholder="Ex: Sofia, Max, Assistente..." {...register('name')} className="mt-2" />
               {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>}
+
+              <Label className="mt-4 block">Qual a função deste agente?</Label>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                {FUNCOES.map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => { setFuncao(f); setValue('funcao', f) }}
+                    className={cn(
+                      'text-left px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all',
+                      funcao === f ? 'border-[#1565C0] bg-blue-50 text-[#1565C0]' : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    )}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+              {errors.funcao && <p className="text-red-500 text-sm mt-1">{errors.funcao.message}</p>}
             </div>
           )}
 
@@ -179,7 +205,7 @@ export function AgentWizard({ onClose, onSuccess }: { onClose: () => void; onSuc
             {step === 0 ? 'Cancelar' : 'Voltar'}
           </Button>
           {step < steps.length - 1 ? (
-            <Button onClick={() => setStep(s => s + 1)} className="hover:opacity-90" disabled={step === 0 && !name}>
+            <Button onClick={() => setStep(s => s + 1)} className="hover:opacity-90" disabled={step === 0 && (!name || !funcao)}>
               Continuar
             </Button>
           ) : (

@@ -5,6 +5,7 @@ import { getWorkspaceId } from '../../lib/workspace'
 
 const agentSchema = z.object({
   name: z.string().min(1).max(100),
+  funcao: z.string().max(100).optional().nullable(),
   purpose: z.enum(['SUPPORT', 'SALES', 'PERSONAL']).optional(),
   companyName: z.string().max(100).optional().nullable(),
   companyWebsite: z.string().url().or(z.literal('')).optional().nullable(),

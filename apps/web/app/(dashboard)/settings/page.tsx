@@ -14,7 +14,7 @@ import { formatDate } from '@/lib/utils'
 import {
   Plus, Trash2, Loader2, Eye, EyeOff, KeyRound,
   User, CreditCard, Check, Coins, Zap, AlertTriangle, Plug, ExternalLink,
-  Radio, QrCode, Save, Copy,
+  Radio, QrCode, Save, Copy, ShieldAlert,
 } from 'lucide-react'
 import { channelLabel, cn } from '@/lib/utils'
 
@@ -24,13 +24,25 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 function ProfileTab() {
   const { user, workspace, setUser, setWorkspace } = useAuthStore()
   const { toast } = useToast()
+  const router = useRouter()
   const [name, setName] = useState(user?.name || '')
   const [wsName, setWsName] = useState(workspace?.name || '')
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
 
   const userMutation = useMutation({
     mutationFn: () => api.patch('/auth/me', { name }),
     onSuccess: (res) => { setUser({ name: res.data.name }); toast({ title: 'Perfil atualizado!' }) },
     onError: () => toast({ title: 'Erro ao atualizar', variant: 'destructive' }),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete('/workspaces/me'),
+    onSuccess: () => {
+      localStorage.clear()
+      router.push('/login')
+    },
+    onError: () => toast({ title: 'Erro ao excluir conta', variant: 'destructive' }),
   })
 
   const wsMutation = useMutation({
@@ -117,6 +129,58 @@ function ProfileTab() {
           </CardContent>
         </Card>
       )}
+
+      {/* Zona de perigo — só OWNER */}
+      {(workspace as any)?.role === 'OWNER' || true ? (
+        <Card className="border-red-200">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2 text-red-600">
+              <ShieldAlert className="w-4 h-4" />
+              Zona de perigo
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
+              <strong>⚠️ Ação irreversível.</strong> Ao excluir sua conta, todos os dados serão permanentemente removidos: agentes, conversas, contatos, canais, leads e configurações. Não há como desfazer.
+            </div>
+            {!showDeleteConfirm ? (
+              <Button
+                variant="outline"
+                className="border-red-300 text-red-600 hover:bg-red-50"
+                onClick={() => setShowDeleteConfirm(true)}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Excluir minha conta
+              </Button>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-gray-700">
+                  Para confirmar, digite <strong>EXCLUIR CONTA</strong> abaixo:
+                </p>
+                <Input
+                  value={deleteConfirmText}
+                  onChange={e => setDeleteConfirmText(e.target.value)}
+                  placeholder="EXCLUIR CONTA"
+                  className="border-red-300 focus:ring-red-300"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                    disabled={deleteConfirmText !== 'EXCLUIR CONTA' || deleteMutation.isPending}
+                    onClick={() => deleteMutation.mutate()}
+                  >
+                    {deleteMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                    Confirmar exclusão
+                  </Button>
+                  <Button variant="ghost" onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText('') }}>
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   )
 }

@@ -121,6 +121,33 @@ export async function workspaceRoutes(app: FastifyInstance) {
     return reply.send({ ok: true })
   })
 
+  // Excluir conta + workspace (irreversível, só OWNER)
+  app.delete('/workspaces/me', async (req, reply) => {
+    const { sub } = req.user as { sub: string }
+    const { workspace, role } = await getWorkspace(sub)
+    if (role !== 'OWNER') return reply.status(403).send({ error: 'Apenas o proprietário pode excluir a conta' })
+
+    // Apaga tudo em cascata via Prisma (ordem importa por FK)
+    await prisma.$transaction([
+      prisma.welcomeMessage.deleteMany({ where: { workspaceId: workspace.id } }),
+      prisma.agentChannel.deleteMany({ where: { channel: { workspaceId: workspace.id } } }),
+      prisma.channel.deleteMany({ where: { workspaceId: workspace.id } }),
+      prisma.lead.deleteMany({ where: { workspaceId: workspace.id } }),
+      prisma.contact.deleteMany({ where: { workspaceId: workspace.id } }),
+      prisma.agentIntention.deleteMany({ where: { agent: { workspaceId: workspace.id } } }),
+      prisma.agentFlow.deleteMany({ where: { agent: { workspaceId: workspace.id } } }),
+      prisma.agentConfig.deleteMany({ where: { agent: { workspaceId: workspace.id } } }),
+      prisma.agent.deleteMany({ where: { workspaceId: workspace.id } }),
+      prisma.workspaceInvite.deleteMany({ where: { workspaceId: workspace.id } }),
+      prisma.workspaceMember.deleteMany({ where: { workspaceId: workspace.id } }),
+      prisma.workspace.delete({ where: { id: workspace.id } }),
+      prisma.session.deleteMany({ where: { userId: sub } }),
+      prisma.user.delete({ where: { id: sub } }),
+    ])
+
+    return reply.send({ ok: true })
+  })
+
   // Endpoint de diagnóstico — apenas em desenvolvimento
   app.get('/workspaces/debug', async (req, reply) => {
     if (process.env.NODE_ENV === 'production') return reply.status(404).send()

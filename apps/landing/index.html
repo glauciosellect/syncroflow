@@ -1931,6 +1931,114 @@
     document.querySelectorAll('.menu-link').forEach(a => a.addEventListener('click', closeMenu))
   </script>
 
+  <!-- Mascote flutuante tira-dúvidas -->
+  <style>
+    #mascote-btn {
+      position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+      width: 68px; height: 68px; border-radius: 50%; overflow: hidden;
+      box-shadow: 0 8px 32px rgba(21,101,192,0.35);
+      border: 3px solid #fff; cursor: pointer;
+      transition: transform 0.2s; background: none;
+    }
+    #mascote-btn:hover { transform: scale(1.1); }
+    #mascote-btn img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+    #mascote-chat {
+      position: fixed; bottom: 104px; right: 24px; z-index: 9999;
+      width: 320px; background: #fff; border-radius: 20px;
+      box-shadow: 0 12px 48px rgba(0,0,0,0.15); border: 1px solid #e5e7eb;
+      display: none; flex-direction: column; overflow: hidden;
+      font-family: 'Inter', sans-serif;
+    }
+    #mascote-chat.open { display: flex; }
+    .mascote-header {
+      background: linear-gradient(135deg, #1565C0, #2E7D32);
+      padding: 14px 16px; display: flex; align-items: center; gap: 10px; color: #fff;
+    }
+    .mascote-header img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; object-position: top; border: 2px solid rgba(255,255,255,0.3); }
+    .mascote-header-info { flex: 1; }
+    .mascote-header-info strong { display: block; font-size: 14px; }
+    .mascote-header-info span { font-size: 11px; opacity: 0.7; }
+    .mascote-close { background: none; border: none; color: #fff; cursor: pointer; font-size: 18px; padding: 2px 6px; border-radius: 50%; }
+    .mascote-close:hover { background: rgba(255,255,255,0.2); }
+    .mascote-body { padding: 16px; font-size: 13px; color: #374151; line-height: 1.6; }
+    .mascote-body p { margin: 0 0 12px; }
+    .mascote-faq { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+    .mascote-faq button {
+      font-size: 11px; padding: 5px 10px; border-radius: 20px;
+      background: #EFF6FF; color: #1565C0; border: 1px solid #BFDBFE;
+      cursor: pointer; font-family: inherit; transition: background 0.15s;
+    }
+    .mascote-faq button:hover { background: #DBEAFE; }
+    .mascote-cta {
+      margin: 12px 16px 16px; display: block; text-align: center;
+      background: linear-gradient(135deg, #1565C0, #2E7D32);
+      color: #fff; font-size: 13px; font-weight: 600; padding: 10px;
+      border-radius: 12px; text-decoration: none; transition: opacity 0.2s;
+    }
+    .mascote-cta:hover { opacity: 0.9; }
+    .mascote-answer { display: none; background: #F3F4F6; border-radius: 12px; padding: 12px; margin-top: 8px; font-size: 12px; line-height: 1.6; }
+    .mascote-answer.visible { display: block; }
+    .mascote-answer strong { color: #1565C0; }
+  </style>
+
+  <button id="mascote-btn" title="Ajuda — SyncroFlow" onclick="toggleMascote()">
+    <img src="https://app.syncroflow.io/mascote.png" alt="Mascote SyncroFlow" onerror="this.style.display='none'; this.parentElement.style.background='linear-gradient(135deg,#1565C0,#2E7D32)'; this.parentElement.innerHTML='<span style=&quot;color:#fff;font-size:24px;display:flex;align-items:center;justify-content:center;height:100%&quot;>🤖</span>'" />
+  </button>
+
+  <div id="mascote-chat">
+    <div class="mascote-header">
+      <img src="https://app.syncroflow.io/mascote.png" alt="" onerror="this.style.display='none'" />
+      <div class="mascote-header-info">
+        <strong>Assistente SyncroFlow</strong>
+        <span>Tira-dúvidas · Suporte</span>
+      </div>
+      <button class="mascote-close" onclick="toggleMascote()">✕</button>
+    </div>
+    <div class="mascote-body">
+      <p>Olá! 👋 Posso te ajudar com dúvidas sobre o SyncroFlow. O que você gostaria de saber?</p>
+      <div class="mascote-faq">
+        <button onclick="showAnswer('q1')">O que é o SyncroFlow?</button>
+        <button onclick="showAnswer('q2')">Como funciona a IA?</button>
+        <button onclick="showAnswer('q3')">Quanto custa?</button>
+        <button onclick="showAnswer('q4')">Tem período grátis?</button>
+        <button onclick="showAnswer('q5')">Funciona no WhatsApp?</button>
+        <button onclick="showAnswer('q6')">Precisa de código?</button>
+      </div>
+      <div id="q1" class="mascote-answer">
+        <strong>SyncroFlow</strong> é uma plataforma de atendimento omnichannel com IA. Você cria agentes inteligentes que atendem seus clientes no WhatsApp, Instagram, Facebook e mais — 24h por dia, sem precisar de código.
+      </div>
+      <div id="q2" class="mascote-answer">
+        O agente usa modelos como <strong>Claude (Anthropic)</strong> e <strong>GPT-4o (OpenAI)</strong>. Você treina ele com informações da sua empresa e ele responde os clientes de forma natural e humanizada.
+      </div>
+      <div id="q3" class="mascote-answer">
+        Temos planos a partir de <strong>R$ 60/mês</strong> (Starter). Também há plano Pro (R$ 147/mês) e Business (R$ 439/mês). No anual você economiza até R$ 624. Veja todos os detalhes em <a href="#planos" style="color:#1565C0">Planos</a>.
+      </div>
+      <div id="q4" class="mascote-answer">
+        Sim! Ao se cadastrar você ganha <strong>14 dias de trial grátis</strong> com 1.000 créditos inclusos, sem precisar de cartão de crédito.
+      </div>
+      <div id="q5" class="mascote-answer">
+        Sim! O SyncroFlow funciona perfeitamente com <strong>WhatsApp Business</strong>. É só conectar via QR Code no painel — leva menos de 2 minutos.
+      </div>
+      <div id="q6" class="mascote-answer">
+        <strong>Não precisa de nenhum código!</strong> A plataforma é 100% visual. Você configura o agente, treina com textos da sua empresa e conecta os canais pelo painel — tudo sem programação.
+      </div>
+    </div>
+    <a href="https://app.syncroflow.io/register" class="mascote-cta">🚀 Começar grátis agora</a>
+  </div>
+
+  <script>
+    function toggleMascote() {
+      var chat = document.getElementById('mascote-chat')
+      chat.classList.toggle('open')
+    }
+    function showAnswer(id) {
+      document.querySelectorAll('.mascote-answer').forEach(function(el) {
+        el.classList.remove('visible')
+      })
+      document.getElementById(id).classList.add('visible')
+    }
+  </script>
+
   <!-- Nota para o dev: o evento CompleteRegistration deve ser disparado em app.syncroflow.io/register
        após o usuário concluir o cadastro (ex: na página de confirmação/sucesso). Exemplo:
        fbq('track', 'CompleteRegistration');

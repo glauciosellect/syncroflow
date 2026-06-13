@@ -88,7 +88,7 @@ export default function AgentsPage() {
                   </div>
                   <div>
                     <div className="font-semibold text-gray-900">{agent.name}</div>
-                    <Badge variant="secondary" className="text-xs mt-0.5">{purposeLabel[agent.purpose]}</Badge>
+                    <Badge variant="secondary" className="text-xs mt-0.5">{agent.funcao || purposeLabel[agent.purpose]}</Badge>
                   </div>
                 </div>
                 <button onClick={() => toggleMutation.mutate(agent.id)} className={`w-10 h-5 rounded-full transition-colors ${agent.isActive ? 'bg-green-500' : 'bg-gray-300'}`}>

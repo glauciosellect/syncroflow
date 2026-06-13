@@ -325,6 +325,19 @@ export default function AgentDetailPage() {
                 <Input className="mt-1" value={f.name ?? ''} onChange={e => setForm((p: any) => ({ ...(p || agent), name: e.target.value }))} />
               </div>
               <div>
+                <Label>Função do agente</Label>
+                <select
+                  className="w-full mt-1 border border-input rounded-md px-3 py-2 text-sm bg-white"
+                  value={f.funcao ?? ''}
+                  onChange={e => setForm((p: any) => ({ ...(p || agent), funcao: e.target.value }))}
+                >
+                  <option value="">Selecione uma função</option>
+                  {['Atendimento ao Cliente','Vendas','Suporte Técnico','Financeiro','Recursos Humanos','Marketing','Jurídico','Agendamentos','E-commerce','Outro'].map(func => (
+                    <option key={func} value={func}>{func}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <Label>Estilo de comunicação</Label>
                 <div className="flex gap-2 mt-1">
                   {['FORMAL', 'NORMAL', 'CASUAL'].map(s => (
