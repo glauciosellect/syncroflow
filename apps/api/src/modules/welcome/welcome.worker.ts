@@ -15,13 +15,23 @@ export function startWelcomeWorker() {
     async (job) => {
       const { workspaceId, phone, name, messageIndex } = job.data
 
-      // Encontra um canal WhatsApp ativo do workspace
-      const channel = await prisma.channel.findFirst({
-        where: { workspaceId, type: 'WHATSAPP', isActive: true },
+      // Usa o canal do SyncroFlow (dono) para enviar boas-vindas — novo usuário ainda não tem canal
+      const ownerChannelId = process.env.OWNER_NOTIFY_CHANNEL_ID
+      if (!ownerChannelId) {
+        console.log(`[WELCOME] OWNER_NOTIFY_CHANNEL_ID não configurado — pulando msg ${messageIndex}`)
+        await prisma.welcomeMessage.updateMany({
+          where: { workspaceId, phone, messageIndex, status: 'PENDING' },
+          data: { status: 'SKIPPED' },
+        })
+        return
+      }
+
+      const channel = await prisma.channel.findUnique({
+        where: { id: ownerChannelId },
       })
 
       if (!channel) {
-        console.log(`[WELCOME] Nenhum canal WhatsApp ativo para workspace ${workspaceId} — pulando msg ${messageIndex}`)
+        console.log(`[WELCOME] Canal do dono ${ownerChannelId} não encontrado — pulando msg ${messageIndex}`)
         await prisma.welcomeMessage.updateMany({
           where: { workspaceId, phone, messageIndex, status: 'PENDING' },
           data: { status: 'SKIPPED' },
