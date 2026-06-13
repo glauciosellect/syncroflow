@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify'
+import { ConversationStatus } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { getWorkspaceId } from '../../lib/workspace'
 
@@ -125,8 +126,8 @@ export async function analyticsRoutes(app: FastifyInstance) {
     const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000)
 
     const [openConversations, waitingHuman, channels, agents, recentConversations, newContactsToday] = await prisma.$transaction([
-      prisma.conversation.count({ where: { workspaceId, status: { in: ['OPEN', 'BOT'] } } }),
-      prisma.conversation.count({ where: { workspaceId, status: 'WAITING_HUMAN' } }),
+      prisma.conversation.count({ where: { workspaceId, status: { in: [ConversationStatus.AI_ACTIVE, ConversationStatus.HUMAN_ACTIVE] } } }),
+      prisma.conversation.count({ where: { workspaceId, status: ConversationStatus.WAITING_HUMAN } }),
       prisma.channel.findMany({ where: { workspaceId }, select: { id: true, name: true, type: true, isActive: true } }),
       prisma.agent.findMany({ where: { workspaceId }, select: { id: true, name: true, funcao: true, isActive: true, _count: { select: { conversations: true } } } }),
       prisma.conversation.findMany({

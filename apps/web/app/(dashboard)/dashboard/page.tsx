@@ -27,8 +27,8 @@ const channelIcon: Record<string, string> = {
 }
 
 const statusLabel: Record<string, { label: string; color: string }> = {
-  OPEN:          { label: 'Aberta',          color: 'bg-blue-100 text-blue-700' },
-  BOT:           { label: 'Com IA',          color: 'bg-green-100 text-green-700' },
+  AI_ACTIVE:     { label: 'Com IA',          color: 'bg-green-100 text-green-700' },
+  HUMAN_ACTIVE:  { label: 'Humano ativo',    color: 'bg-blue-100 text-blue-700' },
   WAITING_HUMAN: { label: 'Aguard. humano',  color: 'bg-amber-100 text-amber-700' },
   CLOSED:        { label: 'Encerrada',       color: 'bg-gray-100 text-gray-500' },
 }
@@ -448,7 +448,7 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-2">
                 {(realtime.recentConversations || []).map((conv: any) => {
-                  const st = statusLabel[conv.status] || statusLabel.OPEN
+                  const st = statusLabel[conv.status] || statusLabel.AI_ACTIVE
                   return (
                     <Link href="/chat" key={conv.id}>
                       <div className="flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-gray-50 transition-colors">
