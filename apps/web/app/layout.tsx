@@ -14,6 +14,11 @@ export const metadata: Metadata = {
   title: 'SyncroFlow — Atendimento Omnichannel com IA',
   description: 'Plataforma SaaS de atendimento omnichannel com agentes de IA. WhatsApp, Instagram, Facebook e mais.',
   manifest: '/manifest.json',
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
