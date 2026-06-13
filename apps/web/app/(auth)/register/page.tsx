@@ -17,8 +17,11 @@ import { cn } from '@/lib/utils'
 const accountSchema = z.object({
   name: z.string().min(2, 'Nome muito curto'),
   email: z.string().email('Email inválido'),
-  password: z.string().min(8, 'Mínimo 8 caracteres'),
-  phone: z.string().optional(),
+  password: z.string()
+    .min(8, 'Mínimo 8 caracteres')
+    .refine(p => /[A-Z]/.test(p), 'Deve conter ao menos uma letra maiúscula')
+    .refine(p => /[0-9]/.test(p), 'Deve conter ao menos um número'),
+  phone: z.string().min(1, 'WhatsApp é obrigatório').refine(p => /^\d{10,11}$/.test(p.replace(/\s|-/g, '')), 'Número inválido — ex: 11 99999-9999'),
 })
 
 type AccountData = z.infer<typeof accountSchema>
@@ -60,10 +63,11 @@ export default function RegisterPage() {
   const [role, setRole] = useState('')
   const [teamSize, setTeamSize] = useState('')
 
-  const { register, handleSubmit, getValues, formState: { errors, isValid } } = useForm<AccountData>({
+  const { register, handleSubmit, getValues, watch, setValue, formState: { errors, isValid } } = useForm<AccountData>({
     resolver: zodResolver(accountSchema),
     mode: 'onChange',
   })
+  const passwordValue = watch('password', '')
 
   const canAdvanceStep1 = isValid
 
@@ -81,7 +85,7 @@ export default function RegisterPage() {
         name: values.name,
         email: values.email,
         password: values.password,
-        phone: values.phone || undefined,
+        phone: values.phone ? '+55' + values.phone.replace(/\s|-/g, '') : undefined,
         segment,
         role,
         teamSize,
@@ -152,13 +156,46 @@ export default function RegisterPage() {
               {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
             </div>
             <div>
-              <Label htmlFor="phone">WhatsApp <span className="text-gray-400 font-normal">(opcional)</span></Label>
-              <Input id="phone" type="tel" placeholder="+55 11 99999-9999" className="mt-1" {...register('phone')} />
+              <Label htmlFor="phone">WhatsApp</Label>
+              <div className="flex mt-1">
+                <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-sm text-muted-foreground select-none shrink-0">
+                  +55
+                </span>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="11 99999-9999"
+                  className="rounded-l-none"
+                  {...register('phone')}
+                />
+              </div>
+              {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone.message}</p>}
             </div>
             <div>
               <Label htmlFor="password">Crie uma senha</Label>
-              <Input id="password" type="password" placeholder="Mínimo 8 caracteres" className="mt-1" {...register('password')} />
-              {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
+              <Input id="password" type="password" placeholder="Ex: Syncro123" className="mt-1" {...register('password')} />
+              {passwordValue && (
+                <div className="mt-2 space-y-1">
+                  <div className={cn('flex items-center gap-1.5 text-xs', passwordValue.length >= 8 ? 'text-[#2E7D32]' : 'text-gray-400')}>
+                    <div className={cn('w-3.5 h-3.5 rounded-full flex items-center justify-center shrink-0', passwordValue.length >= 8 ? 'bg-[#2E7D32]' : 'bg-gray-200')}>
+                      {passwordValue.length >= 8 && <Check className="w-2.5 h-2.5 text-white" />}
+                    </div>
+                    Mínimo 8 caracteres
+                  </div>
+                  <div className={cn('flex items-center gap-1.5 text-xs', /[A-Z]/.test(passwordValue) ? 'text-[#2E7D32]' : 'text-gray-400')}>
+                    <div className={cn('w-3.5 h-3.5 rounded-full flex items-center justify-center shrink-0', /[A-Z]/.test(passwordValue) ? 'bg-[#2E7D32]' : 'bg-gray-200')}>
+                      {/[A-Z]/.test(passwordValue) && <Check className="w-2.5 h-2.5 text-white" />}
+                    </div>
+                    Ao menos uma letra maiúscula
+                  </div>
+                  <div className={cn('flex items-center gap-1.5 text-xs', /[0-9]/.test(passwordValue) ? 'text-[#2E7D32]' : 'text-gray-400')}>
+                    <div className={cn('w-3.5 h-3.5 rounded-full flex items-center justify-center shrink-0', /[0-9]/.test(passwordValue) ? 'bg-[#2E7D32]' : 'bg-gray-200')}>
+                      {/[0-9]/.test(passwordValue) && <Check className="w-2.5 h-2.5 text-white" />}
+                    </div>
+                    Ao menos um número
+                  </div>
+                </div>
+              )}
             </div>
 
             <Button
