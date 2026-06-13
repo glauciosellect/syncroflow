@@ -3,9 +3,9 @@ import { PwaInstallBanner } from './pwa-banner'
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <>
-      {/* Painel esquerdo — só desktop (CSS no globals.css) */}
-      <div className="al-left">
+    <div className="auth-root">
+      {/* Painel esquerdo com criativo — só desktop */}
+      <div className="auth-left">
         <Image
           src="/criativo-auth.jpg"
           alt="SyncroFlow"
@@ -16,34 +16,18 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         />
       </div>
 
-      {/* Coluna direita — tudo no mobile, metade direita no desktop */}
-      <div className="al-right">
-        {/* Faixa criativo — só mobile */}
-        <div className="al-banner">
-          <Image
-            src="/criativo-auth.jpg"
-            alt=""
-            fill
-            sizes="100vw"
-            style={{ objectFit: 'cover', objectPosition: 'center 20%' }}
-            priority
-          />
-          <div className="al-banner-grad" />
-          <div className="al-banner-logo">
+      {/* Painel direito — formulário */}
+      <div className="auth-right">
+        <div className="auth-form-wrap">
+          {/* Logo visível só no mobile */}
+          <div className="auth-mobile-logo">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icone.png" alt="" />
-            <span>SyncroFlow</span>
+            <img src="/logotipo-sem-fundo.png" alt="SyncroFlow" />
           </div>
-        </div>
-
-        {/* Formulário */}
-        <div className="al-form">
-          <div className="al-form-inner">
-            {children}
-            <PwaInstallBanner />
-          </div>
+          {children}
+          <PwaInstallBanner />
         </div>
       </div>
-    </>
+    </div>
   )
 }

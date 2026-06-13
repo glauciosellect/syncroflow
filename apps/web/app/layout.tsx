@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import Script from 'next/script'
 import './globals.css'
@@ -6,19 +6,20 @@ import { Providers } from './providers'
 
 const inter = Inter({ subsets: ['latin'] })
 
-// Substitua pelos IDs reais antes do deploy em produção:
 const META_PIXEL_ID = '990433977062746'
 const GA_MEASUREMENT_ID = 'G-F346T28WVJ'
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: 'cover',
+}
 
 export const metadata: Metadata = {
   title: 'SyncroFlow — Atendimento Omnichannel com IA',
   description: 'Plataforma SaaS de atendimento omnichannel com agentes de IA. WhatsApp, Instagram, Facebook e mais.',
   manifest: '/manifest.json',
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
