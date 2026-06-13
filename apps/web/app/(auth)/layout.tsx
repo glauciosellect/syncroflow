@@ -130,7 +130,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           alt="SyncroFlow"
           fill
           sizes="50vw"
-          style={{ objectFit: 'cover', objectPosition: 'center top' }}
+          style={{ objectFit: 'fill' }}
           priority
         />
       </div>
