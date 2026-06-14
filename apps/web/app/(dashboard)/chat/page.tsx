@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import {
   Search, MessageSquare, UserCheck, Bot, Send, Loader2,
-  X, RotateCcw, ChevronRight, Tag, StickyNote, Variable,
+  X, RotateCcw, ChevronRight, ChevronLeft, Tag, StickyNote, Variable,
   Phone, Mail, Clock, Hash, Plus, Check, Pencil,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -444,10 +444,10 @@ export default function ChatPage() {
   }, [qc, filter, search])
 
   return (
-    <div className="h-full flex -m-6 bg-white rounded-lg overflow-hidden border border-gray-200">
+    <div className="h-full flex -m-4 md:-m-6 bg-white rounded-lg overflow-hidden border border-gray-200">
 
-      {/* Coluna 1 — Lista */}
-      <div className="w-72 border-r border-gray-100 flex flex-col shrink-0">
+      {/* Coluna 1 — Lista (oculta no mobile quando conversa selecionada) */}
+      <div className={cn('border-r border-gray-100 flex flex-col shrink-0 w-full md:w-72', selected ? 'hidden md:flex' : 'flex')}>
         <div className="p-3 border-b border-gray-100">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -504,6 +504,13 @@ export default function ChatPage() {
       {selected ? (
         <div className="flex-1 flex flex-col min-w-0">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <button
+                onClick={() => setSelected(null)}
+                className="md:hidden p-1 rounded-lg text-gray-400 hover:bg-gray-100 shrink-0"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
             <div className="min-w-0">
               <h3 className="font-semibold text-gray-900 truncate">{selected.contact?.name || selected.contact?.phone || 'Desconhecido'}</h3>
               <p className="text-xs text-gray-400">
@@ -517,6 +524,7 @@ export default function ChatPage() {
                   {statusLabels[selected.status]}
                 </span>
               </p>
+            </div>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               {selected.status === 'WAITING_HUMAN' && (

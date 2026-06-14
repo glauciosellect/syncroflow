@@ -164,7 +164,7 @@ export function Sidebar() {
 
       {/* Sidebar mobile */}
       <aside className={cn(
-        'md:hidden fixed inset-y-0 left-0 z-50 w-72 flex flex-col h-full transition-transform duration-300 ease-in-out border-r border-[hsl(var(--sidebar-border))]',
+        'md:hidden fixed inset-y-0 left-0 z-50 w-[80vw] max-w-[280px] flex flex-col h-full transition-transform duration-300 ease-in-out border-r border-[hsl(var(--sidebar-border))]',
         mobileOpen ? 'translate-x-0' : '-translate-x-full'
       )}>
         <SidebarContent />
