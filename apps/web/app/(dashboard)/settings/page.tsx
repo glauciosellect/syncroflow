@@ -492,8 +492,9 @@ function ChannelsTab() {
   const { token: authToken, refreshToken: authRefreshToken } = useAuthStore()
 
   const connectMeta = (type: 'instagram' | 'facebook') => {
-    // Usa refreshToken (7 dias) para não expirar durante o fluxo OAuth do Meta
-    const token = authRefreshToken || localStorage.getItem('sf_refresh') || authToken || localStorage.getItem('sf_token') || ''
+    // Usa accessToken do localStorage (sempre o mais atual após TokenRefresher)
+    // O backend aceita JWT com tolerância de 5 minutos e fallback para refreshToken
+    const token = localStorage.getItem('sf_token') || authToken || localStorage.getItem('sf_refresh') || authRefreshToken || ''
     const url = `${API_URL}/integrations/meta/connect?token=${encodeURIComponent(token)}&type=${type}`
     window.location.href = url
   }
