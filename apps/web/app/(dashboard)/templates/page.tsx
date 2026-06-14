@@ -24,9 +24,30 @@ const CONNECTOR_LABELS: Record<string, string> = {
   tiktokshop: 'TikTok Shop', shopee: 'Shopee', activecampaign: 'ActiveCampaign',
 }
 
-const CONNECTOR_STATUS: Record<string, boolean> = {
-  whatsapp: true, nuvemshop: false, mercadolivre: false, asaas: false,
-  hubspot: false, bling: false, tiktokshop: false, shopee: false,
+// CONNECTOR_STATUS é calculado dinamicamente via useConnectorStatus()
+function useConnectorStatus() {
+  const { data: channels = [] } = useQuery<{ id: string; type: string; status: string }[]>({
+    queryKey: ['channels-list'],
+    queryFn: () => api.get('/channels').then(r => r.data),
+    staleTime: 30_000,
+  })
+  const { data: ecommerce = [] } = useQuery<{ platform: string; status: string }[]>({
+    queryKey: ['ecommerce-integrations-list'],
+    queryFn: () => api.get('/ecommerce/integrations').then(r => r.data),
+    staleTime: 30_000,
+  })
+  const { data: finance = [] } = useQuery<{ platform: string; status: string }[]>({
+    queryKey: ['finance-connections-list'],
+    queryFn: () => api.get('/finance/connections').then(r => r.data),
+    staleTime: 30_000,
+  })
+
+  const status: Record<string, boolean> = {}
+  const whatsappConnected = channels.some(c => c.type === 'whatsapp' && c.status === 'active')
+  if (whatsappConnected) status['whatsapp'] = true
+  ecommerce.forEach(i => { if (i.status === 'active') status[i.platform] = true })
+  finance.forEach(i => { if (i.status === 'active') status[i.platform] = true })
+  return status
 }
 
 // Variáveis disponíveis por plataforma
@@ -87,12 +108,14 @@ function TemplateConfigModal({
   onClose,
   onConfirm,
   loading,
+  connectorStatus,
 }: {
   template: Template
   detail: TemplateDetail | undefined
   onClose: () => void
   onConfirm: (config: any) => void
   loading: boolean
+  connectorStatus: Record<string, boolean>
 }) {
   const [step, setStep] = useState(0)
   const config = detail?.workflowConfig ?? {}
@@ -191,7 +214,7 @@ function TemplateConfigModal({
               ) : (
                 <div className="space-y-2">
                   {template.connectorsRequired.map(c => {
-                    const connected = CONNECTOR_STATUS[c] ?? false
+                    const connected = connectorStatus[c] ?? false
                     return (
                       <div key={c} className={cn(
                         'flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all',
@@ -214,7 +237,7 @@ function TemplateConfigModal({
                   })}
                 </div>
               )}
-              {template.connectorsRequired.some(c => !CONNECTOR_STATUS[c]) && (
+              {template.connectorsRequired.some(c => !connectorStatus[c]) && (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-700">
                   ⚠️ Você pode continuar a configuração agora e conectar as integrações depois, mas o template só funcionará quando todas estiverem ativas.
                 </div>
@@ -427,6 +450,7 @@ export default function TemplatesPage() {
   const [search, setSearch] = useState('')
   const [configuring, setConfiguring] = useState<Template | null>(null)
   const [used, setUsed] = useState<Set<string>>(new Set())
+  const connectorStatus = useConnectorStatus()
 
   const { data, isLoading } = useQuery<{ templates: Template[]; total: number }>({
     queryKey: ['templates', category, search],
@@ -467,6 +491,7 @@ export default function TemplatesPage() {
           onClose={() => setConfiguring(null)}
           onConfirm={() => activateMutation.mutate(configuring.id)}
           loading={activateMutation.isPending}
+          connectorStatus={connectorStatus}
         />
       )}
 

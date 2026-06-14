@@ -25,10 +25,38 @@ const INITIAL_TEMPLATES = [
     isFeatured: true,
     tags: ['cobranca', 'asaas', 'pix', 'boleto', 'inadimplencia'],
     workflowConfig: {
-      trigger: { platform: 'asaas', event: 'payment_due_today' },
+      trigger: { platform: 'asaas', event: 'payment_due_date' },
       actions: [
-        { type: 'whatsapp', timing: 'D-1', message: 'Olá {cliente.nome}! Seu boleto vence amanhã. Valor: R$ {cobranca.valor}. Pague via PIX: {cobranca.link_pix}' },
-        { type: 'whatsapp', timing: 'D+1', message: 'Olá {cliente.nome}! Seu boleto venceu ontem. Para regularizar, use o link: {cobranca.link_pix}' },
+        {
+          type: 'whatsapp',
+          timing: 'D-3',
+          daysOffset: -3,
+          message: 'Olá {cliente.nome}! 👋 Passando para lembrar que sua cobrança de *R$ {cobranca.valor}* vence em 3 dias ({cobranca.vencimento}).\n\nPague com PIX agora e evite juros: {cobranca.link_pix}',
+        },
+        {
+          type: 'whatsapp',
+          timing: 'D-1',
+          daysOffset: -1,
+          message: 'Olá {cliente.nome}! ⏰ Seu boleto vence *amanhã*.\n\nValor: *R$ {cobranca.valor}*\nVencimento: {cobranca.vencimento}\n\nPague via PIX: {cobranca.link_pix}',
+        },
+        {
+          type: 'whatsapp',
+          timing: 'D0',
+          daysOffset: 0,
+          message: 'Olá {cliente.nome}! 🔔 Sua cobrança de *R$ {cobranca.valor}* vence *hoje*!\n\nEvite multa e juros pagando agora via PIX: {cobranca.link_pix}',
+        },
+        {
+          type: 'whatsapp',
+          timing: 'D+1',
+          daysOffset: 1,
+          message: 'Olá {cliente.nome}! Sua cobrança de *R$ {cobranca.valor}* venceu ontem. 😕\n\nRegularize agora para evitar mais encargos: {cobranca.link_pix}',
+        },
+        {
+          type: 'whatsapp',
+          timing: 'D+3',
+          daysOffset: 3,
+          message: 'Olá {cliente.nome}! Identificamos que sua cobrança de *R$ {cobranca.valor}* está em aberto há 3 dias.\n\nClique aqui para regularizar: {cobranca.link_pix}\n\nEm caso de dúvidas, entre em contato conosco.',
+        },
       ],
     },
   },
@@ -287,9 +315,23 @@ export async function templateRoutes(app: FastifyInstance) {
 // ─── Seed inicial de templates ────────────────────────────────────────────────
 
 export async function seedTemplates() {
-  const existing = await prisma.publicTemplate.count()
-  if (existing > 0) return
-
-  await prisma.publicTemplate.createMany({ data: INITIAL_TEMPLATES })
-  console.log(`[Templates] ${INITIAL_TEMPLATES.length} templates iniciais criados.`)
+  for (const tpl of INITIAL_TEMPLATES) {
+    const existing = await prisma.publicTemplate.findFirst({ where: { title: tpl.title } })
+    if (existing) {
+      await prisma.publicTemplate.update({
+        where: { id: existing.id },
+        data: {
+          description: tpl.description,
+          category: tpl.category,
+          connectorsRequired: tpl.connectorsRequired,
+          isFeatured: tpl.isFeatured,
+          tags: tpl.tags,
+          workflowConfig: tpl.workflowConfig as any,
+        },
+      })
+    } else {
+      await prisma.publicTemplate.create({ data: { ...tpl, workflowConfig: tpl.workflowConfig as any } })
+    }
+  }
+  console.log(`[Templates] ${INITIAL_TEMPLATES.length} templates sincronizados.`)
 }
