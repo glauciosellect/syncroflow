@@ -113,7 +113,7 @@ export async function metaIntegrationRoutes(app: FastifyInstance) {
     if (!token) return reply.status(400).send({ error: 'Token JWT obrigatório' })
 
     const redirectUri = `${API_URL}/integrations/meta/callback`
-    const scope = 'pages_show_list,pages_messaging,pages_manage_metadata,instagram_basic,instagram_manage_messages'
+    const scope = 'pages_show_list,pages_messaging,pages_manage_metadata,instagram_basic,instagram_manage_messages,business_management'
 
     const state = Buffer.from(JSON.stringify({ token, type: type || 'instagram' })).toString('base64url')
 
