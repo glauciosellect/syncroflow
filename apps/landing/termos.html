@@ -14,9 +14,8 @@
       background: white; border-bottom: 1px solid #E2E8F0; padding: 16px 0; position: sticky; top: 0; z-index: 10;
     }
     .topbar-inner { max-width: 860px; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; }
-    .logo-link { text-decoration: none; font-size: 20px; font-weight: 800; }
-    .logo-link .s { color: #4CAF50; }
-    .logo-link .f { color: #1565C0; }
+    .logo-link { text-decoration: none; display: flex; align-items: center; gap: 8px; }
+    .logo-link img { display: block; }
     .back-link { font-size: 14px; color: #1565C0; text-decoration: none; font-weight: 500; }
     .back-link:hover { text-decoration: underline; }
     .container { max-width: 860px; margin: 0 auto; padding: 48px 24px 80px; }
@@ -40,7 +39,10 @@
 
 <div class="topbar">
   <div class="topbar-inner">
-    <a href="/" class="logo-link"><span class="s">Syncro</span><span class="f">Flow</span></a>
+    <a href="/" class="logo-link">
+      <img src="/icone.png" alt="" style="height:40px;width:auto;mix-blend-mode:multiply;" />
+      <img src="/logotipo.png" alt="SyncroFlow" style="height:28px;width:auto;mix-blend-mode:multiply;" />
+    </a>
     <a href="/" class="back-link">← Voltar ao site</a>
   </div>
 </div>
