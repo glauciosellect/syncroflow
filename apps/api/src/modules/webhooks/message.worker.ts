@@ -349,23 +349,24 @@ export function startMessageWorker() {
       }
 
       // ── Preferência de resposta em áudio ────────────────────────────────────
+      // Regra: espelha o formato do cliente. Texto → texto. Áudio → áudio.
+      // Cliente pode forçar com #audio ou #texto a qualquer momento.
       const contactVars = (contact.variables as Record<string, any>) || {}
       let audioPreference: 'audio' | 'text' | undefined = contactVars[AUDIO_PREFERENCE_KEY]
 
-      // Se o agente tem voz configurada, usa áudio por padrão (a não ser que contato tenha pedido #texto)
-      const agentHasVoice = !!(config as any)?.ttsVoice
-      if (!audioPreference && agentHasVoice && channelType === 'WHATSAPP') {
-        audioPreference = 'audio'
-      }
-
-      // Se recebeu áudio e não tem preferência → define áudio automaticamente (sem perguntar)
+      // Se recebeu áudio → responde em áudio e salva preferência
       const isAudioMessage = channelType === 'WHATSAPP' && incomingMediaType === 'audio'
-      if (isAudioMessage && !audioPreference) {
-        audioPreference = 'audio'
-        await prisma.contact.update({
-          where: { id: contact.id },
-          data: { variables: { ...contactVars, [AUDIO_PREFERENCE_KEY]: 'audio' } },
-        })
+      if (isAudioMessage) {
+        if (audioPreference !== 'audio') {
+          audioPreference = 'audio'
+          await prisma.contact.update({
+            where: { id: contact.id },
+            data: { variables: { ...contactVars, [AUDIO_PREFERENCE_KEY]: 'audio' } },
+          })
+        }
+      } else if (!audioPreference) {
+        // Recebeu texto e não tem preferência salva → responde em texto
+        audioPreference = 'text'
       }
 
       // Comando #texto: usuário pode mudar para respostas em texto
