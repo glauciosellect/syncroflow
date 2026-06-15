@@ -134,6 +134,15 @@ export async function channelRoutes(app: FastifyInstance) {
       const provider = getWhatsAppProvider()
       try { await provider.deleteInstance(id) } catch {}
     }
+    // Deleta em cascata: mensagens → conversas → contatos → agentChannels → canal
+    const conversations = await prisma.conversation.findMany({ where: { channelId: id }, select: { id: true } })
+    const convIds = conversations.map(c => c.id)
+    if (convIds.length > 0) {
+      await prisma.message.deleteMany({ where: { conversationId: { in: convIds } } })
+      await prisma.conversation.deleteMany({ where: { id: { in: convIds } } })
+    }
+    await prisma.contact.deleteMany({ where: { channelId: id } })
+    await prisma.agentChannel.deleteMany({ where: { channelId: id } })
     await prisma.channel.delete({ where: { id } })
     return reply.send({ ok: true })
   })
