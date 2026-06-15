@@ -125,16 +125,23 @@ export class UazApiProvider implements WhatsAppProvider {
     }
   }
 
-  async downloadMedia(messageId: string): Promise<{ fileURL?: string; transcription?: string; mimetype?: string }> {
+  async downloadMedia(messageId: string, channelId?: string): Promise<{ fileURL?: string; transcription?: string; mimetype?: string }> {
     try {
       console.log('[UAZAPI] downloadMedia messageId:', messageId)
+      let token = this.adminToken
+      if (channelId) {
+        try {
+          const { instanceToken } = await this.getInstanceConfig(channelId)
+          token = instanceToken
+        } catch {}
+      }
       const res = await axios.post(`${this.baseUrl}/message/download`, {
         id: messageId,
         return_link: true,
         generate_mp3: true,
         transcribe: true,
         openai_apikey: process.env.OPENAI_API_KEY,
-      }, { headers: { 'token': this.adminToken, 'Content-Type': 'application/json' }, timeout: 30000 })
+      }, { headers: { 'token': token, 'Content-Type': 'application/json' }, timeout: 30000 })
       console.log('[UAZAPI] downloadMedia resposta:', JSON.stringify(res.data)?.slice(0, 300))
       return res.data || {}
     } catch (err: any) {

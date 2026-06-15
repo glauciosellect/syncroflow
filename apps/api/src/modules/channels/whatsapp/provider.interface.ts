@@ -18,5 +18,5 @@ export interface WhatsAppProvider {
   sendAudio(channelId: string, to: string, audioUrl: string): Promise<void>
   sendAudioBase64?(channelId: string, to: string, audioBase64: string): Promise<void>
   parseWebhook(payload: unknown): WhatsAppMessage | null
-  downloadMedia?(messageId: string): Promise<{ fileURL?: string; transcription?: string; mimetype?: string }>
+  downloadMedia?(messageId: string, channelId?: string): Promise<{ fileURL?: string; transcription?: string; mimetype?: string }>
 }

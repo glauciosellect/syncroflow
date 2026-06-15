@@ -111,6 +111,19 @@ export async function channelRoutes(app: FastifyInstance) {
     return reply.status(201).send(channel)
   })
 
+  // Recria instância UazAPI para canal WhatsApp que perdeu instanceId/instanceToken
+  app.post('/channels/:id/repair', async (req, reply) => {
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
+    const { id } = req.params as { id: string }
+    const channel = await prisma.channel.findFirst({ where: { id, workspaceId, type: 'WHATSAPP' } })
+    if (!channel) return reply.status(404).send({ error: 'Canal não encontrado' })
+    const provider = getWhatsAppProvider()
+    try { await provider.deleteInstance(id) } catch {}
+    await provider.createInstance(id)
+    return reply.send({ ok: true })
+  })
+
   app.delete('/channels/:id', async (req, reply) => {
     const { sub, wid } = req.user as { sub: string; wid?: string }
     const workspaceId = await getWorkspaceId(sub, wid)

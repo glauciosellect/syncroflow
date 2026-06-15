@@ -81,7 +81,7 @@ export function startMessageWorker() {
           // UAZAPI: usar endpoint nativo de download/transcrição
           if (msg.mediaUrl.startsWith('uazapi:') && provider.downloadMedia) {
             const messageId = msg.mediaUrl.replace('uazapi:', '')
-            const result = await provider.downloadMedia(messageId)
+            const result = await provider.downloadMedia(messageId, channelId)
             if (result.transcription) {
               text = result.transcription
             } else if (result.fileURL) {
