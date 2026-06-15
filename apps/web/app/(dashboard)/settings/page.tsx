@@ -478,6 +478,17 @@ function ChannelsTab() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/channels/${id}`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['channels'] }); toast({ title: 'Canal desconectado' }) },
+    onError: (err: any) => toast({ title: 'Erro ao desconectar', description: err.response?.data?.error || 'Tente novamente', variant: 'destructive' }),
+  })
+
+  const repairMutation = useMutation({
+    mutationFn: (id: string) => api.post(`/channels/${id}/repair`),
+    onSuccess: (_, id) => {
+      toast({ title: '✅ Canal reparado!', description: 'Agora clique em Ver QR Code para reconectar o WhatsApp.' })
+      setQrData(p => { const n = { ...p }; delete n[id]; return n })
+      qc.invalidateQueries({ queryKey: ['channels'] })
+    },
+    onError: (err: any) => toast({ title: 'Erro ao reparar canal', description: err.response?.data?.error || 'Tente novamente', variant: 'destructive' }),
   })
 
   const loadQR = async (channelId: string) => {
@@ -687,8 +698,15 @@ function ChannelsTab() {
                       </Button>
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => deleteMutation.mutate(channel.id)} className="text-red-500 hover:text-red-700 hover:bg-red-50 w-full">
-                    <Trash2 className="w-3 h-3 mr-2" />Desconectar
+                  {channel.type === 'WHATSAPP' && (
+                    <Button variant="ghost" size="sm" onClick={() => repairMutation.mutate(channel.id)} disabled={repairMutation.isPending} className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 w-full">
+                      {repairMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : <Radio className="w-3 h-3 mr-2" />}
+                      Reparar instância
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="sm" onClick={() => deleteMutation.mutate(channel.id)} disabled={deleteMutation.isPending} className="text-red-500 hover:text-red-700 hover:bg-red-50 w-full">
+                    {deleteMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : <Trash2 className="w-3 h-3 mr-2" />}
+                    Desconectar
                   </Button>
                 </div>
               </CardContent>
