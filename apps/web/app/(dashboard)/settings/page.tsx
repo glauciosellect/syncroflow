@@ -548,15 +548,37 @@ function ChannelsTab() {
       const res = await api.get(`/channels/${channelId}/qr`)
       const { qr, status } = res.data
       if (!qr && status !== 'connected' && retries > 0) {
-        // QR ainda não gerado — tenta de novo em 3s
         setQrData(p => ({ ...p, [channelId]: { qr: '', status: 'waiting' } }))
         setTimeout(() => loadQR(channelId, retries - 1), 3000)
         return
       }
       setQrData(p => ({ ...p, [channelId]: { qr: qr || '', status: status || 'disconnected' } }))
+      // Se mostrou o QR, faz polling do status a cada 4s para detectar quando escanear
+      if (qr && status !== 'connected') {
+        pollStatus(channelId)
+      }
     } catch {
       toast({ title: 'Erro ao carregar QR Code', variant: 'destructive' })
     }
+  }
+
+  const pollStatus = (channelId: string, attempts = 20) => {
+    if (attempts <= 0) return
+    setTimeout(async () => {
+      try {
+        const res = await api.get(`/channels/${channelId}/qr`)
+        const { status, qr } = res.data
+        if (status === 'connected') {
+          setQrData(p => ({ ...p, [channelId]: { qr: '', status: 'connected' } }))
+          toast({ title: '✅ WhatsApp conectado!', description: 'Seu WhatsApp está ativo e pronto para receber mensagens.' })
+        } else {
+          setQrData(p => ({ ...p, [channelId]: { qr: qr || p[channelId]?.qr || '', status: status || 'disconnected' } }))
+          pollStatus(channelId, attempts - 1)
+        }
+      } catch {
+        pollStatus(channelId, attempts - 1)
+      }
+    }, 4000)
   }
 
   const { token: authToken, refreshToken: authRefreshToken } = useAuthStore()
