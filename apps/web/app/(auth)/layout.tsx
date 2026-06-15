@@ -7,11 +7,11 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       {/* Painel esquerdo com criativo — só desktop */}
       <div className="auth-left">
         <Image
-          src="/criativo-auth.jpg"
+          src="/criativo-auth.png"
           alt="SyncroFlow"
           fill
           sizes="50vw"
-          style={{ objectFit: 'fill' }}
+          style={{ objectFit: 'contain', backgroundColor: '#EFF6FF' }}
           priority
         />
       </div>
