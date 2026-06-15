@@ -543,10 +543,17 @@ function ChannelsTab() {
     onError: (err: any) => toast({ title: 'Erro ao reparar canal', description: err.response?.data?.error || 'Tente novamente', variant: 'destructive' }),
   })
 
-  const loadQR = async (channelId: string) => {
+  const loadQR = async (channelId: string, retries = 5) => {
     try {
       const res = await api.get(`/channels/${channelId}/qr`)
-      setQrData(p => ({ ...p, [channelId]: { qr: res.data.qr, status: res.data.status } }))
+      const { qr, status } = res.data
+      if (!qr && status !== 'connected' && retries > 0) {
+        // QR ainda não gerado — tenta de novo em 3s
+        setQrData(p => ({ ...p, [channelId]: { qr: '', status: 'waiting' } }))
+        setTimeout(() => loadQR(channelId, retries - 1), 3000)
+        return
+      }
+      setQrData(p => ({ ...p, [channelId]: { qr: qr || '', status: status || 'disconnected' } }))
     } catch {
       toast({ title: 'Erro ao carregar QR Code', variant: 'destructive' })
     }
@@ -710,7 +717,14 @@ function ChannelsTab() {
                       ) : qrData[channel.id].qr ? (
                         <img src={qrData[channel.id].qr} alt="QR Code" className="w-40 h-40 mx-auto rounded-lg" />
                       ) : (
-                        <div className="text-center text-sm text-gray-500 py-2">Aguardando QR Code...</div>
+                        <div className="text-center py-2 space-y-2">
+                          <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
+                            <Loader2 className="w-3 h-3 animate-spin" />Gerando QR Code...
+                          </div>
+                          <button onClick={() => loadQR(channel.id)} className="text-xs text-[#1565C0] hover:underline">
+                            Tentar novamente
+                          </button>
+                        </div>
                       )
                     ) : (
                       <Button variant="outline" size="sm" onClick={() => loadQR(channel.id)} className="w-full">
