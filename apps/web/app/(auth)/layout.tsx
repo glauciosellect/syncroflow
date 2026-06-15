@@ -22,7 +22,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           {/* Logo visível só no mobile */}
           <div className="auth-mobile-logo">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logotipo-sem-fundo.png" alt="SyncroFlow" />
+            <img src="/logo-transparent.png" alt="SyncroFlow" />
           </div>
           {children}
           <PwaInstallBanner />
