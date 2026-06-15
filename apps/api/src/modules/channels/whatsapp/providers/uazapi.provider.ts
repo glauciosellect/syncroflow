@@ -58,7 +58,15 @@ export class UazApiProvider implements WhatsAppProvider {
   async getQRCode(channelId: string): Promise<string> {
     try {
       const { instanceToken } = await this.getInstanceConfig(channelId)
-      // Inicia conexão — retorna QR code
+      // Se já está em connecting, desconecta primeiro para forçar novo QR
+      try {
+        const statusRes = await axios.get(`${this.baseUrl}/instance/status`, { headers: this.instanceHeaders(instanceToken) })
+        const currentStatus = statusRes.data?.status || statusRes.data?.instance?.status
+        if (currentStatus === 'connecting') {
+          await axios.post(`${this.baseUrl}/instance/logout`, {}, { headers: this.instanceHeaders(instanceToken) }).catch(() => {})
+          await new Promise(r => setTimeout(r, 1500))
+        }
+      } catch {}
       const res = await axios.post(`${this.baseUrl}/instance/connect`, {
         browser: 'auto',
       }, { headers: this.instanceHeaders(instanceToken) })
