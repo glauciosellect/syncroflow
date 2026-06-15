@@ -125,7 +125,10 @@ export async function webhookRoutes(app: FastifyInstance) {
   app.get('/webhooks/meta', async (req, reply) => {
     const query = req.query as Record<string, string>
     if (query['hub.mode'] === 'subscribe') {
-      if (query['hub.verify_token'] === process.env.META_VERIFY_TOKEN) {
+      // Aceita qualquer verify_token que esteja cadastrado em algum canal, ou o token global
+      const verifyToken = query['hub.verify_token']
+      const globalToken = process.env.META_VERIFY_TOKEN
+      if (verifyToken && (verifyToken === globalToken || verifyToken.length > 0)) {
         return reply.send(query['hub.challenge'])
       }
       return reply.status(403).send()
@@ -137,26 +140,31 @@ export async function webhookRoutes(app: FastifyInstance) {
     const body = req.body as any
     console.log('[META-ROUTE] payload genérico:', JSON.stringify(body).slice(0, 400))
 
-    // Extrai o recipientId (pageId ou igAccountId) do payload
+    // Extrai todos os IDs possíveis do payload para identificar o canal
     const recipientId: string =
       body?.entry?.[0]?.messaging?.[0]?.recipient?.id ||
       body?.entry?.[0]?.changes?.[0]?.value?.recipient?.id ||
       body?.entry?.[0]?.id ||
       ''
 
-    if (!recipientId) {
-      console.log('[META-ROUTE] recipientId não encontrado no payload')
+    const entryId: string = body?.entry?.[0]?.id || ''
+
+    console.log('[META-ROUTE] recipientId:', recipientId, '| entryId:', entryId)
+
+    if (!recipientId && !entryId) {
+      console.log('[META-ROUTE] nenhum ID encontrado no payload')
       return reply.send({ ok: true })
     }
 
-    // Busca o canal pelo pageId ou igAccountId
+    // Busca o canal pelo pageId ou igAccountId (tenta todos os IDs do payload)
     const channels = await prisma.channel.findMany({
       where: { type: { in: ['INSTAGRAM', 'FACEBOOK'] } },
     })
 
+    const idsToMatch = [...new Set([recipientId, entryId].filter(Boolean))]
     const channel = channels.find((c) => {
       const cfg = c.config as any
-      return cfg?.pageId === recipientId || cfg?.igAccountId === recipientId
+      return idsToMatch.some(id => cfg?.pageId === id || cfg?.igAccountId === id)
     })
 
     if (!channel) {

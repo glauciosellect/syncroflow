@@ -699,14 +699,16 @@ export function startMessageWorker() {
         }
       } else if (channelType === 'META' || channelType === 'INSTAGRAM' || channelType === 'FACEBOOK') {
         const pageToken = (channel.config as any).pageAccessToken
-        // Para Instagram usa igAccountId; para Facebook/META usa pageId
-        const igAccountId = (channel.config as any).igAccountId || (channel.config as any).pageId
-        console.log('[META-SEND] igAccountId:', igAccountId, '| from:', from, '| token prefix:', pageToken?.slice(0, 20))
+        // Instagram: envia via /{pageId}/messages (pageId da página FB vinculada ao Instagram)
+        // Facebook: envia via /{pageId}/messages
+        const pageId = (channel.config as any).pageId
+        console.log('[META-SEND] channelType:', channelType, '| pageId:', pageId, '| from:', from, '| token prefix:', pageToken?.slice(0, 20))
         try {
-          await axios.post(`https://graph.facebook.com/v21.0/${igAccountId}/messages`, {
+          await axios.post(`https://graph.facebook.com/v21.0/${pageId}/messages`, {
             recipient: { id: from },
             message: { text: responseText },
-          }, { headers: { Authorization: `Bearer ${pageToken}` } })
+            messaging_type: 'RESPONSE',
+          }, { params: { access_token: pageToken } })
         } catch (sendErr: any) {
           console.error('[META-SEND] ERRO:', sendErr?.response?.data || sendErr?.message)
           throw sendErr
