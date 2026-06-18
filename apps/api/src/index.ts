@@ -25,6 +25,7 @@ import { stripeRoutes } from './modules/billing/stripe.routes'
 import { mcpRoutes } from './modules/mcp/mcp.routes'
 import { integrationRoutes } from './modules/integrations/integrations.routes'
 import { metaIntegrationRoutes } from './modules/integrations/meta.routes'
+import { metaWhatsAppSignupRoutes } from './modules/integrations/meta-whatsapp-signup.routes'
 import { apiKeyRoutes } from './modules/auth/apikeys.routes'
 import { envVariableRoutes } from './modules/auth/env-variables.routes'
 import { webhookRoutes } from './modules/webhooks/webhooks.routes'
@@ -40,6 +41,7 @@ import { templateRoutes, seedTemplates } from './modules/templates/templates.rou
 import { startTrainingWorker } from './modules/ai/training.worker'
 import { startMessageWorker } from './modules/webhooks/message.worker'
 import { startWelcomeWorker } from './modules/welcome/welcome.worker'
+import { startReminderWorker } from './modules/calendar/reminder.worker'
 import { integrationWorker } from './modules/integrations/integration.worker'
 import { initSocket } from './lib/socket'
 
@@ -124,6 +126,7 @@ async function bootstrap() {
   await app.register(mcpRoutes)
   await app.register(integrationRoutes)
   await app.register(metaIntegrationRoutes)
+  await app.register(metaWhatsAppSignupRoutes)
   await app.register(apiKeyRoutes)
   await app.register(envVariableRoutes)
   await app.register(webhookRoutes)
@@ -161,6 +164,7 @@ async function bootstrap() {
   startTrainingWorker()
   startMessageWorker()
   startWelcomeWorker()
+  startReminderWorker()
   integrationWorker
 
   // Seed de templates iniciais (só roda se o banco estiver vazio)

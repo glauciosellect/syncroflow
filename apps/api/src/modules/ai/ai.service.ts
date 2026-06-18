@@ -59,9 +59,6 @@ export function calcCredits(inputTokens: number, outputTokens: number, model: st
     'claude-haiku-4-5': 1,
     'claude-3-5-sonnet-20241022': 3,
     'claude-3-5-haiku-20241022': 1,
-    'claude-opus-4-5': 10,
-    'gpt-4o-mini': 1,
-    'gpt-4o': 5,
   }
   const rate = rates[model] || 1
   return Math.ceil((total / 750) * rate)
@@ -215,15 +212,19 @@ export async function testAgent(agent: Agent & { config: AgentConfig | null }, m
   }
 }
 
-async function downloadToTempFile(url: string, ext: string): Promise<string> {
+async function downloadToTempFile(url: string, ext: string, authHeader?: string): Promise<string> {
   const tmpPath = path.join(os.tmpdir(), `syncro_${Date.now()}${ext}`)
-  const res = await axios.get(url, { responseType: 'arraybuffer', timeout: 30000 })
+  const res = await axios.get(url, {
+    responseType: 'arraybuffer',
+    timeout: 30000,
+    headers: authHeader ? { Authorization: authHeader } : undefined,
+  })
   fs.writeFileSync(tmpPath, Buffer.from(res.data))
   return tmpPath
 }
 
-export async function transcribeAudio(audioUrl: string): Promise<string> {
-  const tmpPath = await downloadToTempFile(audioUrl, '.ogg')
+export async function transcribeAudio(audioUrl: string, authHeader?: string): Promise<string> {
+  const tmpPath = await downloadToTempFile(audioUrl, '.ogg', authHeader)
   try {
     const transcription = await openai.audio.transcriptions.create({
       file: fs.createReadStream(tmpPath) as any,
@@ -236,10 +237,10 @@ export async function transcribeAudio(audioUrl: string): Promise<string> {
   }
 }
 
-export async function describeImage(imageUrl: string, mimetype?: string): Promise<string> {
+export async function describeImage(imageUrl: string, mimetype?: string, authHeader?: string): Promise<string> {
   const ext = mimetype?.includes('png') ? '.png' : mimetype?.includes('gif') ? '.gif' : mimetype?.includes('webp') ? '.webp' : '.jpg'
   const mediaType = mimetype?.startsWith('image/') ? mimetype as any : 'image/jpeg'
-  const tmpPath = await downloadToTempFile(imageUrl, ext)
+  const tmpPath = await downloadToTempFile(imageUrl, ext, authHeader)
   try {
     const base64 = fs.readFileSync(tmpPath).toString('base64')
     const res = await (anthropic.messages.create as any)({
@@ -262,13 +263,13 @@ export async function describeImage(imageUrl: string, mimetype?: string): Promis
   }
 }
 
-export async function extractDocumentText(docUrl: string, mimetype?: string): Promise<string> {
+export async function extractDocumentText(docUrl: string, mimetype?: string, authHeader?: string): Promise<string> {
   const isWord = mimetype?.includes('word') || mimetype?.includes('docx') || mimetype?.includes('officedocument')
   const isPdf = !mimetype || mimetype.includes('pdf')
 
   // Word (.docx) — extrai texto via mammoth
   if (isWord) {
-    const tmpPath = await downloadToTempFile(docUrl, '.docx')
+    const tmpPath = await downloadToTempFile(docUrl, '.docx', authHeader)
     try {
       const result = await mammoth.extractRawText({ path: tmpPath })
       const text = result.value.trim().slice(0, 8000)
@@ -289,7 +290,7 @@ export async function extractDocumentText(docUrl: string, mimetype?: string): Pr
 
   // PDF — envia como base64 direto para o Claude (suporte nativo)
   if (isPdf) {
-    const tmpPath = await downloadToTempFile(docUrl, '.pdf')
+    const tmpPath = await downloadToTempFile(docUrl, '.pdf', authHeader)
     try {
       const base64 = fs.readFileSync(tmpPath).toString('base64')
       const res = await (anthropic.messages.create as any)({
@@ -311,7 +312,11 @@ export async function extractDocumentText(docUrl: string, mimetype?: string): Pr
 
   // Outros formatos — tenta ler como texto
   try {
-    const res = await axios.get(docUrl, { responseType: 'text', timeout: 15000 })
+    const res = await axios.get(docUrl, {
+      responseType: 'text',
+      timeout: 15000,
+      headers: authHeader ? { Authorization: authHeader } : undefined,
+    })
     const text = String(res.data).slice(0, 3000)
     return `Documento recebido:\n${text}`
   } catch {
@@ -323,11 +328,12 @@ export async function processIncomingMedia(
   mediaUrl: string,
   mediaType: 'audio' | 'image' | 'document' | 'video',
   mimetype?: string,
+  authHeader?: string,
 ): Promise<string> {
   try {
-    if (mediaType === 'audio') return await transcribeAudio(mediaUrl)
-    if (mediaType === 'image') return await describeImage(mediaUrl, mimetype)
-    if (mediaType === 'document') return await extractDocumentText(mediaUrl, mimetype)
+    if (mediaType === 'audio') return await transcribeAudio(mediaUrl, authHeader)
+    if (mediaType === 'image') return await describeImage(mediaUrl, mimetype, authHeader)
+    if (mediaType === 'document') return await extractDocumentText(mediaUrl, mimetype, authHeader)
     if (mediaType === 'video') return '[Vídeo recebido — não é possível processar vídeos automaticamente.]'
     return '[Mídia recebida]'
   } catch {

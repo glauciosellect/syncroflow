@@ -78,15 +78,17 @@ export function startMessageWorker() {
             data: { credits: { decrement: MEDIA_CREDITS } },
           })
 
-          // UAZAPI: usar endpoint nativo de download/transcrição
-          if (msg.mediaUrl.startsWith('uazapi:') && provider.downloadMedia) {
-            const messageId = msg.mediaUrl.replace('uazapi:', '')
+          // Providers com mediaUrl prefixado ("uazapi:", "meta-cloud:", ...) expõem downloadMedia
+          // para resolver o id em URL real (e, no caso da Meta, exigem o token de auth no download)
+          const providerMediaMatch = msg.mediaUrl.match(/^([a-z-]+):(.+)$/)
+          if (providerMediaMatch && provider.downloadMedia) {
+            const messageId = providerMediaMatch[2]
             const result = await provider.downloadMedia(messageId, channelId)
             if (result.transcription) {
               text = result.transcription
             } else if (result.fileURL) {
-              // Passa o mimetype real retornado pelo UAZAPI para rotear corretamente
-              text = await processIncomingMedia(result.fileURL, msg.mediaType, result.mimetype)
+              // Passa o mimetype real e o header de auth (se exigido pelo provider) para baixar corretamente
+              text = await processIncomingMedia(result.fileURL, msg.mediaType, result.mimetype, result.authHeader)
             } else {
               text = msg.mediaType === 'audio'
                 ? '[Áudio recebido — não foi possível transcrever]'
@@ -173,7 +175,7 @@ export function startMessageWorker() {
       }
 
       // Aviso de créditos baixos (≤20% do plano)
-      const planCredits: Record<string, number> = { TRIAL: 1000, BASIC: 2500, STANDARD: 11500, CORPORATE: 30000, ENTERPRISE: 50000 }
+      const planCredits: Record<string, number> = { TRIAL: 1000, STARTER: 2000, PRO: 5000, BUSINESS: 15000, ENTERPRISE: 50000 }
       const totalCredits = planCredits[workspace.plan] || 1000
       const lowCreditThreshold = Math.floor(totalCredits * 0.2)
       if (workspace.credits <= lowCreditThreshold && workspace.credits > 0) {
@@ -436,7 +438,7 @@ export function startMessageWorker() {
         if (rescheduleKeywords.test(text) && hasDateTime) {
           // Remarcar = cancelar o existente + agendar novo
           await cancelAppointment({ workspaceId: channel.workspaceId, userMessage: text, contactName: contact.name ?? 'Cliente' })
-          const result = await scheduleAppointment({ workspaceId: channel.workspaceId, userMessage: text, contactName: contact.name ?? 'Cliente', contactPhone: channelType === 'WHATSAPP' ? from : undefined, conversationHistory: convHistory })
+          const result = await scheduleAppointment({ workspaceId: channel.workspaceId, userMessage: text, contactName: contact.name ?? 'Cliente', contactPhone: channelType === 'WHATSAPP' ? from : undefined, contactId: contact.id, channelId: channel.id, conversationHistory: convHistory })
           responseText = result.success ? `✅ Consulta remarcada!\n${result.message.replace('✅ Consulta agendada com sucesso!\n', '')}` : result.message
           creditsUsed = 1
           calendarHandled = true
@@ -451,7 +453,7 @@ export function startMessageWorker() {
           creditsUsed = 1
           calendarHandled = true
         } else if (scheduleKeywords.test(text) && hasDateTime) {
-          const result = await scheduleAppointment({ workspaceId: channel.workspaceId, userMessage: text, contactName: contact.name ?? 'Cliente', contactPhone: channelType === 'WHATSAPP' ? from : undefined, conversationHistory: convHistory })
+          const result = await scheduleAppointment({ workspaceId: channel.workspaceId, userMessage: text, contactName: contact.name ?? 'Cliente', contactPhone: channelType === 'WHATSAPP' ? from : undefined, contactId: contact.id, channelId: channel.id, conversationHistory: convHistory })
           responseText = result.message
           creditsUsed = 1
           calendarHandled = true
@@ -539,6 +541,8 @@ export function startMessageWorker() {
             userMessage: text,
             contactName: contact.name ?? 'Cliente',
             contactPhone: channelType === 'WHATSAPP' ? from : undefined,
+            contactId: contact.id,
+            channelId: channel.id,
             conversationHistory: convHistory,
           })
           responseText = result.message

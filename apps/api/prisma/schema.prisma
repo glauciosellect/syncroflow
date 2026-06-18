@@ -29,46 +29,52 @@ model User {
   apiKeys          ApiKey[]
   sessions         Session[]
   workspaceMembers WorkspaceMember[]
+  termsAcceptances TermsAcceptance[]
 }
 
 model Workspace {
-  id                      String            @id @default(cuid())
-  name                    String
-  slug                    String            @unique
-  plan                    Plan              @default(TRIAL)
-  trialEndsAt             DateTime?
-  credits                 Int               @default(1000)
-  googleCalendarEnabled   Boolean           @default(false)
-  googleCalendarEmail     String?
-  googleCalendarId        String?
-  googleAccessToken       String?
-  googleRefreshToken      String?
-  googleTokenExpiry       DateTime?
-  elevenLabsKey           String?
-  elevenLabsVoiceId       String?
-  createdAt               DateTime          @default(now())
-  updatedAt               DateTime          @default(now()) @updatedAt
-  agents          Agent[]
-  attendances     Attendance[]
-  channels        Channel[]
-  contacts        Contact[]
-  conversations   Conversation[]
-  envVariables    EnvVariable[]
-  invoices        Invoice[]
-  knowledgeBases  KnowledgeBase[]
-  subscriptions   Subscription[]
-  members         WorkspaceMember[]
-  invites         WorkspaceInvite[]
-  leads           Lead[]
-  pipelineStages  PipelineStage[]
-  followUps       FollowUp[]
-  welcomeMessages WelcomeMessage[]
-  integrations         Integration[]
-  automations          Automation[]
-  crmConnections       CrmConnection[]
-  financeConnections   FinanceConnection[]
-  marketingConnections MarketingConnection[]
-  auditLogs            AuditLog[]
+  id                    String                @id @default(cuid())
+  name                  String
+  slug                  String                @unique
+  plan                  Plan                  @default(TRIAL)
+  trialEndsAt           DateTime?
+  credits               Int                   @default(1000)
+  activeMsgsUsed        Int                   @default(0)
+  activeMsgsExtra       Int                   @default(0)
+  activeMsgsResetAt     DateTime?
+  googleCalendarEnabled Boolean               @default(false)
+  googleCalendarEmail   String?
+  googleCalendarId      String?
+  googleAccessToken     String?
+  googleRefreshToken    String?
+  googleTokenExpiry     DateTime?
+  elevenLabsKey         String?
+  elevenLabsVoiceId     String?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @default(now()) @updatedAt
+  agents                Agent[]
+  attendances           Attendance[]
+  channels              Channel[]
+  contacts              Contact[]
+  conversations         Conversation[]
+  envVariables          EnvVariable[]
+  invoices              Invoice[]
+  knowledgeBases        KnowledgeBase[]
+  subscriptions         Subscription[]
+  members               WorkspaceMember[]
+  invites               WorkspaceInvite[]
+  leads                 Lead[]
+  pipelineStages        PipelineStage[]
+  followUps             FollowUp[]
+  welcomeMessages       WelcomeMessage[]
+  appointments          Appointment[]
+  termsAcceptances      TermsAcceptance[]
+  integrations          Integration[]
+  automations           Automation[]
+  crmConnections        CrmConnection[]
+  financeConnections    FinanceConnection[]
+  marketingConnections  MarketingConnection[]
+  auditLogs             AuditLog[]
 }
 
 model WorkspaceMember {
@@ -272,15 +278,15 @@ model Intention {
 }
 
 model Flow {
-  id          String   @id @default(cuid())
-  agentId     String
-  name        String
-  trigger     String
-  script      String   @db.Text
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @default(now()) @updatedAt
-  agent       Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  agentId   String
+  name      String
+  trigger   String
+  script    String   @db.Text
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
 }
 
 model Channel {
@@ -325,8 +331,24 @@ model Contact {
   updatedAt     DateTime       @default(now()) @updatedAt
   workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   conversations Conversation[]
+  appointments  Appointment[]
 
   @@unique([workspaceId, channelId, externalId])
+}
+
+model Appointment {
+  id             String    @id @default(cuid())
+  workspaceId    String
+  contactId      String
+  channelId      String
+  googleEventId  String
+  startAt        DateTime
+  summary        String
+  reminderJobId  String?
+  reminderSentAt DateTime?
+  createdAt      DateTime  @default(now())
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  contact        Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
 }
 
 model Conversation {
@@ -449,6 +471,18 @@ model Invoice {
   externalId  String?
   createdAt   DateTime  @default(now())
   workspace   Workspace @relation(fields: [workspaceId], references: [id])
+}
+
+model TermsAcceptance {
+  id          String    @id @default(cuid())
+  workspaceId String
+  userId      String
+  version     String
+  ipAddress   String?
+  userAgent   String?
+  acceptedAt  DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Lead {
@@ -678,19 +712,19 @@ model AutomationExecution {
 // ─── CRM Integrations (M4) ────────────────────────────────────────────────────
 
 model CrmConnection {
-  id           String    @id @default(cuid())
-  workspaceId  String
-  platform     String    // 'hubspot' | 'pipedrive' | 'rdcrm'
-  status       String    @default("active")
-  accessToken  String?
-  refreshToken String?
+  id             String    @id @default(cuid())
+  workspaceId    String
+  platform       String // 'hubspot' | 'pipedrive' | 'rdcrm'
+  status         String    @default("active")
+  accessToken    String?
+  refreshToken   String?
   tokenExpiresAt DateTime?
-  accountId    String?
-  accountName  String?
-  metadata     Json?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @default(now()) @updatedAt
-  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  accountId      String?
+  accountName    String?
+  metadata       Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @default(now()) @updatedAt
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, platform])
 }
@@ -700,7 +734,7 @@ model CrmConnection {
 model FinanceConnection {
   id          String    @id @default(cuid())
   workspaceId String
-  platform    String    // 'asaas' | 'pagarme'
+  platform    String // 'asaas' | 'pagarme'
   status      String    @default("active")
   apiKey      String?
   accountId   String?
@@ -716,21 +750,21 @@ model FinanceConnection {
 // ─── Marketing Integrations (M6) ─────────────────────────────────────────────
 
 model MarketingConnection {
-  id           String    @id @default(cuid())
-  workspaceId  String
-  platform     String    // 'rdmarketing' | 'activecampaign'
-  status       String    @default("active")
-  accessToken  String?
-  refreshToken String?
+  id             String    @id @default(cuid())
+  workspaceId    String
+  platform       String // 'rdmarketing' | 'activecampaign'
+  status         String    @default("active")
+  accessToken    String?
+  refreshToken   String?
   tokenExpiresAt DateTime?
-  apiKey       String?
-  accountUrl   String?
-  accountId    String?
-  accountName  String?
-  metadata     Json?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @default(now()) @updatedAt
-  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  apiKey         String?
+  accountUrl     String?
+  accountId      String?
+  accountName    String?
+  metadata       Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @default(now()) @updatedAt
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, platform])
 }
@@ -741,7 +775,7 @@ model AuditLog {
   id           String    @id @default(cuid())
   workspaceId  String
   userId       String?
-  action       String    // 'workflow.created' | 'integration.connected' | etc
+  action       String // 'workflow.created' | 'integration.connected' | etc
   resourceType String?
   resourceId   String?
   metadata     Json?
@@ -753,18 +787,17 @@ model AuditLog {
 // ─── Public Templates Marketplace (M10) ──────────────────────────────────────
 
 model PublicTemplate {
-  id                 String    @id @default(cuid())
+  id                 String   @id @default(cuid())
   title              String
   description        String?
-  category           String    // 'ecommerce' | 'crm' | 'finance' | 'marketing' | 'ai' | 'general'
-  connectorsRequired String[]  @default([])
+  category           String // 'ecommerce' | 'crm' | 'finance' | 'marketing' | 'ai' | 'general'
+  connectorsRequired String[] @default([])
   workflowConfig     Json
-  usesCount          Int       @default(0)
-  isFeatured         Boolean   @default(false)
-  isApproved         Boolean   @default(true)
+  usesCount          Int      @default(0)
+  isFeatured         Boolean  @default(false)
+  isApproved         Boolean  @default(true)
   createdByWorkspace String?
-  tags               String[]  @default([])
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @default(now()) @updatedAt
+  tags               String[] @default([])
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @default(now()) @updatedAt
 }
-

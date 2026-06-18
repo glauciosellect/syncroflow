@@ -3,9 +3,9 @@ import { prisma } from '../../lib/prisma'
 import { getWorkspaceId } from '../../lib/workspace'
 
 const PLANS = {
-  STARTER:  { name: 'Starter',  credits: 2000,  agents: 5,  priceMonthly: 6000  },
-  PRO:      { name: 'Pro',      credits: 5000,  agents: 15, priceMonthly: 14700 },
-  BUSINESS: { name: 'Business', credits: 15000, agents: 40, priceMonthly: 43900 },
+  STARTER:  { name: 'Starter',  credits: 2000,  agents: 5,  priceMonthly: 6000,  activeMsgs: 200  },
+  PRO:      { name: 'Pro',      credits: 5000,  agents: 15, priceMonthly: 14700, activeMsgs: 500  },
+  BUSINESS: { name: 'Business', credits: 15000, agents: 40, priceMonthly: 43900, activeMsgs: 1500 },
 }
 
 const CYCLE_DISCOUNTS = { MONTHLY: 0, ANNUAL: 12 }

@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import Stripe from 'stripe'
 import { prisma } from '../../lib/prisma'
 import { getWorkspaceId } from '../../lib/workspace'
+import { TERMS_VERSION, TERMS_TEXT } from './terms-content'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -30,6 +31,11 @@ const PLAN_PRICES: Record<string, Record<string, number>> = {
 // Pacote de créditos avulsos (recarga única)
 export const CREDIT_PACKAGES = [
   { id: 'pack_1000', name: '1.000 créditos', credits: 1000, price: 3500, priceLabel: 'R$ 35,00' },
+]
+
+// Pacote avulso de mensagens ativas (lembretes) — para quem esgota a cota mensal do plano
+export const ACTIVE_MSG_PACKAGES = [
+  { id: 'active_msg_100', name: '100 mensagens ativas', amount: 100, price: 1000, priceLabel: 'R$ 10,00' },
 ]
 
 
@@ -69,6 +75,65 @@ export async function stripeRoutes(app: FastifyInstance) {
     })
 
     return reply.send({ url: session.url })
+  })
+
+  // Listar pacotes de mensagens ativas avulsas (público)
+  app.get('/billing/active-msg-packages', async (req, reply) => {
+    return reply.send(ACTIVE_MSG_PACKAGES)
+  })
+
+  // Criar sessão de checkout para compra de mensagens ativas avulsas
+  app.post('/billing/checkout-active-msgs', { onRequest: [app.authenticate] }, async (req, reply) => {
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
+    const { packageId } = req.body as { packageId: string }
+
+    const pkg = ACTIVE_MSG_PACKAGES.find(p => p.id === packageId)
+    if (!pkg) return reply.status(400).send({ error: 'Pacote inválido' })
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      mode: 'payment',
+      line_items: [{
+        price_data: {
+          currency: 'brl',
+          product_data: {
+            name: `SyncroFlow — ${pkg.name}`,
+            description: `Pacote avulso de ${pkg.amount} mensagens ativas`,
+          },
+          unit_amount: pkg.price,
+        },
+        quantity: 1,
+      }],
+      metadata: { workspaceId, type: 'active_msgs', packageId, amount: String(pkg.amount) },
+      success_url: `${process.env.FRONTEND_URL}/billing?payment=success`,
+      cancel_url: `${process.env.FRONTEND_URL}/billing?payment=cancelled`,
+    })
+
+    return reply.send({ url: session.url })
+  })
+
+  // Retorna o texto vigente do Termo de Aceite
+  app.get('/billing/terms', async (req, reply) => {
+    return reply.send({ version: TERMS_VERSION, text: TERMS_TEXT })
+  })
+
+  // Registra o aceite do Termo pelo usuário autenticado, para efeitos legais
+  app.post('/billing/terms/accept', { onRequest: [app.authenticate] }, async (req, reply) => {
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
+
+    const acceptance = await prisma.termsAcceptance.create({
+      data: {
+        workspaceId,
+        userId: sub,
+        version: TERMS_VERSION,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+    })
+
+    return reply.send({ id: acceptance.id, acceptedAt: acceptance.acceptedAt })
   })
 
   // Criar sessão de checkout para assinatura de plano
@@ -194,6 +259,22 @@ export async function stripeRoutes(app: FastifyInstance) {
           })
         }
 
+        // Mensagens ativas avulsas pagas
+        if (meta.type === 'active_msgs' && meta.workspaceId && meta.amount) {
+          await prisma.workspace.update({
+            where: { id: meta.workspaceId },
+            data: { activeMsgsExtra: { increment: parseInt(meta.amount) } },
+          })
+          await prisma.invoice.create({
+            data: {
+              workspaceId: meta.workspaceId,
+              amount: session.amount_total || 0,
+              status: 'paid',
+              externalId: session.id,
+            },
+          })
+        }
+
         // Assinatura iniciada via checkout — ativa o plano imediatamente
         if (meta.type === 'subscription' && meta.workspaceId && meta.plan) {
           const credits = PLAN_CREDITS[meta.plan] || 1000
@@ -203,6 +284,7 @@ export async function stripeRoutes(app: FastifyInstance) {
               plan: meta.plan as any,
               credits: { increment: credits },
               trialEndsAt: null,
+              activeMsgsUsed: 0,
             },
           })
         }
@@ -254,7 +336,7 @@ export async function stripeRoutes(app: FastifyInstance) {
         if (event.type === 'customer.subscription.created' && isActive) {
           await prisma.workspace.update({
             where: { id: workspaceId },
-            data: { credits: { increment: credits } },
+            data: { credits: { increment: credits }, activeMsgsUsed: 0 },
           })
         }
         break
@@ -280,6 +362,7 @@ export async function stripeRoutes(app: FastifyInstance) {
             plan: plan as any,
             credits: { increment: credits },
             trialEndsAt: null,
+            activeMsgsUsed: 0,
           },
         })
 

@@ -7,6 +7,9 @@ import {
   GoogleCalendarEvent,
 } from '../../lib/google'
 import { callLLM } from '../ai/ai.service'
+import { reminderQueue } from '../../lib/queue'
+
+const REMINDER_LEAD_MS = 60 * 60 * 1000 // lembrete enviado 1h antes do horário marcado
 
 const TZ = 'America/Sao_Paulo'
 
@@ -65,9 +68,11 @@ export async function scheduleAppointment(opts: {
   userMessage: string
   contactName: string
   contactPhone?: string
+  contactId?: string
+  channelId?: string
   conversationHistory?: { role: string; content: string }[]
 }): Promise<{ success: boolean; message: string; eventId?: string }> {
-  const { workspaceId, userMessage, contactName, contactPhone, conversationHistory } = opts
+  const { workspaceId, userMessage, contactName, contactPhone, contactId, channelId, conversationHistory } = opts
 
   const ws = await prisma.workspace.findUnique({
     where: { id: workspaceId },
@@ -116,6 +121,20 @@ export async function scheduleAppointment(opts: {
 
   if (!eventId) {
     return { success: false, message: 'Erro ao criar o evento na agenda. Tente novamente.' }
+  }
+
+  // Agenda o lembrete automático (mensagem ativa) se tivermos contato/canal identificados
+  // e a consulta ainda estiver a mais de 1h de distância
+  if (contactId && channelId) {
+    const reminderAt = startDate.getTime() - REMINDER_LEAD_MS
+    const delay = reminderAt - Date.now()
+    if (delay > 0) {
+      const appointment = await prisma.appointment.create({
+        data: { workspaceId, contactId, channelId, googleEventId: eventId, startAt: startDate, summary: event.summary },
+      })
+      const job = await reminderQueue.add('reminder', { appointmentId: appointment.id }, { delay })
+      await prisma.appointment.update({ where: { id: appointment.id }, data: { reminderJobId: job.id } })
+    }
   }
 
   const dataFormatada = startDate.toLocaleString('pt-BR', {
@@ -220,6 +239,16 @@ export async function cancelAppointment(opts: {
   }
 
   await deleteCalendarEvent(accessToken, calendarId, match.id)
+
+  // Cancela o lembrete agendado (se existir) e remove o registro local
+  const appointment = await prisma.appointment.findFirst({ where: { workspaceId, googleEventId: match.id } })
+  if (appointment) {
+    if (appointment.reminderJobId) {
+      const job = await reminderQueue.getJob(appointment.reminderJobId)
+      await job?.remove().catch(() => {})
+    }
+    await prisma.appointment.delete({ where: { id: appointment.id } })
+  }
 
   const dateStr = match.start.dateTime || (match.start as any).date
   const dataFormatada = new Date(dateStr).toLocaleString('pt-BR', {
