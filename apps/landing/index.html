@@ -303,6 +303,104 @@
     .stat-item strong { display: block; font-size: 36px; font-weight: 900; background: linear-gradient(135deg, var(--blue), var(--green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     .stat-item span { font-size: 14px; color: var(--gray-600); }
 
+    /* ── WHATSAPP OFICIAL ── */
+    .wa-official-section {
+      padding: 90px 0; position: relative; overflow: hidden;
+      background: linear-gradient(160deg, #0a3d1f 0%, #1b5e20 45%, #0D47A1 100%);
+    }
+    .wa-official-section::before {
+      content: ''; position: absolute; top: -180px; left: -180px;
+      width: 550px; height: 550px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(105,240,174,0.18) 0%, transparent 70%);
+      animation: blob 9s ease-in-out infinite;
+    }
+    .wa-official-section::after {
+      content: ''; position: absolute; bottom: -200px; right: -200px;
+      width: 600px; height: 600px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(41,182,246,0.18) 0%, transparent 70%);
+      animation: blob 11s ease-in-out infinite reverse;
+    }
+    .wa-official-section .section-label { background: rgba(105,240,174,0.15); color: #69F0AE; border: 1px solid rgba(105,240,174,0.3); }
+    .wa-official-section .section-header h2 { color: white; }
+    .wa-official-section .section-header p { color: rgba(255,255,255,0.75); }
+    .wa-official-grid {
+      display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 56px; align-items: center;
+      position: relative; z-index: 1; margin-top: 12px;
+    }
+    .wa-official-badge {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: rgba(255,255,255,0.1); backdrop-filter: blur(10px);
+      border: 1px solid rgba(105,240,174,0.35); border-radius: 50px;
+      padding: 10px 20px; font-size: 13px; font-weight: 700; color: #69F0AE;
+      margin-bottom: 22px; animation: agent-pulse 2.5s ease-in-out infinite;
+    }
+    .wa-official-badge .wa-dot { width: 8px; height: 8px; border-radius: 50%; background: #69F0AE; animation: pulse-dot 1.5s ease infinite; }
+    .wa-official-text h3 {
+      font-size: clamp(26px, 3.2vw, 38px); font-weight: 900; color: white;
+      line-height: 1.2; margin-bottom: 18px;
+    }
+    .wa-official-text h3 em { font-style: normal; color: #69F0AE; }
+    .wa-official-text p { font-size: 16px; color: rgba(255,255,255,0.7); line-height: 1.7; margin-bottom: 28px; max-width: 480px; }
+    .wa-official-benefits { display: flex; flex-direction: column; gap: 14px; }
+    .wa-benefit-item {
+      display: flex; align-items: center; gap: 14px;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 14px; padding: 14px 18px;
+      transition: background 0.3s, transform 0.3s, border-color 0.3s;
+    }
+    .wa-benefit-item:hover { background: rgba(255,255,255,0.12); transform: translateX(6px); border-color: rgba(105,240,174,0.3); }
+    .wa-benefit-icon {
+      width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 20px;
+      background: rgba(105,240,174,0.15);
+    }
+    .wa-benefit-item strong { display: block; color: white; font-size: 14px; font-weight: 700; }
+    .wa-benefit-item span { font-size: 12.5px; color: rgba(255,255,255,0.6); line-height: 1.5; }
+
+    /* Visual — selo oficial flutuante */
+    .wa-official-visual { position: relative; display: flex; justify-content: center; }
+    .wa-seal {
+      position: relative; width: 280px; height: 280px;
+      display: flex; align-items: center; justify-content: center;
+      animation: float 5s ease-in-out infinite;
+    }
+    .wa-seal-ring {
+      position: absolute; inset: 0; border-radius: 50%;
+      border: 2px dashed rgba(105,240,174,0.4);
+      animation: spin-slow 18s linear infinite;
+    }
+    .wa-seal-core {
+      width: 200px; height: 200px; border-radius: 50%;
+      background: linear-gradient(135deg, #25D366, #128C7E);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.35), 0 0 0 10px rgba(255,255,255,0.06);
+      gap: 6px;
+    }
+    .wa-seal-core .wa-seal-icon { font-size: 52px; }
+    .wa-seal-core strong { color: white; font-size: 13px; font-weight: 800; letter-spacing: 1px; }
+    .wa-seal-core span { color: rgba(255,255,255,0.85); font-size: 10.5px; font-weight: 600; }
+    .wa-float-badge {
+      position: absolute; background: white; border-radius: 12px;
+      padding: 9px 14px; box-shadow: 0 8px 26px rgba(0,0,0,0.2);
+      display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700;
+    }
+    .wa-float-badge-1 { top: 6%; right: -4%; animation: float 4s ease-in-out infinite; }
+    .wa-float-badge-2 { bottom: 10%; left: -8%; animation: float 4s ease-in-out infinite 1s; }
+
+    /* Carrossel de selos/confiança */
+    .wa-trust-track {
+      display: flex; gap: 16px; width: max-content;
+      animation: marquee-pills 24s linear infinite; margin-top: 56px;
+    }
+    .wa-trust-track:hover { animation-play-state: paused; }
+    .wa-trust-pill {
+      display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0;
+      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 999px; padding: 9px 20px; font-size: 13px; color: rgba(255,255,255,0.9);
+      white-space: nowrap;
+    }
+    .wa-trust-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: #69F0AE; animation: pulse-dot 2s ease-in-out infinite; flex-shrink: 0; }
+
     /* ── CHANNELS ── */
     .channels { padding: 100px 0; background: var(--gray-50); }
     .section-header { text-align: center; margin-bottom: 60px; }
@@ -687,6 +785,11 @@
 
       .multiagent-grid { grid-template-columns: 1fr; gap: 32px; }
 
+      .wa-official-grid { grid-template-columns: 1fr; gap: 40px; }
+      .wa-official-visual { order: -1; }
+      .wa-seal { width: 220px; height: 220px; }
+      .wa-seal-core { width: 160px; height: 160px; }
+
       .sellers-grid { grid-template-columns: 1fr; gap: 32px; }
       .sellers-stats { flex-wrap: wrap; }
       .sellers-stat { flex: 1 1 45%; }
@@ -738,6 +841,15 @@
       .stat-item:nth-child(3), .stat-item:nth-child(4) { border-bottom: none; }
       .stat-item:nth-child(4) { border-right: none; }
       .stat-item strong { font-size: 28px; }
+
+      /* WhatsApp Oficial */
+      .wa-seal { width: 180px; height: 180px; margin: 0 auto; }
+      .wa-seal-core { width: 130px; height: 130px; }
+      .wa-seal-core .wa-seal-icon { font-size: 36px; }
+      .wa-float-badge { font-size: 10px; padding: 7px 10px; }
+      .wa-float-badge-1 { top: 0; right: 0; }
+      .wa-float-badge-2 { bottom: 0; left: 0; }
+      .wa-benefit-item { padding: 12px 14px; }
 
       /* Channels */
       .channels-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
@@ -1016,6 +1128,72 @@
     </div>
   </div>
 
+  <!-- WHATSAPP OFICIAL -->
+  <section class="wa-official-section" id="whatsapp-oficial">
+    <div class="container">
+      <div class="section-header fade-up">
+        <span class="section-label">WhatsApp Cloud API</span>
+        <h2>Conectado direto na <span class="gradient-text" style="background:linear-gradient(135deg,#69F0AE,#29B6F6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">API Oficial</span> do WhatsApp</h2>
+        <p>NuClick Sistemas é Provedora de Tecnologia certificada pela Meta. Seu número conecta com segurança máxima, sem risco de bloqueio.</p>
+      </div>
+
+      <div class="wa-official-grid">
+        <div class="wa-official-text fade-left">
+          <div class="wa-official-badge"><span class="wa-dot"></span> Tech Provider oficial Meta</div>
+          <h3>Diga adeus ao <em>risco de banimento</em></h3>
+          <p>Diferente de soluções não oficiais, o SyncroFlow usa a infraestrutura oficial da Meta para WhatsApp Business — seu número fica protegido, estável e dentro das regras da plataforma.</p>
+
+          <div class="wa-official-benefits">
+            <div class="wa-benefit-item">
+              <div class="wa-benefit-icon">🛡️</div>
+              <div><strong>Zero risco de bloqueio</strong><span>Infraestrutura homologada — seu número nunca é banido por uso indevido de API não oficial</span></div>
+            </div>
+            <div class="wa-benefit-item">
+              <div class="wa-benefit-icon">⚡</div>
+              <div><strong>Conexão em 3 minutos</strong><span>Conecte seu WhatsApp com um clique — sem QR Code, sem app aberto 24h no celular</span></div>
+            </div>
+            <div class="wa-benefit-item">
+              <div class="wa-benefit-icon">📈</div>
+              <div><strong>Estabilidade de verdade</strong><span>Mensagens entregues com a confiabilidade da própria infraestrutura da Meta</span></div>
+            </div>
+            <div class="wa-benefit-item">
+              <div class="wa-benefit-icon">🔗</div>
+              <div><strong>Mesmo webhook, mais canais</strong><span>Desbloqueia Instagram Direct e Messenger automaticamente, sem configuração extra</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="wa-official-visual fade-right">
+          <div class="wa-seal">
+            <div class="wa-seal-ring"></div>
+            <div class="wa-seal-core">
+              <span class="wa-seal-icon">✅</span>
+              <strong>OFICIAL</strong>
+              <span>WhatsApp Business API</span>
+            </div>
+            <div class="wa-float-badge wa-float-badge-1">📲 Conectado</div>
+            <div class="wa-float-badge wa-float-badge-2">🤝 Tech Provider</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="marquee-outer" style="margin-top:8px">
+        <div class="wa-trust-track">
+          <div class="wa-trust-pill"><span class="dot"></span>Provedor de Tecnologia certificado Meta</div>
+          <div class="wa-trust-pill"><span class="dot"></span>Sem QR Code expirando</div>
+          <div class="wa-trust-pill"><span class="dot"></span>Sem app aberto no celular 24h</div>
+          <div class="wa-trust-pill"><span class="dot"></span>Mensagens com selo oficial Meta</div>
+          <div class="wa-trust-pill"><span class="dot"></span>Suporte a templates aprovados</div>
+          <div class="wa-trust-pill"><span class="dot"></span>Provedor de Tecnologia certificado Meta</div>
+          <div class="wa-trust-pill"><span class="dot"></span>Sem QR Code expirando</div>
+          <div class="wa-trust-pill"><span class="dot"></span>Sem app aberto no celular 24h</div>
+          <div class="wa-trust-pill"><span class="dot"></span>Mensagens com selo oficial Meta</div>
+          <div class="wa-trust-pill"><span class="dot"></span>Suporte a templates aprovados</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- CHANNELS -->
   <section class="channels" id="canais">
     <div class="container">
@@ -1160,7 +1338,7 @@
         <div class="feature-card fade-up">
           <div class="feature-icon">🤖</div>
           <h3>Multi-modelo de IA</h3>
-          <p>Escolha entre Claude Haiku, Sonnet, Opus ou GPT-4o. Cada agente pode ter seu próprio modelo configurado.</p>
+          <p>Escolha entre Claude Haiku ou Sonnet. Cada agente pode ter seu próprio modelo configurado.</p>
         </div>
         <div class="feature-card fade-up">
           <div class="feature-icon">🧠</div>
@@ -1453,21 +1631,6 @@
           <div><strong>3 créditos</strong></div>
           <div>🚀 Rápido</div>
         </div>
-        <div class="credits-row">
-          <div>🟣 Claude Opus</div>
-          <div><strong>10 créditos</strong></div>
-          <div>🧠 Máxima IA</div>
-        </div>
-        <div class="credits-row">
-          <div>🟢 GPT-4o Mini</div>
-          <div><strong>1 crédito</strong></div>
-          <div>⚡ Muito rápido</div>
-        </div>
-        <div class="credits-row">
-          <div>🟠 GPT-4o</div>
-          <div><strong>5 créditos</strong></div>
-          <div>🚀 Rápido</div>
-        </div>
         <div class="credits-row" style="background:#FFF8E1">
           <div>🎙️ Áudio/Imagem/PDF</div>
           <div><strong>2 créditos</strong></div>
@@ -1500,7 +1663,7 @@
           <div class="price-saving" style="display:none;font-size:12px;color:#2E7D32;margin-bottom:8px;font-weight:600">≈ R$ 53,00/mês · economize R$ 84,00</div>
           <div class="plan-credits">
             <strong>2.000 créditos/mês</strong>
-            <span>• Até 5 agentes</span>
+            <span>• Até 5 agentes • 200 mensagens ativas/mês</span>
           </div>
           <ul class="plan-features">
             <li>WhatsApp, Instagram, Facebook</li>
@@ -1520,7 +1683,7 @@
           <div class="price-saving" style="display:none;font-size:12px;color:#2E7D32;margin-bottom:8px;font-weight:600">≈ R$ 130,00/mês · economize R$ 204,00</div>
           <div class="plan-credits" style="background:linear-gradient(135deg,#E3F2FD,#E8F5E9)">
             <strong>5.000 créditos/mês</strong>
-            <span>• Até 15 agentes</span>
+            <span>• Até 15 agentes • 500 mensagens ativas/mês</span>
           </div>
           <ul class="plan-features">
             <li>WhatsApp, Instagram, Facebook</li>
@@ -1539,7 +1702,7 @@
           <div class="price-saving" style="display:none;font-size:12px;color:#2E7D32;margin-bottom:8px;font-weight:600">≈ R$ 387,00/mês · economize R$ 624,00</div>
           <div class="plan-credits">
             <strong>15.000 créditos/mês</strong>
-            <span>• Até 40 agentes</span>
+            <span>• Até 40 agentes • 1.500 mensagens ativas/mês</span>
           </div>
           <ul class="plan-features">
             <li>WhatsApp, Instagram, Facebook</li>
@@ -2064,7 +2227,7 @@
         <strong>SyncroFlow</strong> é uma plataforma de atendimento omnichannel com IA. Você cria agentes inteligentes que atendem seus clientes no WhatsApp, Instagram, Facebook e mais — 24h por dia, sem precisar de código.
       </div>
       <div id="q2" class="mascote-answer">
-        O agente usa modelos como <strong>Claude (Anthropic)</strong> e <strong>GPT-4o (OpenAI)</strong>. Você treina ele com informações da sua empresa e ele responde os clientes de forma natural e humanizada.
+        O agente usa modelos <strong>Claude (Anthropic)</strong>. Você treina ele com informações da sua empresa e ele responde os clientes de forma natural e humanizada.
       </div>
       <div id="q3" class="mascote-answer">
         Temos planos a partir de <strong>R$ 60/mês</strong> (Starter). Também há plano Pro (R$ 147/mês) e Business (R$ 439/mês). No anual você economiza até R$ 624. Veja todos os detalhes em <a href="#planos" style="color:#1565C0">Planos</a>.
