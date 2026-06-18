@@ -1,6 +1,6 @@
 'use client'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -506,6 +506,13 @@ function ChannelsTab() {
     onError: (err: any) => toast({ title: 'Erro', description: err.response?.data?.error || 'Erro ao conectar', variant: 'destructive' }),
   })
 
+  const whatsappEmbeddedSignupMutation = useMutation({
+    mutationFn: (params: { code: string; wabaId?: string; phoneNumberId?: string }) =>
+      api.post('/channels/whatsapp-meta/signup', params),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['channels'] }); toast({ title: '✅ WhatsApp (Meta) conectado!' }) },
+    onError: (err: any) => toast({ title: 'Erro', description: err.response?.data?.error || 'Erro ao conectar', variant: 'destructive' }),
+  })
+
   const createTelegramMutation = useMutation({
     mutationFn: () => api.post('/channels/telegram', { name: telegramName, botToken: telegramToken }),
     onSuccess: (res) => {
@@ -591,6 +598,47 @@ function ChannelsTab() {
     window.location.href = url
   }
 
+  // Durante o Embedded Signup, a Meta envia wabaId/phoneNumberId via postMessage
+  // (em paralelo ao callback de FB.login, que só devolve o `code`)
+  const embeddedSignupDataRef = useRef<{ wabaId?: string; phoneNumberId?: string }>({})
+
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      if (event.origin !== 'https://www.facebook.com') return
+      try {
+        const data = JSON.parse(event.data)
+        if (data.type === 'WA_EMBEDDED_SIGNUP' && data.event === 'FINISH') {
+          embeddedSignupDataRef.current = {
+            wabaId: data.data?.waba_id,
+            phoneNumberId: data.data?.phone_number_id,
+          }
+        }
+      } catch {}
+    }
+    window.addEventListener('message', handler)
+    return () => window.removeEventListener('message', handler)
+  }, [])
+
+  const connectWhatsAppMeta = () => {
+    if (!window.FB) {
+      toast({ title: 'SDK da Meta ainda não carregou — tente novamente em alguns segundos', variant: 'destructive' })
+      return
+    }
+    window.FB.login((response) => {
+      const code = response.authResponse?.code
+      if (!code) {
+        toast({ title: 'Conexão cancelada', variant: 'destructive' })
+        return
+      }
+      whatsappEmbeddedSignupMutation.mutate({ code, ...embeddedSignupDataRef.current })
+    }, {
+      config_id: process.env.NEXT_PUBLIC_META_WHATSAPP_CONFIG_ID,
+      response_type: 'code',
+      override_default_response_type: true,
+      extras: { setup: {}, featureType: '', sessionInfoVersion: '3' },
+    })
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -598,6 +646,12 @@ function ChannelsTab() {
         <div className="flex gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={() => setShowWhatsAppForm(true)}>
             <Plus className="w-3 h-3 mr-1" />WhatsApp
+          </Button>
+          <Button variant="outline" size="sm" onClick={connectWhatsAppMeta}
+            className="border-green-200 text-green-700 hover:bg-green-50"
+            disabled={whatsappEmbeddedSignupMutation.isPending}>
+            {whatsappEmbeddedSignupMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Plus className="w-3 h-3 mr-1" />}
+            WhatsApp (Meta)
           </Button>
           <Button variant="outline" size="sm" onClick={() => connectMeta('instagram')}
             className="border-pink-200 text-pink-700 hover:bg-pink-50">

@@ -8,6 +8,7 @@ const inter = Inter({ subsets: ['latin'] })
 
 const META_PIXEL_ID = '990433977062746'
 const GA_MEASUREMENT_ID = 'G-F346T28WVJ'
+const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -66,6 +67,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           gtag('js', new Date());
           gtag('config', '${GA_MEASUREMENT_ID}');
         `}</Script>
+
+        {/* Facebook JS SDK — usado pelo Embedded Signup do WhatsApp (Meta Cloud API) */}
+        {META_APP_ID && (
+          <>
+            <Script id="facebook-jssdk-init" strategy="afterInteractive">{`
+              window.fbAsyncInit = function() {
+                FB.init({ appId: '${META_APP_ID}', xfbml: false, version: 'v21.0' });
+              };
+            `}</Script>
+            <Script src="https://connect.facebook.net/en_US/sdk.js" strategy="afterInteractive" />
+          </>
+        )}
       </head>
       <body className={inter.className}>
         <Providers>{children}</Providers>

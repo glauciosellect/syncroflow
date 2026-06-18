@@ -5,7 +5,9 @@ import api from '@/lib/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Check, Coins, Loader2, Zap, AlertTriangle, ExternalLink, CreditCard } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Check, Coins, Loader2, Zap, AlertTriangle, ExternalLink, CreditCard, MessageSquare } from 'lucide-react'
 import { useAuthStore } from '@/store/auth.store'
 import { formatDate } from '@/lib/utils'
 import { useSearchParams } from 'next/navigation'
@@ -15,12 +17,13 @@ const creditPackages = [
   { id: 'pack_1000', name: '1.000 créditos', credits: 1000, priceLabel: 'R$ 35,00', popular: true },
 ]
 
+const activeMsgPackages = [
+  { id: 'active_msg_100', name: '100 mensagens ativas', amount: 100, priceLabel: 'R$ 10,00', popular: true },
+]
+
 const modelCosts: Record<string, { label: string; credits: number }> = {
   'claude-haiku-4-5': { label: 'Haiku', credits: 1 },
   'claude-3-5-sonnet-20241022': { label: 'Sonnet', credits: 3 },
-  'claude-opus-4-5': { label: 'Opus', credits: 10 },
-  'gpt-4o-mini': { label: 'GPT-4o Mini', credits: 1 },
-  'gpt-4o': { label: 'GPT-4o', credits: 5 },
 }
 
 const cycleOptions = [
@@ -52,6 +55,10 @@ export default function BillingPage() {
   const paymentStatus = searchParams.get('payment')
   const paymentPlan = searchParams.get('plan')
 
+  const [termsOpen, setTermsOpen] = useState(false)
+  const [agreed, setAgreed] = useState(false)
+  const [pendingPlan, setPendingPlan] = useState<{ plan: string; cycle: string } | null>(null)
+
   const isTrialExpired = workspace?.plan === 'TRIAL' &&
     workspace?.trialEndsAt &&
     new Date(workspace.trialEndsAt) < new Date()
@@ -63,12 +70,30 @@ export default function BillingPage() {
     onError: () => toast({ title: 'Erro ao processar pagamento', variant: 'destructive' }),
   })
 
+  // Compra de mensagens ativas avulsas
+  const checkoutActiveMsgsMutation = useMutation({
+    mutationFn: (packageId: string) => api.post('/billing/checkout-active-msgs', { packageId }).then(r => r.data),
+    onSuccess: (data) => { if (data.url) window.location.href = data.url },
+    onError: () => toast({ title: 'Erro ao processar pagamento', variant: 'destructive' }),
+  })
+
   // Assinatura de plano
   const subscribeMutation = useMutation({
     mutationFn: ({ plan, cycle }: { plan: string; cycle: string }) =>
       api.post('/billing/subscribe', { plan, cycle }).then(r => r.data),
     onSuccess: (data) => { if (data.url) window.location.href = data.url },
     onError: () => toast({ title: 'Erro ao iniciar assinatura', variant: 'destructive' }),
+  })
+
+  // Registro do aceite do Termo de Aceite antes de seguir para o pagamento
+  const acceptTermsMutation = useMutation({
+    mutationFn: () => api.post('/billing/terms/accept').then(r => r.data),
+    onSuccess: () => {
+      setTermsOpen(false)
+      setAgreed(false)
+      if (pendingPlan) subscribeMutation.mutate(pendingPlan)
+    },
+    onError: () => toast({ title: 'Erro ao registrar aceite do termo', variant: 'destructive' }),
   })
 
   // Portal de gerenciamento (cancelar, trocar cartão)
@@ -93,8 +118,20 @@ export default function BillingPage() {
     queryFn: () => api.get('/billing/invoices').then(r => r.data),
   })
 
+  const { data: terms } = useQuery({
+    queryKey: ['billing-terms'],
+    queryFn: () => api.get('/billing/terms').then(r => r.data),
+    enabled: termsOpen,
+  })
+
+  function startSubscribe(plan: string, cycle: string) {
+    setPendingPlan({ plan, cycle })
+    setAgreed(false)
+    setTermsOpen(true)
+  }
+
   const selectedCycleOpt = cycleOptions.find(c => c.key === cycle)
-  const isBusy = subscribeMutation.isPending || checkoutMutation.isPending
+  const isBusy = subscribeMutation.isPending || checkoutMutation.isPending || acceptTermsMutation.isPending
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -231,6 +268,7 @@ export default function BillingPage() {
 
                   <div className="space-y-2 mb-6 text-sm text-gray-600">
                     <div className="flex items-center gap-2"><Coins className="w-4 h-4 text-[#1565C0]" />{plan.credits?.toLocaleString()} créditos/mês</div>
+                    <div className="flex items-center gap-2"><MessageSquare className="w-4 h-4 text-[#1565C0]" />{plan.activeMsgs?.toLocaleString()} mensagens ativas/mês</div>
                     <div className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" />Até {plan.agents} agentes</div>
                     {features.map((f) => (
                       <div key={f} className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" />{f}</div>
@@ -241,7 +279,7 @@ export default function BillingPage() {
                     className="w-full"
                     variant={isPopular ? 'default' : 'outline'}
                     disabled={isCurrent || isBusy}
-                    onClick={() => subscribeMutation.mutate({ plan: plan.id, cycle })}
+                    onClick={() => startSubscribe(plan.id, cycle)}
                   >
                     {subscribeMutation.isPending
                       ? <Loader2 className="w-4 h-4 animate-spin mr-2" />
@@ -312,6 +350,43 @@ export default function BillingPage() {
         </div>
       </div>
 
+      {/* Mensagens ativas avulsas */}
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <MessageSquare className="w-5 h-5 text-[#1565C0]" />
+          <h2 className="text-lg font-semibold text-gray-900">Comprar mensagens ativas avulsas</h2>
+        </div>
+        <p className="text-sm text-gray-500 mb-4">Use quando esgotar a cota mensal de lembretes/avisos automáticos do seu plano. As respostas normais aos seus clientes nunca são afetadas.</p>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {activeMsgPackages.map((pkg) => (
+            <div key={pkg.id} className={`relative rounded-xl border-2 p-4 text-center ${pkg.popular ? 'border-[#1565C0] shadow-md shadow-blue-100' : 'border-gray-200'}`}>
+              {pkg.popular && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#1565C0] text-white text-xs font-bold px-3 py-0.5 rounded-full">
+                  Mais popular
+                </div>
+              )}
+              <div className="font-bold text-gray-900 mb-1">{pkg.name}</div>
+              <div className="flex items-center justify-center gap-1 text-[#1565C0] mb-1">
+                <MessageSquare className="w-4 h-4" />
+                <span className="font-bold text-lg">{pkg.amount.toLocaleString('pt-BR')}</span>
+              </div>
+              <div className="text-xs text-gray-400 mb-3">mensagens ativas</div>
+              <div className="text-xl font-bold text-gray-900 mb-3">{pkg.priceLabel}</div>
+              <Button
+                size="sm"
+                className="w-full"
+                variant={pkg.popular ? 'default' : 'outline'}
+                disabled={checkoutActiveMsgsMutation.isPending}
+                onClick={() => checkoutActiveMsgsMutation.mutate(pkg.id)}
+              >
+                {checkoutActiveMsgsMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Comprar'}
+              </Button>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Histórico de faturas */}
       {invoices && invoices.length > 0 && (
         <div>
@@ -358,6 +433,34 @@ export default function BillingPage() {
           </button>
         </div>
       )}
+
+      {/* Modal de Termo de Aceite — obrigatório antes de qualquer assinatura */}
+      <Dialog open={termsOpen} onOpenChange={(open) => { setTermsOpen(open); if (!open) setAgreed(false) }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Termo de Aceite do Contrato</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-96 overflow-y-auto text-sm text-gray-600 whitespace-pre-wrap border border-gray-200 rounded-lg p-4 bg-gray-50">
+            {terms?.text || 'Carregando termo...'}
+          </div>
+          <div className="flex items-start gap-2 pt-2">
+            <Checkbox id="terms-agree" checked={agreed} onCheckedChange={(v) => setAgreed(v === true)} />
+            <label htmlFor="terms-agree" className="text-sm text-gray-700 cursor-pointer">
+              Li e aceito os termos do contrato de assinatura.
+            </label>
+          </div>
+          <DialogFooter>
+            <Button
+              className="w-full sm:w-auto"
+              disabled={!agreed || acceptTermsMutation.isPending}
+              onClick={() => acceptTermsMutation.mutate()}
+            >
+              {acceptTermsMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Continuar para pagamento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
