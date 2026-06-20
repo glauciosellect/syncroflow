@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import { prisma } from '../../lib/prisma'
 import { messageQueue } from '../../lib/queue'
 import { redis } from '../../lib/redis'
-import { emitConversationUpdated } from '../../lib/socket'
+import { emitConversationUpdated, emitNewMessage } from '../../lib/socket'
 
 const OWNER_SILENCE_TTL = 60 * 60 // 1 hora em segundos
 
@@ -105,7 +105,11 @@ export async function webhookRoutes(app: FastifyInstance) {
               where: { id: conv.id },
               data: { status: 'HUMAN_ACTIVE' },
             })
+            const sysMsg = await prisma.message.create({
+              data: { conversationId: conv.id, role: 'SYSTEM', content: 'IA silenciada por 1h — mensagem enviada manualmente pelo operador.' },
+            })
             try { emitConversationUpdated(channel.workspaceId, updated) } catch {}
+            try { emitNewMessage(channel.workspaceId, conv.id, sysMsg) } catch {}
           }
         }
       }

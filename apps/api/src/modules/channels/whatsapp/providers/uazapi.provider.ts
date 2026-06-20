@@ -162,7 +162,12 @@ export class UazApiProvider implements WhatsAppProvider {
     if (!payload) return null
     const msg = payload.message
     if (!msg) return null
-    if (msg.fromMe === true) return null
+    // UAZAPI marca fromMe=true em TODA mensagem de mídia, mesmo recebida do cliente
+    // (não seta fromApi=true nesses casos). Só descarta fromMe=true para texto —
+    // mesma lógica de extractOwnerMessage em webhooks.routes.ts.
+    const mediaTypes = ['audio', 'video', 'image', 'document', 'ptt', 'sticker', 'media']
+    const isRealOwnerMessage = msg.fromMe === true && msg.fromApi !== true && !mediaTypes.includes(msg.type)
+    if (isRealOwnerMessage) return null
     if (msg.isGroup === true) return null
 
     const chatid = msg.chatid || msg.sender_pn || ''

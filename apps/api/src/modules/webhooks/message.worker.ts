@@ -264,7 +264,7 @@ export function startMessageWorker() {
       }
 
       // ── Primeiro Atendimento ────────────────────────────────────────────────
-      if (isNewContact && config?.firstContactEnabled && (config.firstContactText || config.firstContactVideoUrl || config.firstContactFileUrl)) {
+      if (!(contact as any).humanOnly && isNewContact && config?.firstContactEnabled && (config.firstContactText || config.firstContactVideoUrl || config.firstContactFileUrl)) {
         const sentKey = `firstContactSent_${agent.id}`
         const contactVarsCheck = (contact.variables as Record<string, any>) || {}
         if (!contactVarsCheck[sentKey]) {
