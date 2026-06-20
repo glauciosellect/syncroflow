@@ -336,8 +336,12 @@ export function startMessageWorker() {
         Promise.resolve().then(() => { try { emitNewMessage(channel.workspaceId, conversation.id, userMsg) } catch {} }),
       ])
 
-      if (conversation.status === 'HUMAN_ACTIVE' || conversation.status === 'WAITING_HUMAN') {
-        console.log(`[WORKER] Silenciado: conversa ${conversation.id} está em modo humano (${conversation.status})`)
+      // Relê o status no banco (não o valor lido no início do worker) para evitar responder
+      // quando o operador assumiu a conversa entre a leitura inicial e este ponto (race condition
+      // entre o webhook do operador e o processamento desta mensagem do cliente).
+      const freshConversation = await prisma.conversation.findUnique({ where: { id: conversation.id }, select: { status: true } })
+      if (freshConversation?.status === 'HUMAN_ACTIVE' || freshConversation?.status === 'WAITING_HUMAN') {
+        console.log(`[WORKER] Silenciado: conversa ${conversation.id} está em modo humano (${freshConversation.status})`)
         return
       }
 
