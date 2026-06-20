@@ -61,6 +61,7 @@ export function startMessageWorker() {
       const MEDIA_CREDITS = 2
       let from: string, name: string, text: string | undefined
       let incomingMediaType: string | undefined
+      let incomingMediaUrl: string | undefined
 
       if (channelType === 'WHATSAPP') {
         const provider = getWhatsAppProvider()
@@ -84,6 +85,7 @@ export function startMessageWorker() {
           if (providerMediaMatch && provider.downloadMedia) {
             const messageId = providerMediaMatch[2]
             const result = await provider.downloadMedia(messageId, channelId)
+            incomingMediaUrl = result.fileURL
             if (result.transcription) {
               text = result.transcription
             } else if (result.fileURL) {
@@ -95,6 +97,7 @@ export function startMessageWorker() {
                 : '[Mídia recebida]'
             }
           } else {
+            incomingMediaUrl = msg.mediaUrl
             text = await processIncomingMedia(msg.mediaUrl, msg.mediaType)
           }
         }
@@ -308,7 +311,7 @@ export function startMessageWorker() {
 
           // Salvar a mensagem do lead e retornar — IA responderá quando o lead escrever de volta
           const userMsgForFC = await prisma.message.create({
-            data: { conversationId: conv.id, role: 'USER', content: text },
+            data: { conversationId: conv.id, role: 'USER', content: text, mediaUrl: incomingMediaUrl, mediaType: incomingMediaType },
           })
           await prisma.conversation.update({ where: { id: conv.id }, data: { unreadCount: { increment: 1 } } })
           try { emitNewMessage(channel.workspaceId, conv.id, userMsgForFC) } catch {}
@@ -324,7 +327,7 @@ export function startMessageWorker() {
           take: 20,
         }),
         prisma.message.create({
-          data: { conversationId: conversation.id, role: 'USER', content: text },
+          data: { conversationId: conversation.id, role: 'USER', content: text, mediaUrl: incomingMediaUrl, mediaType: incomingMediaType },
         }),
       ])
 

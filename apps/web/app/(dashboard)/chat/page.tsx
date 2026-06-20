@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import {
   Search, MessageSquare, UserCheck, Bot, Send, Loader2,
   X, RotateCcw, ChevronRight, ChevronLeft, Tag, StickyNote, Variable,
-  Phone, Mail, Clock, Hash, Plus, Check, Pencil,
+  Phone, Mail, Clock, Hash, Plus, Check, Pencil, FileText,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDateTime, channelLabel } from '@/lib/utils'
@@ -568,6 +568,19 @@ export default function ChatPage() {
                     msg.role === 'HUMAN' ? 'bg-green-600 text-white' : 'bg-[#1565C0] text-white')}>
                     {msg.role === 'ASSISTANT' && (
                       <div className="flex items-center gap-1 mb-1 opacity-70"><Bot className="w-3 h-3" /><span className="text-xs">IA</span></div>
+                    )}
+                    {msg.mediaUrl && msg.mediaType === 'audio' && (
+                      <audio controls src={msg.mediaUrl} className="mb-1.5 max-w-full" />
+                    )}
+                    {msg.mediaUrl && msg.mediaType === 'image' && (
+                      <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer">
+                        <img src={msg.mediaUrl} alt="Imagem enviada" className="mb-1.5 max-w-full rounded-lg" />
+                      </a>
+                    )}
+                    {msg.mediaUrl && msg.mediaType && msg.mediaType !== 'audio' && msg.mediaType !== 'image' && (
+                      <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 mb-1.5 underline text-sm">
+                        <FileText className="w-3.5 h-3.5" />Ver documento
+                      </a>
                     )}
                     <p className="whitespace-pre-wrap">{msg.content}</p>
                     <div className={cn('text-xs mt-1 opacity-60', msg.role !== 'USER' ? 'text-right' : '')}>
