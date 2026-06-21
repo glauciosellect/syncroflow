@@ -133,6 +133,7 @@ function ThemeToggle() {
 export function Topbar() {
   const { user, workspace, logout, refreshToken, setWorkspace } = useAuthStore()
   const router = useRouter()
+  const qc = useQueryClient()
 
   // Atualiza créditos do workspace a cada 2 minutos
   useQuery({
@@ -153,6 +154,10 @@ export function Topbar() {
       if (refreshToken) await api.post('/auth/logout', { refreshToken })
     } catch {}
     logout()
+    // Limpa todo o cache do React Query — sem isso, dados do usuário anterior
+    // (integrações, conversas, etc) ficavam em memória e apareciam para o
+    // próximo usuário que logasse na mesma aba/navegador.
+    qc.clear()
     router.push('/login')
   }
 
