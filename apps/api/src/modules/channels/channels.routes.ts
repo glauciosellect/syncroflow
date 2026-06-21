@@ -18,20 +18,6 @@ export async function channelRoutes(app: FastifyInstance) {
     return reply.send(channels)
   })
 
-  app.post('/channels/whatsapp', async (req, reply) => {
-    const { sub, wid } = req.user as { sub: string; wid?: string }
-    const workspaceId = await getWorkspaceId(sub, wid)
-    const { name } = z.object({ name: z.string().min(1) }).parse(req.body)
-    const channel = await prisma.channel.create({
-      data: { workspaceId, type: 'WHATSAPP', name, config: { provider: process.env.WHATSAPP_PROVIDER || 'evolution' } },
-    })
-    const provider = getWhatsAppProvider()
-    try {
-      await provider.createInstance(channel.id)
-    } catch {}
-    return reply.status(201).send(channel)
-  })
-
   app.post('/channels/telegram', async (req, reply) => {
     const { sub, wid } = req.user as { sub: string; wid?: string }
     const workspaceId = await getWorkspaceId(sub, wid)
@@ -111,19 +97,6 @@ export async function channelRoutes(app: FastifyInstance) {
     return reply.status(201).send(channel)
   })
 
-  // Recria instância UazAPI para canal WhatsApp que perdeu instanceId/instanceToken
-  app.post('/channels/:id/repair', async (req, reply) => {
-    const { sub, wid } = req.user as { sub: string; wid?: string }
-    const workspaceId = await getWorkspaceId(sub, wid)
-    const { id } = req.params as { id: string }
-    const channel = await prisma.channel.findFirst({ where: { id, workspaceId, type: 'WHATSAPP' } })
-    if (!channel) return reply.status(404).send({ error: 'Canal não encontrado' })
-    const provider = getWhatsAppProvider()
-    try { await provider.deleteInstance(id) } catch {}
-    await provider.createInstance(id)
-    return reply.send({ ok: true })
-  })
-
   app.delete('/channels/:id', async (req, reply) => {
     const { sub, wid } = req.user as { sub: string; wid?: string }
     const workspaceId = await getWorkspaceId(sub, wid)
@@ -162,15 +135,4 @@ export async function channelRoutes(app: FastifyInstance) {
     return reply.send({ ok: true })
   })
 
-  app.get('/channels/:id/qr', async (req, reply) => {
-    const { sub, wid } = req.user as { sub: string; wid?: string }
-    const workspaceId = await getWorkspaceId(sub, wid)
-    const { id } = req.params as { id: string }
-    const channel = await prisma.channel.findFirst({ where: { id, workspaceId, type: 'WHATSAPP' } })
-    if (!channel) return reply.status(404).send({ error: 'Canal não encontrado' })
-    const provider = getWhatsAppProvider()
-    const qr = await provider.getQRCode(id)
-    const status = await provider.getStatus(id)
-    return reply.send({ qr, status })
-  })
 }

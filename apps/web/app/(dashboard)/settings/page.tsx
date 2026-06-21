@@ -14,7 +14,7 @@ import { formatDate } from '@/lib/utils'
 import {
   Plus, Trash2, Loader2, Eye, EyeOff, KeyRound,
   User, CreditCard, Check, Coins, Zap, AlertTriangle, Plug, ExternalLink,
-  Radio, QrCode, Save, Copy, ShieldAlert,
+  Radio, Save, Copy, ShieldAlert,
 } from 'lucide-react'
 import { channelLabel, cn } from '@/lib/utils'
 
@@ -457,16 +457,13 @@ function ChannelIcon({ type }: { type: string }) {
 function ChannelsTab() {
   const { toast } = useToast()
   const qc = useQueryClient()
-  const [showWhatsAppForm, setShowWhatsAppForm] = useState(false)
   const [showTelegramForm, setShowTelegramForm] = useState(false)
   const [showLinkedInForm, setShowLinkedInForm] = useState(false)
-  const [whatsAppName, setWhatsAppName] = useState('')
   const [telegramName, setTelegramName] = useState('')
   const [telegramToken, setTelegramToken] = useState('')
   const [linkedinName, setLinkedinName] = useState('')
   const [linkedinToken, setLinkedinToken] = useState('')
   const [linkedinOrgId, setLinkedinOrgId] = useState('')
-  const [qrData, setQrData] = useState<Record<string, { qr: string; status: string }>>({})
   const [selectedAgents, setSelectedAgents] = useState<Record<string, string>>({})
   const searchParams = useSearchParams()
 
@@ -498,12 +495,6 @@ function ChannelsTab() {
       api.patch(`/channels/${channelId}/agents`, { agentIds: agentId ? [agentId] : [] }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['channels'] }); toast({ title: 'Agente vinculado!' }) },
     onError: () => toast({ title: 'Erro ao vincular agente', variant: 'destructive' }),
-  })
-
-  const createWhatsAppMutation = useMutation({
-    mutationFn: () => api.post('/channels/whatsapp', { name: whatsAppName }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['channels'] }); setShowWhatsAppForm(false); setWhatsAppName('') },
-    onError: (err: any) => toast({ title: 'Erro', description: err.response?.data?.error || 'Erro ao conectar', variant: 'destructive' }),
   })
 
   const whatsappEmbeddedSignupMutation = useMutation({
@@ -539,54 +530,6 @@ function ChannelsTab() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['channels'] }); toast({ title: 'Canal desconectado' }) },
     onError: (err: any) => toast({ title: 'Erro ao desconectar', description: err.response?.data?.error || 'Tente novamente', variant: 'destructive' }),
   })
-
-  const repairMutation = useMutation({
-    mutationFn: (id: string) => api.post(`/channels/${id}/repair`),
-    onSuccess: (_, id) => {
-      toast({ title: '✅ Canal reparado!', description: 'Agora clique em Ver QR Code para reconectar o WhatsApp.' })
-      setQrData(p => { const n = { ...p }; delete n[id]; return n })
-      qc.invalidateQueries({ queryKey: ['channels'] })
-    },
-    onError: (err: any) => toast({ title: 'Erro ao reparar canal', description: err.response?.data?.error || 'Tente novamente', variant: 'destructive' }),
-  })
-
-  const loadQR = async (channelId: string, retries = 5) => {
-    try {
-      const res = await api.get(`/channels/${channelId}/qr`)
-      const { qr, status } = res.data
-      if (!qr && status !== 'connected' && retries > 0) {
-        setQrData(p => ({ ...p, [channelId]: { qr: '', status: 'waiting' } }))
-        setTimeout(() => loadQR(channelId, retries - 1), 3000)
-        return
-      }
-      setQrData(p => ({ ...p, [channelId]: { qr: qr || '', status: status || 'disconnected' } }))
-      // Se mostrou o QR, faz polling do status a cada 4s para detectar quando escanear
-      if (qr && status !== 'connected') {
-        pollStatus(channelId)
-      }
-    } catch {
-      toast({ title: 'Erro ao carregar QR Code', variant: 'destructive' })
-    }
-  }
-
-  const pollStatus = (channelId: string, attempts = 20) => {
-    if (attempts <= 0) return
-    setTimeout(async () => {
-      try {
-        const res = await api.get(`/channels/${channelId}/qr`)
-        const { status, qr } = res.data
-        if (status === 'connected') {
-          setQrData(p => ({ ...p, [channelId]: { qr: '', status: 'connected' } }))
-          toast({ title: '✅ WhatsApp conectado!', description: 'Seu WhatsApp está ativo e pronto para receber mensagens.' })
-        } else {
-          setQrData(p => ({ ...p, [channelId]: { qr: qr || p[channelId]?.qr || '', status: status || 'disconnected' } }))
-          pollStatus(channelId, attempts - 1)
-        }
-      } catch {
-        pollStatus(channelId, attempts - 1)
-      }
-    }, 4000)
-  }
 
   const { token: authToken, refreshToken: authRefreshToken } = useAuthStore()
 
@@ -644,14 +587,11 @@ function ChannelsTab() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <p className="text-sm text-gray-500">Conecte seus canais de atendimento e vincule agentes a cada um.</p>
         <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" size="sm" onClick={() => setShowWhatsAppForm(true)}>
-            <Plus className="w-3 h-3 mr-1" />WhatsApp
-          </Button>
           <Button variant="outline" size="sm" onClick={connectWhatsAppMeta}
             className="border-green-200 text-green-700 hover:bg-green-50"
             disabled={whatsappEmbeddedSignupMutation.isPending}>
             {whatsappEmbeddedSignupMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Plus className="w-3 h-3 mr-1" />}
-            WhatsApp (Meta)
+            WhatsApp
           </Button>
           <Button variant="outline" size="sm" onClick={() => connectMeta('instagram')}
             className="border-pink-200 text-pink-700 hover:bg-pink-50">
@@ -671,25 +611,6 @@ function ChannelsTab() {
           </Button>
         </div>
       </div>
-
-      {showWhatsAppForm && (
-        <Card>
-          <CardHeader><CardTitle className="text-base">Conectar WhatsApp</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label>Nome da conexão</Label>
-              <Input placeholder="Ex: WhatsApp Principal" value={whatsAppName} onChange={e => setWhatsAppName(e.target.value)} className="mt-1" />
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={() => createWhatsAppMutation.mutate()} className="bg-[#1565C0] hover:bg-[#0D47A1]" disabled={createWhatsAppMutation.isPending || !whatsAppName.trim()}>
-                {createWhatsAppMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Conectar
-              </Button>
-              <Button variant="ghost" onClick={() => { setShowWhatsAppForm(false); setWhatsAppName('') }}>Cancelar</Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {showTelegramForm && (
         <Card>
@@ -786,27 +707,8 @@ function ChannelsTab() {
                 </div>
 
                 {channel.type === 'WHATSAPP' && (
-                  <div className="mt-3">
-                    {qrData[channel.id] ? (
-                      qrData[channel.id].status === 'connected' ? (
-                        <div className="text-center text-sm text-green-600 font-medium py-2">✓ WhatsApp conectado</div>
-                      ) : qrData[channel.id].qr ? (
-                        <img src={qrData[channel.id].qr} alt="QR Code" className="w-40 h-40 mx-auto rounded-lg" />
-                      ) : (
-                        <div className="text-center py-2 space-y-2">
-                          <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
-                            <Loader2 className="w-3 h-3 animate-spin" />Gerando QR Code...
-                          </div>
-                          <button onClick={() => loadQR(channel.id)} className="text-xs text-[#1565C0] hover:underline">
-                            Tentar novamente
-                          </button>
-                        </div>
-                      )
-                    ) : (
-                      <Button variant="outline" size="sm" onClick={() => loadQR(channel.id)} className="w-full">
-                        <QrCode className="w-3 h-3 mr-2" />Ver QR Code
-                      </Button>
-                    )}
+                  <div className="mt-3 text-center text-sm text-green-600 font-medium py-2">
+                    ✓ Conectado via API oficial — {channel.config?.displayPhoneNumber || 'WhatsApp Business'}
                   </div>
                 )}
 
@@ -840,12 +742,6 @@ function ChannelsTab() {
                       </Button>
                     </div>
                   </div>
-                  {channel.type === 'WHATSAPP' && (
-                    <Button variant="ghost" size="sm" onClick={() => repairMutation.mutate(channel.id)} disabled={repairMutation.isPending} className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 w-full">
-                      {repairMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : <Radio className="w-3 h-3 mr-2" />}
-                      Reparar instância
-                    </Button>
-                  )}
                   <Button variant="ghost" size="sm" onClick={() => deleteMutation.mutate(channel.id)} disabled={deleteMutation.isPending} className="text-red-500 hover:text-red-700 hover:bg-red-50 w-full">
                     {deleteMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : <Trash2 className="w-3 h-3 mr-2" />}
                     Desconectar
