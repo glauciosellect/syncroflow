@@ -85,7 +85,7 @@ export default function IntegrationsPage() {
   const [elOpen, setElOpen] = useState(false)
 
   // Auth tokens para Google
-  const { token, refreshToken } = useAuthStore()
+  const { token, refreshToken, workspace } = useAuthStore()
   const searchParams = useSearchParams()
 
   // ─── Queries ────────────────────────────────────────────────────────────────
@@ -766,7 +766,7 @@ export default function IntegrationsPage() {
                   <>
                     {googleStatus.tokenExpired && (
                       <Button size="sm" className="text-xs bg-[#4285F4] hover:bg-[#3367D6] text-white"
-                        onClick={() => { window.location.href = `${API_URL}/integrations/google/connect?token=${refreshToken || token}` }}>
+                        onClick={() => { window.location.href = `${API_URL}/integrations/google/connect?token=${refreshToken || token}&wid=${workspace?.id || ''}` }}>
                         Reconectar
                       </Button>
                     )}
@@ -778,7 +778,7 @@ export default function IntegrationsPage() {
                   </>
                 ) : (
                   <Button size="sm" className="text-xs bg-[#4285F4] hover:bg-[#3367D6] text-white"
-                    onClick={() => { window.location.href = `${API_URL}/integrations/google/connect?token=${refreshToken || token}` }}>
+                    onClick={() => { window.location.href = `${API_URL}/integrations/google/connect?token=${refreshToken || token}&wid=${workspace?.id || ''}` }}>
                     <ExternalLink className="w-3 h-3 mr-1" /> Conectar
                   </Button>
                 )}

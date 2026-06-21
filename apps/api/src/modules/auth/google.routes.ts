@@ -119,7 +119,7 @@ export async function googleRoutes(app: FastifyInstance) {
   // Aceita token via query param pois é um redirect de browser (sem header Authorization)
   // Tenta access token (15min) e também refresh token (7d) para não falhar se access expirou
   app.get('/integrations/google/connect', async (req, reply) => {
-    const { token } = req.query as Record<string, string>
+    const { token, wid } = req.query as Record<string, string>
     if (!token) return reply.status(401).send({ error: 'Não autorizado' })
 
     let userId: string
@@ -136,7 +136,12 @@ export async function googleRoutes(app: FastifyInstance) {
       }
     }
 
-    const member = await prisma.workspaceMember.findFirst({ where: { userId } })
+    // Usa o workspace ativo na tela (wid) — sem isso, usuários com múltiplos
+    // workspaces teriam o token sempre salvo no workspace mais antigo, errado.
+    const member = await prisma.workspaceMember.findFirst({
+      where: wid ? { workspaceId: wid, userId } : { userId },
+      orderBy: { createdAt: 'asc' },
+    })
     if (!member) return reply.status(404).send({ error: 'Workspace não encontrado' })
 
     const redirectUri = `${API_URL}/integrations/google/callback`
