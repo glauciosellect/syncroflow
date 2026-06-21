@@ -36,6 +36,21 @@ function extractOwnerMessage(payload: any): string | null {
 }
 
 export async function webhookRoutes(app: FastifyInstance) {
+  // Verificação inicial do webhook (Meta Cloud API chama isso ao configurar a URL no painel)
+  app.get('/webhooks/whatsapp/:channelId', async (req, reply) => {
+    const query = req.query as Record<string, string>
+    if (query['hub.mode'] === 'subscribe') {
+      const channel = await prisma.channel.findUnique({ where: { id: (req.params as any).channelId as string } })
+      if (!channel) return reply.status(404).send()
+      const verifyToken = (channel.config as any)?.verifyToken || process.env.META_VERIFY_TOKEN
+      if (query['hub.verify_token'] === verifyToken) {
+        return reply.send(query['hub.challenge'])
+      }
+      return reply.status(403).send()
+    }
+    return reply.send()
+  })
+
   app.post('/webhooks/whatsapp/:channelId', async (req, reply) => {
     const { channelId } = req.params as { channelId: string }
 
