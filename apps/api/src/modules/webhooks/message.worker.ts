@@ -66,7 +66,8 @@ export function startMessageWorker() {
       if (channelType === 'WHATSAPP') {
         const provider = getWhatsAppProvider()
         const msg = provider.parseWebhook(payload)
-        if (!msg) return
+        console.log('[WORKER] parseWebhook resultado:', JSON.stringify(msg))
+        if (!msg) { console.log('[WORKER] parseWebhook retornou null — mensagem descartada'); return }
         from = msg.from
         name = msg.name
         text = msg.text

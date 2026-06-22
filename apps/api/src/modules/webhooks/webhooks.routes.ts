@@ -21,7 +21,7 @@ export async function webhookRoutes(app: FastifyInstance) {
 
   app.post('/webhooks/whatsapp/:channelId', async (req, reply) => {
     const { channelId } = req.params as { channelId: string }
-    console.log('[WHATSAPP-WEBHOOK] recebido channelId:', channelId, '| body:', JSON.stringify(req.body).slice(0, 500))
+    console.log('[WHATSAPP-WEBHOOK] recebido channelId:', channelId, '| body:', JSON.stringify(req.body))
 
     const channel = await prisma.channel.findUnique({ where: { id: channelId } })
     if (!channel) {
