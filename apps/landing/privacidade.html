@@ -55,7 +55,7 @@
 <div class="container">
   <div class="doc-header">
     <h1>Política de Privacidade</h1>
-    <p class="meta">Última atualização: <strong>07 de junho de 2026</strong> &nbsp;|&nbsp; Versão 1.0 &nbsp;|&nbsp; Em conformidade com a <strong>Lei Geral de Proteção de Dados (LGPD — Lei nº 13.709/2018)</strong></p>
+    <p class="meta">Última atualização: <strong>21 de junho de 2026</strong> &nbsp;|&nbsp; Versão 1.1 &nbsp;|&nbsp; Em conformidade com a <strong>Lei Geral de Proteção de Dados (LGPD — Lei nº 13.709/2018)</strong></p>
   </div>
 
   <div class="highlight">
@@ -97,6 +97,19 @@
   <h3>2.3 Dados de conversas e conteúdo do Usuário</h3>
   <p>As conversas trocadas entre os agentes de IA e os clientes finais do Usuário são armazenadas na plataforma para exibição no histórico e fins de auditoria. O Usuário é o controlador desses dados perante seus próprios clientes e é responsável por garantir o consentimento adequado para o tratamento.</p>
 
+  <h3>2.4 Dados obtidos via WhatsApp, Instagram e Facebook (Meta Platform Data)</h3>
+  <p>O SyncroFlow conecta-se oficialmente ao WhatsApp Business Platform, Instagram e Facebook Messenger por meio das APIs oficiais da Meta (Meta Cloud API), atuando como Provedor de Tecnologia (Tech Provider) em nome dos Usuários da plataforma. Ao conectar um canal, coletamos e processamos os seguintes dados recebidos da Meta:</p>
+  <div class="table-wrap">
+    <table>
+      <tr><th>Dado</th><th>Finalidade</th><th>Base Legal (LGPD)</th></tr>
+      <tr><td>Identificador do número de telefone (WhatsApp Business Account ID, Phone Number ID)</td><td>Envio e recebimento de mensagens em nome do Usuário</td><td>Execução de contrato (Art. 7º, V)</td></tr>
+      <tr><td>Nome de perfil e foto do contato (cliente final)</td><td>Identificação do remetente no histórico de atendimento</td><td>Execução de contrato / Legítimo interesse</td></tr>
+      <tr><td>Conteúdo das mensagens (texto, áudio, imagem, documento) trocadas via WhatsApp/Instagram/Facebook</td><td>Processamento pelo agente de IA para gerar respostas automatizadas e exibição no histórico de atendimento</td><td>Execução de contrato (Art. 7º, V)</td></tr>
+      <tr><td>Token de acesso (access token) da conta comercial conectada</td><td>Autenticação das chamadas à API oficial da Meta em nome do Usuário</td><td>Execução de contrato (Art. 7º, V)</td></tr>
+    </table>
+  </div>
+  <p>Esses dados são tratados exclusivamente para viabilizar o atendimento automatizado contratado pelo Usuário e não são utilizados para fins de publicidade, venda a terceiros ou qualquer finalidade não relacionada à prestação do serviço. O acesso a esses dados é restrito aos sistemas da plataforma e à infraestrutura descrita na Seção 5.</p>
+
   <h2>3. Cookies e Tecnologias de Rastreamento</h2>
   <p>Utilizamos cookies e tecnologias similares para:</p>
   <ul>
@@ -126,7 +139,7 @@
       <tr><td>Stripe</td><td>Processamento de pagamentos</td><td>Estados Unidos</td></tr>
       <tr><td>Anthropic / OpenAI</td><td>Processamento de mensagens pelos modelos de IA</td><td>Estados Unidos</td></tr>
       <tr><td>Google Analytics</td><td>Analytics de uso do site</td><td>Estados Unidos</td></tr>
-      <tr><td>Meta (Facebook)</td><td>Mensuração de campanhas (Pixel)</td><td>Estados Unidos</td></tr>
+      <tr><td>Meta (WhatsApp, Instagram, Facebook)</td><td>Envio/recebimento de mensagens via API oficial e mensuração de campanhas (Pixel)</td><td>Estados Unidos</td></tr>
       <tr><td>Vercel</td><td>Hospedagem do site e aplicação</td><td>Estados Unidos</td></tr>
     </table>
   </div>
