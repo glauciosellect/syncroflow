@@ -2,8 +2,19 @@ import type { FastifyInstance } from 'fastify'
 import { prisma } from '../../lib/prisma'
 import { messageQueue } from '../../lib/queue'
 import { emitNewMessage } from '../../lib/socket'
+import { redis } from '../../lib/redis'
 
 export async function webhookRoutes(app: FastifyInstance) {
+  // TEMPORÁRIO — remover após o teste de validação do Meta Cloud API.
+  // Limpa uma chave de silêncio do Redis sem precisar esperar o TTL expirar.
+  app.post('/debug/clear-silence', async (req, reply) => {
+    const { channelId, phone } = req.body as { channelId: string; phone: string }
+    if (!channelId || !phone) return reply.status(400).send({ error: 'channelId e phone obrigatórios' })
+    const key = `silence:${channelId}:${phone}`
+    const result = await redis.del(key)
+    return reply.send({ ok: true, key, deleted: result })
+  })
+
   // Verificação inicial do webhook (Meta Cloud API chama isso ao configurar a URL no painel)
   app.get('/webhooks/whatsapp/:channelId', async (req, reply) => {
     const query = req.query as Record<string, string>
