@@ -103,13 +103,13 @@ export function startMessageWorker() {
           }
         }
 
-        if (!text) return
-        if (isWhatsAppGroup(from)) return
-        if (isBotMessage(text)) return
+        if (!text) { console.log('[WORKER] sem texto após processamento — descartado'); return }
+        if (isWhatsAppGroup(from)) { console.log('[WORKER] mensagem de grupo — descartada'); return }
+        if (isBotMessage(text)) { console.log('[WORKER] detectado como mensagem de bot — descartada'); return }
 
         const silenceKey = `silence:${channelId}:${from}`
         const isSilenced = await redis.get(silenceKey)
-        if (isSilenced) return
+        if (isSilenced) { console.log(`[WORKER] conversa silenciada (chave ${silenceKey}) — descartada`); return }
 
         // Se cliente se despediu, agenda silêncio de 2h para evitar loop de despedidas
         // O worker continua e processa normalmente — o agente responde a despedida uma última vez
@@ -157,7 +157,7 @@ export function startMessageWorker() {
       }
 
       const agentChannel = channel.agentChannels[0]
-      if (!agentChannel) return
+      if (!agentChannel) { console.log('[WORKER] canal sem agente vinculado — descartado'); return }
       // agente padrão do canal (usado ao criar nova conversa)
       const defaultAgent = agentChannel.agent
 
