@@ -729,7 +729,7 @@ export function startMessageWorker() {
       }
 
       } catch (err: any) {
-        console.error('[WORKER] ERRO:', err?.message || err)
+        console.error('[WORKER] ERRO:', err?.message || err, '| status:', err?.status ?? err?.response?.status, '| detalhe:', JSON.stringify(err?.error ?? err?.response?.data ?? {}))
         throw err // re-throw para BullMQ registrar como falha e fazer retry
       }
     },
