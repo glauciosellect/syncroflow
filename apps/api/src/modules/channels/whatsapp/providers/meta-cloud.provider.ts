@@ -5,6 +5,22 @@ import { prisma } from '../../../../lib/prisma'
 const API_VERSION = process.env.META_WHATSAPP_API_VERSION || 'v21.0'
 const GRAPH_URL = `https://graph.facebook.com/${API_VERSION}`
 
+// A Meta recebe números BR sem o 9º dígito (ex: 553288290229), mas exige o 9º
+// dígito para ENVIAR (ex: 5532988290229). Sem essa normalização, o envio falha
+// com "Recipient phone number not in allowed list" mesmo com número válido.
+function normalizeBrazilianNumber(to: string): string {
+  const digits = to.replace(/\D/g, '')
+  // 55 + DDD (2) + número sem 9º dígito (8) = 12 dígitos
+  if (digits.length === 12 && digits.startsWith('55')) {
+    const ddd = digits.slice(2, 4)
+    const rest = digits.slice(4)
+    if (rest.length === 8 && !rest.startsWith('9')) {
+      return `55${ddd}9${rest}`
+    }
+  }
+  return digits
+}
+
 interface MetaCloudConfig {
   provider: 'meta-cloud'
   phoneNumberId: string
@@ -54,7 +70,7 @@ export class MetaCloudApiProvider implements WhatsAppProvider {
     const { phoneNumberId, accessToken } = await this.getConfig(channelId)
     await axios.post(`${GRAPH_URL}/${phoneNumberId}/messages`, {
       messaging_product: 'whatsapp',
-      to,
+      to: normalizeBrazilianNumber(to),
       type: 'text',
       text: { body: text },
     }, { headers: { Authorization: `Bearer ${accessToken}` } })
@@ -64,7 +80,7 @@ export class MetaCloudApiProvider implements WhatsAppProvider {
     const { phoneNumberId, accessToken } = await this.getConfig(channelId)
     await axios.post(`${GRAPH_URL}/${phoneNumberId}/messages`, {
       messaging_product: 'whatsapp',
-      to,
+      to: normalizeBrazilianNumber(to),
       type: 'image',
       image: { link: mediaUrl, caption },
     }, { headers: { Authorization: `Bearer ${accessToken}` } })
@@ -74,7 +90,7 @@ export class MetaCloudApiProvider implements WhatsAppProvider {
     const { phoneNumberId, accessToken } = await this.getConfig(channelId)
     await axios.post(`${GRAPH_URL}/${phoneNumberId}/messages`, {
       messaging_product: 'whatsapp',
-      to,
+      to: normalizeBrazilianNumber(to),
       type: 'audio',
       audio: { link: audioUrl },
     }, { headers: { Authorization: `Bearer ${accessToken}` } })
@@ -97,7 +113,7 @@ export class MetaCloudApiProvider implements WhatsAppProvider {
 
     await axios.post(`${GRAPH_URL}/${phoneNumberId}/messages`, {
       messaging_product: 'whatsapp',
-      to,
+      to: normalizeBrazilianNumber(to),
       type: 'audio',
       audio: { id: mediaId },
     }, { headers: { Authorization: `Bearer ${accessToken}` } })
