@@ -4,6 +4,7 @@ import { prisma } from '../../lib/prisma'
 import { emitNewMessage, emitConversationUpdated } from '../../lib/socket'
 import { getWhatsAppProvider } from '../channels/whatsapp/provider.factory'
 import { getWorkspaceId } from '../../lib/workspace'
+import { getValidGmailToken, sendReply } from '../../lib/gmail'
 
 export async function conversationRoutes(app: FastifyInstance) {
   app.addHook('onRequest', app.authenticate)
@@ -126,6 +127,28 @@ export async function conversationRoutes(app: FastifyInstance) {
             recipient: { id: conv.contact.externalId },
             message: { text: content },
           }, { headers: { Authorization: `Bearer ${cfg.pageAccessToken}` } })
+        }
+      }
+      // Email — responde na mesma thread, usando o metadata (threadId/messageId/
+      // references/subject) salvo na última mensagem do cliente
+      if (conv.channel.type === 'EMAIL' && conv.contact.externalId) {
+        const lastInbound = await prisma.message.findFirst({
+          where: { conversationId: id, role: 'USER', metadata: { not: undefined } },
+          orderBy: { createdAt: 'desc' },
+        })
+        const meta = lastInbound?.metadata as any
+        if (meta?.threadId && meta?.messageId) {
+          const accessToken = await getValidGmailToken(conv.channelId)
+          if (accessToken) {
+            await sendReply(accessToken, {
+              threadId: meta.threadId,
+              messageId: meta.messageId,
+              references: meta.references,
+              to: conv.contact.externalId,
+              subject: meta.subject?.toLowerCase().startsWith('re:') ? meta.subject : `Re: ${meta.subject || ''}`,
+              body: content,
+            })
+          }
         }
       }
     } catch (err: any) {

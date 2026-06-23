@@ -13,6 +13,7 @@ import {
 import { cn } from '@/lib/utils'
 import { formatDateTime, channelLabel } from '@/lib/utils'
 import { useSocketConnect, useSocketEvent } from '@/hooks/use-socket'
+import { ChannelIcon } from '@/components/channel-icon'
 
 // Toca um beep suave ao chegar mensagem nova
 function playNotificationSound() {
@@ -329,6 +330,7 @@ export default function ChatPage() {
   const [selected, setSelected] = useState<any>(null)
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
+  const [channelFilter, setChannelFilter] = useState('all')
   const [message, setMessage] = useState('')
   const [showProfile, setShowProfile] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -352,7 +354,7 @@ export default function ChatPage() {
           // Toca som de notificação
           playNotificationSound()
           // Incrementa na lista em cache
-          qc.setQueryData(['conversations', filter, search], (old: any) => {
+          qc.setQueryData(['conversations', filter, search, channelFilter], (old: any) => {
             if (!old) return old
             return {
               ...old,
@@ -369,15 +371,15 @@ export default function ChatPage() {
     }
 
     qc.invalidateQueries({ queryKey: ['conversations'] })
-  }, [qc, filter, search])
+  }, [qc, filter, search, channelFilter])
 
   const handleConversationUpdated = useCallback((conv: any) => {
-    qc.setQueryData(['conversations', filter, search], (old: any) => {
+    qc.setQueryData(['conversations', filter, search, channelFilter], (old: any) => {
       if (!old) return old
       return { ...old, data: old.data?.map((c: any) => c.id === conv.id ? { ...c, ...conv } : c) }
     })
     setSelected((prev: any) => prev?.id === conv.id ? { ...prev, ...conv } : prev)
-  }, [filter, search])
+  }, [filter, search, channelFilter])
 
   useSocketEvent('message:new', handleNewMessage)
   useSocketEvent('conversation:updated', handleConversationUpdated)
@@ -386,10 +388,15 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [selected?.id])
 
+  const { data: channels } = useQuery({
+    queryKey: ['channels'],
+    queryFn: () => api.get('/channels').then(r => r.data),
+  })
+
   const { data: conversations } = useQuery({
-    queryKey: ['conversations', filter, search],
+    queryKey: ['conversations', filter, search, channelFilter],
     queryFn: () => api.get('/conversations', {
-      params: { status: filter !== 'all' ? filter : undefined, search: search || undefined },
+      params: { status: filter !== 'all' ? filter : undefined, search: search || undefined, channelId: channelFilter !== 'all' ? channelFilter : undefined },
     }).then(r => r.data),
   })
 
@@ -431,7 +438,7 @@ export default function ChatPage() {
   const handleSelectConversation = useCallback((conv: any) => {
     setSelected(conv)
     if ((conv.unreadCount || 0) > 0) {
-      qc.setQueryData(['conversations', filter, search], (old: any) => {
+      qc.setQueryData(['conversations', filter, search, channelFilter], (old: any) => {
         if (!old) return old
         return {
           ...old,
@@ -441,7 +448,7 @@ export default function ChatPage() {
         }
       })
     }
-  }, [qc, filter, search])
+  }, [qc, filter, search, channelFilter])
 
   return (
     <div className="h-full flex -m-4 md:-m-6 bg-white rounded-lg overflow-hidden border border-gray-200">
@@ -453,6 +460,18 @@ export default function ChatPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input placeholder="Buscar conversa..." className="pl-9 h-8 text-sm" value={search} onChange={e => setSearch(e.target.value)} />
           </div>
+          {(channels?.length || 0) > 1 && (
+            <select
+              className="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 mt-2 text-gray-700 bg-white"
+              value={channelFilter}
+              onChange={e => setChannelFilter(e.target.value)}
+            >
+              <option value="all">Todos os canais</option>
+              {(channels || []).map((c: any) => (
+                <option key={c.id} value={c.id}>{channelLabel(c.type)} — {c.name}</option>
+              ))}
+            </select>
+          )}
           <div className="flex gap-1 mt-2">
             {tabs.map(t => (
               <button key={t.key} onClick={() => setFilter(t.key)}
@@ -474,6 +493,7 @@ export default function ChatPage() {
             <button key={conv.id} onClick={() => handleSelectConversation(conv)}
               className={cn('w-full text-left p-3 border-b border-gray-50 hover:bg-gray-50 transition-colors', selected?.id === conv.id ? 'bg-blue-50 border-l-2 border-l-[#1565C0]' : '')}>
               <div className="flex items-start justify-between gap-2">
+                <ChannelIcon type={conv.channel?.type} className="w-7 h-7 shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
                     <span className={cn('font-medium text-sm truncate', (conv.unreadCount || 0) > 0 ? 'text-gray-900 font-semibold' : 'text-gray-900')}>
@@ -511,6 +531,7 @@ export default function ChatPage() {
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
+            <ChannelIcon type={selected.channel?.type} className="w-8 h-8 shrink-0" />
             <div className="min-w-0">
               <h3 className="font-semibold text-gray-900 truncate">{selected.contact?.name || selected.contact?.phone || 'Desconhecido'}</h3>
               <p className="text-xs text-gray-400">
