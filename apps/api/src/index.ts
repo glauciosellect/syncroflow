@@ -4,6 +4,7 @@ import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
 import jwt from '@fastify/jwt'
 import rateLimit from '@fastify/rate-limit'
+import rawBody from 'fastify-raw-body'
 import { redis } from './lib/redis'
 import { logger } from './lib/logger'
 
@@ -77,6 +78,11 @@ async function bootstrap() {
   })
 
   await app.register(jwt, { secret: process.env.JWT_SECRET || 'dev-secret-change-in-prod' })
+
+  // Expõe req.rawBody nas rotas que pedirem (config: { rawBody: true }) — necessário
+  // para validar assinaturas HMAC (Stripe, Meta) sobre os bytes exatos recebidos,
+  // já que o JSON re-serializado pode não ser idêntico ao original.
+  await app.register(rawBody, { field: 'rawBody', global: false, runFirst: true })
 
   // Rate limit global: 200 req/min por IP
   await app.register(rateLimit, {
