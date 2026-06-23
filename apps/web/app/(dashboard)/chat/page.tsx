@@ -396,7 +396,12 @@ export default function ChatPage() {
   const { data: conversations } = useQuery({
     queryKey: ['conversations', filter, search, channelFilter],
     queryFn: () => api.get('/conversations', {
-      params: { status: filter !== 'all' ? filter : undefined, search: search || undefined, channelId: channelFilter !== 'all' ? channelFilter : undefined },
+      params: {
+        status: filter !== 'all' && filter !== 'mine' ? filter : undefined,
+        assignedToMe: filter === 'mine' ? 'true' : undefined,
+        search: search || undefined,
+        channelId: channelFilter !== 'all' ? channelFilter : undefined,
+      },
     }).then(r => r.data),
   })
 
@@ -431,7 +436,7 @@ export default function ChatPage() {
     { key: 'all', label: 'Todos' },
     { key: 'WAITING_HUMAN', label: 'Em espera' },
     { key: 'AI_ACTIVE', label: 'IA ativa' },
-    { key: 'HUMAN_ACTIVE', label: 'Meus' },
+    { key: 'mine', label: 'Meus' },
   ]
 
   // Seleciona conversa e zera badge de não lidas localmente

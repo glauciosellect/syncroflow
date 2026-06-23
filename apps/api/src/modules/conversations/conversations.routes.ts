@@ -12,13 +12,16 @@ export async function conversationRoutes(app: FastifyInstance) {
   app.get('/conversations', async (req, reply) => {
     const { sub, wid } = req.user as { sub: string; wid?: string }
     const workspaceId = await getWorkspaceId(sub, wid)
-    const { status, agentId, channelId, page = '1', limit = '20', search } = req.query as Record<string, string>
+    const { status, agentId, channelId, page = '1', limit = '20', search, assignedToMe } = req.query as Record<string, string>
     const skip = (Number(page) - 1) * Number(limit)
 
     const where: any = { workspaceId }
     if (status) where.status = status
     if (agentId) where.agentId = agentId
     if (channelId) where.channelId = channelId
+    // "Meus": conversas com atendimento humano atribuídas a quem está logado —
+    // sem isso, a aba "Meus" misturava conversas de todos os atendentes.
+    if (assignedToMe === 'true') where.assignedToId = sub
     if (search) where.contact = { OR: [{ name: { contains: search, mode: 'insensitive' } }, { phone: { contains: search } }] }
 
     const [conversations, total] = await prisma.$transaction([
@@ -127,6 +130,19 @@ export async function conversationRoutes(app: FastifyInstance) {
             recipient: { id: conv.contact.externalId },
             message: { text: content },
           }, { headers: { Authorization: `Bearer ${cfg.pageAccessToken}` } })
+        }
+      }
+      // LinkedIn — mesmo padrão (não-oficial) usado em message.worker.ts; ver
+      // PENDENCIAS.md sobre confiabilidade dessa integração
+      if (conv.channel.type === 'LINKEDIN' && conv.contact.externalId) {
+        const cfg = conv.channel.config as any
+        if (cfg?.accessToken) {
+          const axios = (await import('axios')).default
+          await axios.post('https://api.linkedin.com/v2/messages', {
+            recipients: [{ 'com.linkedin.voyager.messaging.MessagingMember': { 'com.linkedin.common.UrnId': conv.contact.externalId } }],
+            subject: '',
+            body: content,
+          }, { headers: { Authorization: `Bearer ${cfg.accessToken}`, 'Content-Type': 'application/json' } })
         }
       }
       // Email — responde na mesma thread, usando o metadata (threadId/messageId/
