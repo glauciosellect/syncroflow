@@ -284,7 +284,7 @@ export function startMessageWorker() {
           // Enviar vídeo e arquivo em paralelo
           const mediaPromises: Promise<any>[] = []
           if (config.firstContactVideoUrl && channelType === 'WHATSAPP')
-            mediaPromises.push(getWhatsAppProvider().sendMedia(channelId, from!, config.firstContactVideoUrl, 'video'))
+            mediaPromises.push(getWhatsAppProvider().sendMedia(channelId, from!, config.firstContactVideoUrl))
           if (config.firstContactFileUrl && channelType === 'WHATSAPP')
             mediaPromises.push(getWhatsAppProvider().sendMedia(channelId, from!, config.firstContactFileUrl, config.firstContactFileName || undefined))
           if (mediaPromises.length) await Promise.all(mediaPromises)

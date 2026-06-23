@@ -5,10 +5,12 @@ import { prisma } from '../../../../lib/prisma'
 const API_VERSION = process.env.META_WHATSAPP_API_VERSION || 'v21.0'
 const GRAPH_URL = `https://graph.facebook.com/${API_VERSION}`
 
-// A Meta recebe números BR sem o 9º dígito (ex: 553288290229), mas exige o 9º
-// dígito para ENVIAR (ex: 5532988290229). Sem essa normalização, o envio falha
-// com "Recipient phone number not in allowed list" mesmo com número válido.
-function normalizeBrazilianNumber(to: string): string {
+// A Meta recebe e entrega números BR sem o 9º dígito (ex: 553288290229), mas
+// exige o número completo com 9º dígito para ENVIAR (ex: 5532988290229).
+// Aplicada tanto no envio (sendText/sendMedia/...) quanto no recebimento
+// (parseWebhook), para o "from" já chegar normalizado e Contact.externalId
+// nunca duplicar o mesmo cliente com/sem o 9º dígito.
+export function normalizeBrazilianNumber(to: string): string {
   const digits = to.replace(/\D/g, '')
   // 55 + DDD (2) + número sem 9º dígito (8) = 12 dígitos
   if (digits.length === 12 && digits.startsWith('55')) {
@@ -19,6 +21,16 @@ function normalizeBrazilianNumber(to: string): string {
     }
   }
   return digits
+}
+
+// Detecta o tipo de mídia pela extensão da URL — a Meta Cloud API exige o
+// campo correto (image/video/document) no payload, não aceita um tipo
+// genérico para qualquer arquivo.
+function detectMediaType(url: string): 'image' | 'video' | 'document' {
+  const ext = url.split('?')[0].split('.').pop()?.toLowerCase() || ''
+  if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) return 'image'
+  if (['mp4', '3gp', 'mov'].includes(ext)) return 'video'
+  return 'document'
 }
 
 interface MetaCloudConfig {
@@ -78,12 +90,15 @@ export class MetaCloudApiProvider implements WhatsAppProvider {
 
   async sendMedia(channelId: string, to: string, mediaUrl: string, caption?: string) {
     const { phoneNumberId, accessToken } = await this.getConfig(channelId)
-    await axios.post(`${GRAPH_URL}/${phoneNumberId}/messages`, {
-      messaging_product: 'whatsapp',
-      to: normalizeBrazilianNumber(to),
-      type: 'image',
-      image: { link: mediaUrl, caption },
-    }, { headers: { Authorization: `Bearer ${accessToken}` } })
+    const type = detectMediaType(mediaUrl)
+    const body: Record<string, any> = { messaging_product: 'whatsapp', to: normalizeBrazilianNumber(to), type }
+    if (type === 'image') body.image = { link: mediaUrl, caption }
+    else if (type === 'video') body.video = { link: mediaUrl, caption }
+    else body.document = { link: mediaUrl, caption, filename: caption || mediaUrl.split('/').pop() }
+
+    await axios.post(`${GRAPH_URL}/${phoneNumberId}/messages`, body, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
   }
 
   async sendAudio(channelId: string, to: string, audioUrl: string) {
@@ -124,7 +139,7 @@ export class MetaCloudApiProvider implements WhatsAppProvider {
     const msg = value?.messages?.[0]
     if (!msg) return null
 
-    const from = msg.from || ''
+    const from = normalizeBrazilianNumber(msg.from || '')
     if (!from) return null
 
     const contact = value?.contacts?.[0]
