@@ -6,6 +6,7 @@ import { emitNewMessage, emitConversationUpdated } from '../../lib/socket'
 import { redis } from '../../lib/redis'
 import { scheduleAppointment, listUpcomingAppointments, cancelAppointment, getAgendaContextForPrompt } from '../calendar/calendar.service'
 import { generateSpeech } from '../tts/tts.service'
+import { getValidGmailToken, sendReply } from '../../lib/gmail'
 import axios from 'axios'
 
 const AUDIO_PREFERENCE_KEY = 'audioPreference' // chave dentro de contact.variables
@@ -62,6 +63,7 @@ export function startMessageWorker() {
       let from: string, name: string, text: string | undefined
       let incomingMediaType: string | undefined
       let incomingMediaUrl: string | undefined
+      let emailMetadata: { threadId: string; messageId: string; references?: string; subject: string } | undefined
 
       if (channelType === 'WHATSAPP') {
         const provider = getWhatsAppProvider()
@@ -150,6 +152,18 @@ export function startMessageWorker() {
         from = messaging.sender?.id || String(messaging.sender)
         name = 'Usuário'
         text = messaging.message?.text
+        if (!text) return
+      } else if (channelType === 'EMAIL') {
+        // payload já vem parseado pelo email-poll.worker.ts (GmailMessage)
+        from = payload.from
+        name = payload.fromName || payload.from
+        text = payload.body
+        emailMetadata = {
+          threadId: payload.threadId,
+          messageId: payload.messageId,
+          references: payload.references,
+          subject: payload.subject,
+        }
         if (!text) return
       } else {
         return
@@ -327,7 +341,7 @@ export function startMessageWorker() {
           take: 20,
         }),
         prisma.message.create({
-          data: { conversationId: conversation.id, role: 'USER', content: text, mediaUrl: incomingMediaUrl, mediaType: incomingMediaType },
+          data: { conversationId: conversation.id, role: 'USER', content: text, mediaUrl: incomingMediaUrl, mediaType: incomingMediaType, metadata: emailMetadata as any },
         }),
       ])
 
@@ -724,6 +738,20 @@ export function startMessageWorker() {
         } catch (sendErr: any) {
           console.error('[META-SEND] ERRO:', sendErr?.response?.data || sendErr?.message)
           throw sendErr
+        }
+      } else if (channelType === 'EMAIL' && emailMetadata) {
+        const accessToken = await getValidGmailToken(channelId)
+        if (accessToken) {
+          await sendReply(accessToken, {
+            threadId: emailMetadata.threadId,
+            messageId: emailMetadata.messageId,
+            references: emailMetadata.references,
+            to: from,
+            subject: emailMetadata.subject.toLowerCase().startsWith('re:') ? emailMetadata.subject : `Re: ${emailMetadata.subject}`,
+            body: responseText,
+          })
+        } else {
+          console.error('[EMAIL-SEND] Token inválido para canal', channelId)
         }
       }
 

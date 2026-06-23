@@ -446,6 +446,13 @@ function ChannelIcon({ type }: { type: string }) {
       <path d="M8 10a2 2 0 012-2h12a2 2 0 012 2v9a2 2 0 01-2 2h-4l-4 3v-3H10a2 2 0 01-2-2V10z" fill="white"/>
     </svg>
   )
+  if (type === 'EMAIL') return (
+    <svg viewBox="0 0 32 32" className="w-9 h-9" fill="none">
+      <rect width="32" height="32" rx="8" fill="#EA4335"/>
+      <path d="M7 10a1 1 0 011-1h16a1 1 0 011 1v12a1 1 0 01-1 1H8a1 1 0 01-1-1V10z" fill="white"/>
+      <path d="M7 10.5l9 6.5 9-6.5" stroke="#EA4335" strokeWidth="1.5" fill="none"/>
+    </svg>
+  )
   return (
     <svg viewBox="0 0 32 32" className="w-9 h-9" fill="none">
       <rect width="32" height="32" rx="8" fill="#94A3B8"/>
@@ -465,7 +472,9 @@ function ChannelsTab() {
   const [linkedinToken, setLinkedinToken] = useState('')
   const [linkedinOrgId, setLinkedinOrgId] = useState('')
   const [selectedAgents, setSelectedAgents] = useState<Record<string, string>>({})
+  const [allowedSendersInput, setAllowedSendersInput] = useState<Record<string, string>>({})
   const searchParams = useSearchParams()
+  const { token: authTokenEmail, refreshToken: authRefreshTokenEmail } = useAuthStore()
 
   // Exibe toast após retorno do OAuth Meta
   useEffect(() => {
@@ -495,6 +504,13 @@ function ChannelsTab() {
       api.patch(`/channels/${channelId}/agents`, { agentIds: agentId ? [agentId] : [] }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['channels'] }); toast({ title: 'Agente vinculado!' }) },
     onError: () => toast({ title: 'Erro ao vincular agente', variant: 'destructive' }),
+  })
+
+  const emailSettingsMutation = useMutation({
+    mutationFn: ({ channelId, allowedSenders }: { channelId: string; allowedSenders: string[] }) =>
+      api.patch(`/channels/${channelId}/email-settings`, { allowedSenders }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['channels'] }); toast({ title: 'Remetentes permitidos atualizados!' }) },
+    onError: () => toast({ title: 'Erro ao salvar remetentes', variant: 'destructive' }),
   })
 
   const whatsappEmbeddedSignupMutation = useMutation({
@@ -609,6 +625,11 @@ function ChannelsTab() {
             className="border-blue-300 text-blue-800 hover:bg-blue-50">
             <Plus className="w-3 h-3 mr-1" />LinkedIn
           </Button>
+          <Button variant="outline" size="sm"
+            onClick={() => { window.location.href = `${API_URL}/channels/email/connect?token=${authRefreshTokenEmail || authTokenEmail}` }}
+            className="border-red-200 text-red-700 hover:bg-red-50">
+            <Plus className="w-3 h-3 mr-1" />Email
+          </Button>
         </div>
       </div>
 
@@ -720,6 +741,34 @@ function ChannelsTab() {
                         · Token expira {new Date(channel.config.tokenExpiresAt).toLocaleDateString('pt-BR')}
                       </span>
                     )}
+                  </div>
+                )}
+
+                {channel.type === 'EMAIL' && (
+                  <div className="mt-2 space-y-2">
+                    <div className="text-xs text-gray-500">✓ Conectado: {channel.config?.email}</div>
+                    <div>
+                      <Label className="text-xs text-gray-500">Remetentes permitidos (e-mail ou @dominio.com, um por linha)</Label>
+                      <textarea
+                        className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 mt-1 font-mono"
+                        rows={3}
+                        placeholder={'cliente@empresa.com\n@dominioconfiavel.com.br'}
+                        value={allowedSendersInput[channel.id] ?? (channel.config?.allowedSenders || []).join('\n')}
+                        onChange={e => setAllowedSendersInput(p => ({ ...p, [channel.id]: e.target.value }))}
+                      />
+                      <Button size="sm" variant="outline" className="mt-1 h-7 px-2 text-xs w-full"
+                        disabled={emailSettingsMutation.isPending}
+                        onClick={() => emailSettingsMutation.mutate({
+                          channelId: channel.id,
+                          allowedSenders: (allowedSendersInput[channel.id] ?? (channel.config?.allowedSenders || []).join('\n')).split('\n').map((s: string) => s.trim()).filter(Boolean),
+                        })}>
+                        {emailSettingsMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Save className="w-3 h-3 mr-1" />}
+                        Salvar remetentes
+                      </Button>
+                      {!(channel.config?.allowedSenders || []).length && (
+                        <p className="text-[10px] text-amber-600 mt-1">Sem remetentes configurados — nenhum e-mail será respondido até cadastrar pelo menos um.</p>
+                      )}
+                    </div>
                   </div>
                 )}
 

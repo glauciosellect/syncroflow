@@ -30,6 +30,7 @@ import { metaWhatsAppSignupRoutes } from './modules/integrations/meta-whatsapp-s
 import { apiKeyRoutes } from './modules/auth/apikeys.routes'
 import { envVariableRoutes } from './modules/auth/env-variables.routes'
 import { webhookRoutes } from './modules/webhooks/webhooks.routes'
+import { emailChannelRoutes } from './modules/channels/email/email.routes'
 import { comercialRoutes } from './modules/comercial/comercial.routes'
 import { ecommerceWebhookRoutes, ecommerceIntegrationRoutes, ecommerceOAuthCallbackRoutes } from './modules/integrations/ecommerce.routes'
 import { crmWebhookRoutes, crmOAuthCallbackRoutes, crmRoutes } from './modules/crm/crm.routes'
@@ -43,6 +44,7 @@ import { startTrainingWorker } from './modules/ai/training.worker'
 import { startMessageWorker } from './modules/webhooks/message.worker'
 import { startWelcomeWorker } from './modules/welcome/welcome.worker'
 import { startReminderWorker } from './modules/calendar/reminder.worker'
+import { startEmailPollingWorker } from './modules/channels/email/email-poll.worker'
 import { integrationWorker } from './modules/integrations/integration.worker'
 import { initSocket } from './lib/socket'
 
@@ -122,6 +124,7 @@ async function bootstrap() {
   await app.register(intentionRoutes)
   await app.register(flowRoutes)
   await app.register(channelRoutes)
+  await app.register(emailChannelRoutes)
   await app.register(conversationRoutes)
   await app.register(contactRoutes)
   await app.register(knowledgeRoutes)
@@ -171,6 +174,7 @@ async function bootstrap() {
   startMessageWorker()
   startWelcomeWorker()
   startReminderWorker()
+  startEmailPollingWorker()
   integrationWorker
 
   // Seed de templates iniciais (só roda se o banco estiver vazio)
