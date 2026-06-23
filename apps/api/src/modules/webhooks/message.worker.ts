@@ -66,8 +66,7 @@ export function startMessageWorker() {
       if (channelType === 'WHATSAPP') {
         const provider = getWhatsAppProvider()
         const msg = provider.parseWebhook(payload)
-        console.log('[WORKER] parseWebhook resultado:', JSON.stringify(msg))
-        if (!msg) { console.log('[WORKER] parseWebhook retornou null — mensagem descartada'); return }
+        if (!msg) return
         from = msg.from
         name = msg.name
         text = msg.text
@@ -103,9 +102,9 @@ export function startMessageWorker() {
           }
         }
 
-        if (!text) { console.log('[WORKER] sem texto após processamento — descartado'); return }
-        if (isWhatsAppGroup(from)) { console.log('[WORKER] mensagem de grupo — descartada'); return }
-        if (isBotMessage(text)) { console.log('[WORKER] detectado como mensagem de bot — descartada'); return }
+        if (!text) return
+        if (isWhatsAppGroup(from)) return
+        if (isBotMessage(text)) return
 
         const silenceKey = `silence:${channelId}:${from}`
         const isSilenced = await redis.get(silenceKey)
