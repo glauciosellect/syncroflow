@@ -47,12 +47,23 @@ export async function webhookRoutes(app: FastifyInstance) {
   app.post('/webhooks/whatsapp/:channelId', { config: { rawBody: true } }, async (req, reply) => {
     if (!isValidMetaSignature(req)) return reply.status(403).send()
 
-    const { channelId } = req.params as { channelId: string }
+    const { channelId: urlChannelId } = req.params as { channelId: string }
+    const body = req.body as any
 
-    const channel = await prisma.channel.findUnique({ where: { id: channelId } })
+    // A Meta só permite uma URL de webhook por app — com múltiplos números WhatsApp
+    // cadastrados, todas as mensagens chegam nessa mesma URL. Por isso resolvemos o
+    // canal real pelo phone_number_id do payload, e só caímos no channelId da URL
+    // (canal legado) se o payload não tiver esse campo.
+    const phoneNumberId: string | undefined = body?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id
+
+    let channel = phoneNumberId
+      ? await prisma.channel.findFirst({ where: { type: 'WHATSAPP', config: { path: ['phoneNumberId'], equals: phoneNumberId } } })
+      : null
+
+    if (!channel) channel = await prisma.channel.findUnique({ where: { id: urlChannelId } })
     if (!channel) return reply.status(404).send()
 
-    await messageQueue.add('process', { channelId, channelType: 'WHATSAPP', payload: req.body }, {
+    await messageQueue.add('process', { channelId: channel.id, channelType: 'WHATSAPP', payload: body }, {
       attempts: 3,
       backoff: { type: 'exponential', delay: 1000 },
     })
