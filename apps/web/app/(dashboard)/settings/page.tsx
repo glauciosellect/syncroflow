@@ -560,15 +560,9 @@ function ChannelsTab() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <p className="text-sm text-gray-500">Conecte seus canais de atendimento e vincule agentes a cada um.</p>
         <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" size="sm" onClick={connectWhatsAppMeta}
-            className="border-green-200 text-green-700 hover:bg-green-50"
-            disabled={whatsappEmbeddedSignupMutation.isPending}>
-            {whatsappEmbeddedSignupMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Plus className="w-3 h-3 mr-1" />}
-            WhatsApp
-          </Button>
           <Button variant="outline" size="sm" onClick={() => setShowVirtualNumberForm(true)}
-            className="border-emerald-200 text-emerald-700 hover:bg-emerald-50">
-            <Plus className="w-3 h-3 mr-1" />Número virtual
+            className="border-green-200 text-green-700 hover:bg-green-50">
+            <Plus className="w-3 h-3 mr-1" />WhatsApp
           </Button>
           <Button variant="outline" size="sm" onClick={() => connectMeta('instagram')}
             className="border-pink-200 text-pink-700 hover:bg-pink-50">
@@ -596,11 +590,10 @@ function ChannelsTab() {
 
       {showVirtualNumberForm && (
         <Card>
-          <CardHeader><CardTitle className="text-base">📱 Contratar número virtual para WhatsApp</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">📱 Conectar WhatsApp</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-800">
               Gera um número dedicado para conectar ao WhatsApp via API oficial da Meta, sem precisar de chip físico.
-              Após contratar, copie o número e use-o na próxima etapa (botão "WhatsApp") quando a Meta pedir o número de telefone.
             </div>
 
             {!purchasedVirtualNumber ? (
@@ -641,10 +634,16 @@ function ChannelsTab() {
                   </Button>
                 </div>
                 <p className="text-sm text-gray-600">
-                  Agora clique em <strong>"WhatsApp"</strong> acima, cole este número quando a Meta solicitar,
-                  e aguarde o código de verificação por SMS — ele chega automaticamente.
+                  Cole este número quando a Meta solicitar — o código de verificação por SMS chega automaticamente.
                 </p>
-                <Button variant="ghost" onClick={() => { setShowVirtualNumberForm(false); setPurchasedVirtualNumber(null); setSelectedAreaCode('') }}>Fechar</Button>
+                <div className="flex gap-2">
+                  <Button onClick={connectWhatsAppMeta} className="bg-green-600 hover:bg-green-700 text-white"
+                    disabled={whatsappEmbeddedSignupMutation.isPending}>
+                    {whatsappEmbeddedSignupMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                    Continuar e conectar à Meta
+                  </Button>
+                  <Button variant="ghost" onClick={() => { setShowVirtualNumberForm(false); setPurchasedVirtualNumber(null); setSelectedAreaCode('') }}>Fechar</Button>
+                </div>
               </>
             )}
 
