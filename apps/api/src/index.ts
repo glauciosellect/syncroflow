@@ -27,6 +27,7 @@ import { mcpRoutes } from './modules/mcp/mcp.routes'
 import { integrationRoutes } from './modules/integrations/integrations.routes'
 import { metaIntegrationRoutes } from './modules/integrations/meta.routes'
 import { metaWhatsAppSignupRoutes } from './modules/integrations/meta-whatsapp-signup.routes'
+import { salvyRoutes } from './modules/integrations/salvy.routes'
 import { apiKeyRoutes } from './modules/auth/apikeys.routes'
 import { envVariableRoutes } from './modules/auth/env-variables.routes'
 import { webhookRoutes } from './modules/webhooks/webhooks.routes'
@@ -136,6 +137,7 @@ async function bootstrap() {
   await app.register(integrationRoutes)
   await app.register(metaIntegrationRoutes)
   await app.register(metaWhatsAppSignupRoutes)
+  await app.register(salvyRoutes)
   await app.register(apiKeyRoutes)
   await app.register(envVariableRoutes)
   await app.register(webhookRoutes)
