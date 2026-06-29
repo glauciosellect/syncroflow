@@ -458,6 +458,25 @@ function ChannelsTab() {
     onError: (err: any) => toast({ title: 'Erro', description: err.response?.data?.error || 'Erro ao conectar', variant: 'destructive' }),
   })
 
+  const [showVirtualNumberForm, setShowVirtualNumberForm] = useState(false)
+  const [selectedAreaCode, setSelectedAreaCode] = useState<string>('')
+  const [purchasedVirtualNumber, setPurchasedVirtualNumber] = useState<{ phoneNumber: string; channelId: string } | null>(null)
+
+  const areaCodesQuery = useQuery({
+    queryKey: ['salvy-area-codes'],
+    queryFn: () => api.get('/integrations/salvy/area-codes').then(r => r.data.areaCodes as { areaCode: number; available: boolean }[]),
+    enabled: showVirtualNumberForm,
+  })
+
+  const buyVirtualNumberMutation = useMutation({
+    mutationFn: (areaCode: number) => api.post('/integrations/salvy/virtual-numbers', { areaCode }),
+    onSuccess: (res) => {
+      setPurchasedVirtualNumber({ phoneNumber: res.data.salvyAccount.phoneNumber, channelId: res.data.channel.id })
+      qc.invalidateQueries({ queryKey: ['channels'] })
+    },
+    onError: (err: any) => toast({ title: 'Erro', description: err.response?.data?.error || 'Erro ao contratar número', variant: 'destructive' }),
+  })
+
   const createTelegramMutation = useMutation({
     mutationFn: () => api.post('/channels/telegram', { name: telegramName, botToken: telegramToken }),
     onSuccess: (res) => {
@@ -547,6 +566,10 @@ function ChannelsTab() {
             {whatsappEmbeddedSignupMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Plus className="w-3 h-3 mr-1" />}
             WhatsApp
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowVirtualNumberForm(true)}
+            className="border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+            <Plus className="w-3 h-3 mr-1" />Número virtual
+          </Button>
           <Button variant="outline" size="sm" onClick={() => connectMeta('instagram')}
             className="border-pink-200 text-pink-700 hover:bg-pink-50">
             <Plus className="w-3 h-3 mr-1" />Instagram
@@ -570,6 +593,67 @@ function ChannelsTab() {
           </Button>
         </div>
       </div>
+
+      {showVirtualNumberForm && (
+        <Card>
+          <CardHeader><CardTitle className="text-base">📱 Contratar número virtual para WhatsApp</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-800">
+              Gera um número dedicado para conectar ao WhatsApp via API oficial da Meta, sem precisar de chip físico.
+              Após contratar, copie o número e use-o na próxima etapa (botão "WhatsApp") quando a Meta pedir o número de telefone.
+            </div>
+
+            {!purchasedVirtualNumber ? (
+              <>
+                <div>
+                  <Label>DDD</Label>
+                  <select
+                    className="mt-1 w-full border rounded-md px-3 py-2 text-sm"
+                    value={selectedAreaCode}
+                    onChange={e => setSelectedAreaCode(e.target.value)}
+                  >
+                    <option value="">Selecione um DDD</option>
+                    {areaCodesQuery.data?.filter(a => a.available).map(a => (
+                      <option key={a.areaCode} value={a.areaCode}>{a.areaCode}</option>
+                    ))}
+                  </select>
+                  {areaCodesQuery.isLoading && <p className="text-xs text-gray-400 mt-1">Carregando DDDs disponíveis...</p>}
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={() => buyVirtualNumberMutation.mutate(Number(selectedAreaCode))}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    disabled={buyVirtualNumberMutation.isPending || !selectedAreaCode}>
+                    {buyVirtualNumberMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                    Contratar número
+                  </Button>
+                  <Button variant="ghost" onClick={() => setShowVirtualNumberForm(false)}>Cancelar</Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="p-4 bg-white border border-emerald-300 rounded-lg flex items-center justify-between">
+                  <span className="font-mono text-lg">{purchasedVirtualNumber.phoneNumber}</span>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    navigator.clipboard.writeText(purchasedVirtualNumber.phoneNumber)
+                    toast({ title: 'Número copiado!' })
+                  }}>
+                    <Copy className="w-3 h-3 mr-1" />Copiar
+                  </Button>
+                </div>
+                <p className="text-sm text-gray-600">
+                  Agora clique em <strong>"WhatsApp"</strong> acima, cole este número quando a Meta solicitar,
+                  e aguarde o código de verificação por SMS — ele chega automaticamente.
+                </p>
+                <Button variant="ghost" onClick={() => { setShowVirtualNumberForm(false); setPurchasedVirtualNumber(null); setSelectedAreaCode('') }}>Fechar</Button>
+              </>
+            )}
+
+            <div className="flex items-center justify-end gap-1.5 pt-2 border-t text-xs text-gray-400">
+              <span>powered by Salvy</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {showTelegramForm && (
         <Card>
