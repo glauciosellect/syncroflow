@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { prisma } from '../../lib/prisma'
 import { decrypt } from '../../lib/crypto'
 import { logger } from '../../lib/logger'
+import { notifySyncrolex } from '../../lib/syncrolex-webhook'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -273,6 +274,11 @@ async function toolAgendarHorario(input: Record<string, any>, ctx: ToolExecution
         tags: ['agendamento-solicitado'],
       },
     })
+    await notifySyncrolex(ctx.workspaceId, 'lead.created', {
+      name: input.nome_cliente,
+      phone: input.telefone ?? ctx.contactPhone ?? '',
+      resumo_conversa: `Solicita agendamento: ${input.servico}. Preferência: ${input.data_preferida ?? 'a combinar'} ${input.horario_preferido ?? ''}.`,
+    })
     return `Anotei sua solicitação de agendamento para ${input.servico}! Nossa equipe entrará em contato em breve para confirmar ${input.data_preferida ? `a disponibilidade na ${input.data_preferida}` : 'o melhor horário para você'}.`
   }
 
@@ -290,6 +296,12 @@ async function toolAgendarHorario(input: Record<string, any>, ctx: ToolExecution
         start: { dateTime: startDt, timeZone: 'America/Sao_Paulo' },
         end: { dateTime: startDt, timeZone: 'America/Sao_Paulo' },
       })
+      await notifySyncrolex(ctx.workspaceId, 'appointment.created', {
+        lead_nome: input.nome_cliente,
+        lead_telefone: input.telefone ?? ctx.contactPhone ?? '',
+        assunto: input.servico,
+        data_hora_inicio: startDt,
+      })
       return `Agendamento registrado! ${input.servico} para ${input.nome_cliente}. Nossa equipe confirmará o horário exato com você em breve.`
     }
   } catch {
@@ -305,6 +317,11 @@ async function toolAgendarHorario(input: Record<string, any>, ctx: ToolExecution
       notes: `Solicita agendamento: ${input.servico}. Preferência: ${input.data_preferida ?? ''} ${input.horario_preferido ?? ''}.`,
       tags: ['agendamento-solicitado'],
     },
+  })
+  await notifySyncrolex(ctx.workspaceId, 'lead.created', {
+    name: input.nome_cliente,
+    phone: input.telefone ?? ctx.contactPhone ?? '',
+    resumo_conversa: `Solicita agendamento: ${input.servico}. Preferência: ${input.data_preferida ?? ''} ${input.horario_preferido ?? ''}.`,
   })
 
   return `Recebi sua solicitação! ${input.servico} para ${input.nome_cliente}. Nossa equipe confirmará o agendamento em breve via WhatsApp.`
@@ -324,6 +341,11 @@ async function toolCriarLead(input: Record<string, any>, ctx: ToolExecutionConte
         notes: existing.notes ? `${existing.notes}\n[Atualizado pelo agente IA] ${input.observacoes ?? ''}` : input.observacoes,
       },
     })
+    await notifySyncrolex(ctx.workspaceId, 'lead.created', {
+      name: input.nome,
+      phone: input.telefone,
+      resumo_conversa: input.observacoes ?? `Interesse em: ${input.interesse ?? 'não especificado'}`,
+    })
     return `Já tenho seu cadastro aqui! Atualizei suas informações. Em breve nossa equipe de vendas entrará em contato sobre ${input.interesse ?? 'seu interesse'}.`
   }
 
@@ -338,6 +360,11 @@ async function toolCriarLead(input: Record<string, any>, ctx: ToolExecutionConte
       tags: ['agente-ia', 'whatsapp'],
       agentId: ctx.agentId,
     },
+  })
+  await notifySyncrolex(ctx.workspaceId, 'lead.created', {
+    name: input.nome,
+    phone: input.telefone,
+    resumo_conversa: input.observacoes ?? `Interesse em: ${input.interesse ?? 'não especificado'}`,
   })
 
   return `Perfeito, ${input.nome}! Registrei seus dados. Nossa equipe de vendas entrará em contato em breve sobre ${input.interesse ?? 'seu interesse'}. Obrigado!`

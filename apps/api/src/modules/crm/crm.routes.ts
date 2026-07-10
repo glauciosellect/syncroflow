@@ -5,6 +5,7 @@ import { prisma } from '../../lib/prisma'
 import { encrypt, decrypt } from '../../lib/crypto'
 import { getWorkspaceId } from '../../lib/workspace'
 import { logger } from '../../lib/logger'
+import { dispatchSyncrolexWebhook, type SyncrolexEvent } from '../../lib/syncrolex-webhook'
 
 // ─── Webhook Receiver CRM ─────────────────────────────────────────────────────
 
@@ -245,6 +246,32 @@ export async function crmRoutes(app: FastifyInstance) {
     return reply.send({ ok: true })
   })
 
+  // Conectar SyncroLex (webhook customizado, sem OAuth)
+  app.post('/crm/syncrolex/connect', async (req, reply) => {
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
+    const { webhookUrl, webhookToken } = z.object({
+      webhookUrl: z.string().url(),
+      webhookToken: z.string().min(1),
+    }).parse(req.body)
+
+    await prisma.crmConnection.upsert({
+      where: { workspaceId_platform: { workspaceId, platform: 'syncrolex' } },
+      create: {
+        workspaceId, platform: 'syncrolex', status: 'active',
+        accessToken: encrypt(webhookToken),
+        metadata: { webhookUrl },
+      },
+      update: {
+        accessToken: encrypt(webhookToken),
+        metadata: { webhookUrl },
+        status: 'active',
+      },
+    })
+
+    return reply.send({ ok: true })
+  })
+
   // ─── Actions CRM (executar via API) ──────────────────────────────────────────
 
   app.post<{ Params: { platform: string }; Body: { action: string; payload: Record<string, any> } }>(
@@ -269,6 +296,14 @@ export async function crmRoutes(app: FastifyInstance) {
       if (platform === 'hubspot') result = await hubspotAction(token, action, payload)
       else if (platform === 'pipedrive') result = await pipedriveAction(token, action, payload)
       else if (platform === 'rdcrm') result = await rdcrmAction(token, action, payload)
+      else if (platform === 'syncrolex') {
+        const event: SyncrolexEvent | null =
+          action === 'create_contact' ? 'lead.created'
+          : action === 'create_appointment' ? 'appointment.created'
+          : null
+        if (!event) return reply.status(400).send({ error: `Ação SyncroLex não suportada: ${action}` })
+        result = await dispatchSyncrolexWebhook(workspaceId, event, payload)
+      }
       else return reply.status(400).send({ error: 'Plataforma não suportada' })
 
       return reply.send({ ok: true, result })

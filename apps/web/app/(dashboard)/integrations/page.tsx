@@ -25,6 +25,9 @@ const CRM_PLATFORMS = [
   { id: 'hubspot',  name: 'HubSpot',       description: 'CRM completo para vendas e marketing', logo: '🟠', color: '#FF7A59', auth: 'oauth' },
   { id: 'pipedrive',name: 'Pipedrive',     description: 'CRM focado em pipeline de vendas',     logo: '🟢', color: '#00C04B', auth: 'oauth' },
   { id: 'rdcrm',    name: 'RD Station CRM',description: 'CRM brasileiro da RD Station',         logo: '🔵', color: '#0056D2', auth: 'oauth' },
+  { id: 'syncrolex',name: 'SyncroLex',     description: 'CRM jurídico — leads e agendamentos automáticos', logo: '⚖️', color: '#1D4ED8', auth: 'webhook',
+    urlLabel: 'URL do Webhook', urlPlaceholder: 'https://syncrolex.com.br/api/webhooks/syncroflow',
+    keyLabel: 'Token', keyPlaceholder: 'whk_...' },
 ]
 
 const FINANCE_PLATFORMS = [
@@ -186,9 +189,20 @@ export default function IntegrationsPage() {
   // ─── Mutations CRM ───────────────────────────────────────────────────────────
 
   const connectCrmOAuthMutation = useMutation({
-    mutationFn: (platform: string) => api.get(`/crm/connect/${platform}`).then(r => r.data),
+    mutationFn: (platform: string) => api.get(`/crm/${platform}/connect`).then(r => r.data),
     onSuccess: (data: { authUrl: string }) => { window.location.href = data.authUrl },
     onError: () => toast({ title: 'Erro ao conectar CRM', variant: 'destructive' }),
+  })
+
+  const connectCrmWebhookMutation = useMutation({
+    mutationFn: ({ webhookUrl, webhookToken }: { webhookUrl: string; webhookToken: string }) =>
+      api.post('/crm/syncrolex/connect', { webhookUrl, webhookToken }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['crm-connections'] })
+      setApiKeyForm(p => ({ ...p, syncrolex: { key: '', url: '' } }))
+      toast({ title: 'SyncroLex conectado!' })
+    },
+    onError: (err: any) => toast({ title: err?.response?.data?.error ?? 'Erro ao conectar', variant: 'destructive' }),
   })
 
   const disconnectCrmMutation = useMutation({
@@ -529,6 +543,45 @@ export default function IntegrationsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {CRM_PLATFORMS.map(platform => {
                     if (crmMap.has(platform.id)) return null
+
+                    if (platform.auth === 'webhook') {
+                      const urlVal = getFormVal(platform.id, 'url')
+                      const keyVal = getFormVal(platform.id, 'key')
+                      return (
+                        <div key={platform.id} className="p-4 border rounded-xl bg-card space-y-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-2xl">{platform.logo}</span>
+                            <div>
+                              <p className="font-semibold text-sm">{platform.name}</p>
+                              <p className="text-xs text-muted-foreground">{platform.description}</p>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-1.5">
+                              <Zap className="w-3 h-3 text-muted-foreground" />
+                              <label className="text-xs font-medium">{platform.urlLabel}</label>
+                            </div>
+                            <input className="w-full px-3 py-2 text-sm border rounded-lg bg-background font-mono"
+                              placeholder={platform.urlPlaceholder} value={urlVal}
+                              onChange={e => setFormVal(platform.id, 'url', e.target.value)} />
+                            <div className="flex items-center gap-1.5">
+                              <Key className="w-3 h-3 text-muted-foreground" />
+                              <label className="text-xs font-medium">{platform.keyLabel}</label>
+                            </div>
+                            <input className="w-full px-3 py-2 text-sm border rounded-lg bg-background font-mono"
+                              placeholder={platform.keyPlaceholder} value={keyVal}
+                              onChange={e => setFormVal(platform.id, 'key', e.target.value)} />
+                            <Button size="sm" className="w-full text-xs"
+                              disabled={!urlVal || !keyVal || connectCrmWebhookMutation.isPending}
+                              onClick={() => connectCrmWebhookMutation.mutate({ webhookUrl: urlVal, webhookToken: keyVal })}>
+                              {connectCrmWebhookMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Plug className="w-3 h-3 mr-1" />}
+                              Conectar
+                            </Button>
+                          </div>
+                        </div>
+                      )
+                    }
+
                     return (
                       <div key={platform.id} className="p-4 border rounded-xl bg-card space-y-3">
                         <div className="flex items-center gap-2">
