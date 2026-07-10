@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://syncroflow.io/sitemap.xml
