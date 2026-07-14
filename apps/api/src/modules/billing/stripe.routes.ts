@@ -30,7 +30,7 @@ const PLAN_PRICES: Record<string, Record<string, number>> = {
 
 // Pacote de créditos avulsos (recarga única)
 export const CREDIT_PACKAGES = [
-  { id: 'pack_1000', name: '1.000 créditos', credits: 1000, price: 3500, priceLabel: 'R$ 35,00' },
+  { id: 'pack_1000', name: '1.000 créditos', credits: 1000, price: 3500, priceLabel: 'R$ 35,00', stripePrice: process.env.STRIPE_PRICE_CREDITS_1000 },
 ]
 
 // Pacote avulso de mensagens ativas (lembretes) — para quem esgota a cota mensal do plano
@@ -55,20 +55,24 @@ export async function stripeRoutes(app: FastifyInstance) {
     const pkg = CREDIT_PACKAGES.find(p => p.id === packageId)
     if (!pkg) return reply.status(400).send({ error: 'Pacote inválido' })
 
+    const lineItem = pkg.stripePrice
+      ? { price: pkg.stripePrice, quantity: 1 }
+      : {
+          price_data: {
+            currency: 'brl',
+            product_data: {
+              name: `SyncroFlow — ${pkg.name} (${pkg.credits.toLocaleString('pt-BR')} créditos)`,
+              description: `Pacote de ${pkg.credits.toLocaleString('pt-BR')} créditos`,
+            },
+            unit_amount: pkg.price,
+          },
+          quantity: 1,
+        }
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       mode: 'payment',
-      line_items: [{
-        price_data: {
-          currency: 'brl',
-          product_data: {
-            name: `SyncroFlow — ${pkg.name} (${pkg.credits.toLocaleString('pt-BR')} créditos)`,
-            description: `Pacote de ${pkg.credits.toLocaleString('pt-BR')} créditos`,
-          },
-          unit_amount: pkg.price,
-        },
-        quantity: 1,
-      }],
+      line_items: [lineItem],
       metadata: { workspaceId, type: 'credits', packageId, credits: String(pkg.credits) },
       success_url: `${process.env.FRONTEND_URL}/billing?payment=success&credits=${pkg.credits}`,
       cancel_url: `${process.env.FRONTEND_URL}/billing?payment=cancelled`,
