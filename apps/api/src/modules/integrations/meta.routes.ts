@@ -202,6 +202,9 @@ export async function metaIntegrationRoutes(app: FastifyInstance) {
 
       const created: string[] = []
       for (const page of pages) {
+        // Troca o page token curto por um de longa duração usando o userToken longo
+        const longPageToken = await getLongLivedPageToken(page.access_token, longToken)
+
         if (channelType === 'instagram' && page.instagram_business_account) {
           const ig = page.instagram_business_account
           const existing = await prisma.channel.findFirst({
@@ -214,7 +217,7 @@ export async function metaIntegrationRoutes(app: FastifyInstance) {
                 type: 'INSTAGRAM',
                 name: ig.username ? `@${ig.username}` : (ig.name || 'Instagram'),
                 config: {
-                  pageAccessToken: page.access_token,
+                  pageAccessToken: longPageToken,
                   pageId: page.id,
                   igAccountId: ig.id,
                   igUsername: ig.username,
@@ -224,8 +227,21 @@ export async function metaIntegrationRoutes(app: FastifyInstance) {
                 },
               },
             })
-            await setupMetaWebhook(page.id, page.access_token, channel.id)
+            await setupMetaWebhook(page.id, longPageToken, channel.id, 'instagram')
             created.push(ig.username || ig.name)
+          } else {
+            // Atualiza o token existente e reconfigura webhook
+            await prisma.channel.update({
+              where: { id: existing.id },
+              data: {
+                config: {
+                  ...(existing.config as any),
+                  pageAccessToken: longPageToken,
+                  tokenExpiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
+                },
+              },
+            })
+            await setupMetaWebhook(page.id, longPageToken, existing.id, 'instagram')
           }
         } else if (channelType === 'facebook') {
           const existing = await prisma.channel.findFirst({
@@ -238,15 +254,27 @@ export async function metaIntegrationRoutes(app: FastifyInstance) {
                 type: 'FACEBOOK',
                 name: page.name,
                 config: {
-                  pageAccessToken: page.access_token,
+                  pageAccessToken: longPageToken,
                   pageId: page.id,
                   tokenExpiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
                   verifyToken: Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2),
                 },
               },
             })
-            await setupMetaWebhook(page.id, page.access_token, channel.id)
+            await setupMetaWebhook(page.id, longPageToken, channel.id, 'facebook')
             created.push(page.name)
+          } else {
+            await prisma.channel.update({
+              where: { id: existing.id },
+              data: {
+                config: {
+                  ...(existing.config as any),
+                  pageAccessToken: longPageToken,
+                  tokenExpiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
+                },
+              },
+            })
+            await setupMetaWebhook(page.id, longPageToken, existing.id, 'facebook')
           }
         }
       }
@@ -287,30 +315,68 @@ export async function metaIntegrationRoutes(app: FastifyInstance) {
         },
       })
       const newToken = res.data.access_token
+      const expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString()
       await prisma.channel.update({
         where: { id: channelId },
         data: {
           config: {
             ...config,
             pageAccessToken: newToken,
-            tokenExpiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
+            tokenExpiresAt: expiresAt,
           },
         },
       })
-      return reply.send({ ok: true, expiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString() })
+      // Reconfigura o webhook com o novo token
+      if (config.pageId) {
+        const type = channel.type === 'INSTAGRAM' ? 'instagram' : 'facebook'
+        await setupMetaWebhook(config.pageId, newToken, channelId, type)
+      }
+      return reply.send({ ok: true, expiresAt })
     } catch (err: any) {
       return reply.status(400).send({ error: err?.response?.data?.error?.message || 'Erro ao renovar token' })
     }
   })
 }
 
+// Gera um Page Token de longa duração a partir do User Token longo
+async function getLongLivedPageToken(shortPageToken: string, longUserToken: string): Promise<string> {
+  try {
+    // Page tokens gerados a partir de um User Token longo já são de longa duração
+    // Buscamos o page token via Graph API usando o User Token longo
+    const pageId = await getPageIdFromToken(shortPageToken)
+    if (pageId) {
+      const res = await axios.get(`https://graph.facebook.com/v21.0/${pageId}`, {
+        params: { access_token: longUserToken, fields: 'access_token' },
+      })
+      if (res.data?.access_token) return res.data.access_token
+    }
+  } catch (e: any) {
+    console.log('[META-OAUTH] getLongLivedPageToken fallback:', e?.response?.data?.error?.message || e?.message)
+  }
+  return shortPageToken
+}
+
+async function getPageIdFromToken(pageToken: string): Promise<string | null> {
+  try {
+    const res = await axios.get('https://graph.facebook.com/v21.0/me', {
+      params: { access_token: pageToken, fields: 'id' },
+    })
+    return res.data?.id || null
+  } catch {
+    return null
+  }
+}
+
 // Configura webhook da página do Facebook para receber mensagens
-async function setupMetaWebhook(pageId: string, pageToken: string, channelId: string) {
+async function setupMetaWebhook(pageId: string, pageToken: string, channelId: string, type: 'instagram' | 'facebook' = 'facebook') {
   const webhookUrl = `${API_URL}/webhooks/meta/${channelId}`
+  const fields = type === 'instagram'
+    ? ['messages', 'messaging_postbacks', 'messaging_optins', 'message_deliveries', 'message_reads', 'messaging_referrals']
+    : ['messages', 'messaging_postbacks', 'messaging_optins']
   try {
     await axios.post(
       `https://graph.facebook.com/v21.0/${pageId}/subscribed_apps`,
-      { subscribed_fields: ['messages', 'messaging_postbacks'] },
+      { subscribed_fields: fields },
       { params: { access_token: pageToken } }
     )
     console.log(`[META-OAUTH] Webhook configurado para página ${pageId} → ${webhookUrl}`)
