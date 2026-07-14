@@ -95,7 +95,7 @@ async function bootstrap() {
     redis,
     keyGenerator: (req) => req.ip,
     errorResponseBuilder: () => ({ error: 'Muitas requisições. Tente novamente em instantes.' }),
-    skip: (req) => req.url.startsWith('/webhooks/'),
+    allowList: (req: any) => req.url.startsWith('/webhooks/'),
   })
 
   app.decorate('authenticate', async (req: any, reply: any) => {
