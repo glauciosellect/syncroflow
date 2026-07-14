@@ -458,6 +458,7 @@ function ChannelsTab() {
   })
 
   const [showVirtualNumberForm, setShowVirtualNumberForm] = useState(false)
+  const [whatsappMode, setWhatsappMode] = useState<'virtual' | 'own'>('virtual')
   const [selectedAreaCode, setSelectedAreaCode] = useState<string>('')
   const [purchasedVirtualNumber, setPurchasedVirtualNumber] = useState<{ phoneNumber: string; channelId: string } | null>(null)
 
@@ -591,64 +592,108 @@ function ChannelsTab() {
         <Card>
           <CardHeader><CardTitle className="text-base">📱 Conectar WhatsApp</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-800">
-              Gera um número dedicado para conectar ao WhatsApp via API oficial da Meta, sem precisar de chip físico.
+
+            {/* Toggle de modo */}
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm font-medium">
+              <button
+                className={`flex-1 py-2 transition-colors ${whatsappMode === 'virtual' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                onClick={() => { setWhatsappMode('virtual'); setPurchasedVirtualNumber(null); setSelectedAreaCode('') }}
+              >
+                Quero um número virtual
+              </button>
+              <button
+                className={`flex-1 py-2 transition-colors ${whatsappMode === 'own' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                onClick={() => { setWhatsappMode('own'); setPurchasedVirtualNumber(null); setSelectedAreaCode('') }}
+              >
+                Já tenho um número
+              </button>
             </div>
 
-            {!purchasedVirtualNumber ? (
+            {/* Modo: número virtual Salvy */}
+            {whatsappMode === 'virtual' && (
               <>
-                <div>
-                  <Label>DDD</Label>
-                  <select
-                    className="mt-1 w-full border rounded-md px-3 py-2 text-sm"
-                    value={selectedAreaCode}
-                    onChange={e => setSelectedAreaCode(e.target.value)}
-                  >
-                    <option value="">Selecione um DDD</option>
-                    {areaCodesQuery.data?.filter(a => a.available).map(a => (
-                      <option key={a.areaCode} value={a.areaCode}>{a.areaCode}</option>
-                    ))}
-                  </select>
-                  {areaCodesQuery.isLoading && <p className="text-xs text-gray-400 mt-1">Carregando DDDs disponíveis...</p>}
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-800">
+                  Gera um número dedicado para conectar ao WhatsApp via API oficial da Meta, sem precisar de chip físico.
                 </div>
-                <div className="flex gap-2">
-                  <Button onClick={() => buyVirtualNumberMutation.mutate(Number(selectedAreaCode))}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                    disabled={buyVirtualNumberMutation.isPending || !selectedAreaCode}>
-                    {buyVirtualNumberMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                    Contratar número
-                  </Button>
-                  <Button variant="ghost" onClick={() => setShowVirtualNumberForm(false)}>Cancelar</Button>
+
+                {!purchasedVirtualNumber ? (
+                  <>
+                    <div>
+                      <Label>DDD</Label>
+                      <select
+                        className="mt-1 w-full border rounded-md px-3 py-2 text-sm"
+                        value={selectedAreaCode}
+                        onChange={e => setSelectedAreaCode(e.target.value)}
+                      >
+                        <option value="">Selecione um DDD</option>
+                        {areaCodesQuery.data?.filter(a => a.available).map(a => (
+                          <option key={a.areaCode} value={a.areaCode}>{a.areaCode}</option>
+                        ))}
+                      </select>
+                      {areaCodesQuery.isLoading && <p className="text-xs text-gray-400 mt-1">Carregando DDDs disponíveis...</p>}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button onClick={() => buyVirtualNumberMutation.mutate(Number(selectedAreaCode))}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                        disabled={buyVirtualNumberMutation.isPending || !selectedAreaCode}>
+                        {buyVirtualNumberMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                        Contratar número
+                      </Button>
+                      <Button variant="ghost" onClick={() => setShowVirtualNumberForm(false)}>Cancelar</Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="p-4 bg-white border border-emerald-300 rounded-lg flex items-center justify-between">
+                      <span className="font-mono text-lg">{purchasedVirtualNumber.phoneNumber}</span>
+                      <Button variant="outline" size="sm" onClick={() => {
+                        navigator.clipboard.writeText(purchasedVirtualNumber.phoneNumber)
+                        toast({ title: 'Número copiado!' })
+                      }}>
+                        <Copy className="w-3 h-3 mr-1" />Copiar
+                      </Button>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      Cole este número quando a Meta solicitar — o código de verificação por SMS chega automaticamente.
+                    </p>
+                    <div className="flex gap-2">
+                      <Button onClick={connectWhatsAppMeta} className="bg-green-600 hover:bg-green-700 text-white"
+                        disabled={whatsappEmbeddedSignupMutation.isPending}>
+                        {whatsappEmbeddedSignupMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                        Continuar e conectar à Meta
+                      </Button>
+                      <Button variant="ghost" onClick={() => { setShowVirtualNumberForm(false); setPurchasedVirtualNumber(null); setSelectedAreaCode('') }}>Fechar</Button>
+                    </div>
+                  </>
+                )}
+
+                <div className="flex items-center justify-end gap-1.5 pt-2 border-t text-xs text-gray-400">
+                  <span>powered by Salvy</span>
                 </div>
               </>
-            ) : (
+            )}
+
+            {/* Modo: número próprio */}
+            {whatsappMode === 'own' && (
               <>
-                <div className="p-4 bg-white border border-emerald-300 rounded-lg flex items-center justify-between">
-                  <span className="font-mono text-lg">{purchasedVirtualNumber.phoneNumber}</span>
-                  <Button variant="outline" size="sm" onClick={() => {
-                    navigator.clipboard.writeText(purchasedVirtualNumber.phoneNumber)
-                    toast({ title: 'Número copiado!' })
-                  }}>
-                    <Copy className="w-3 h-3 mr-1" />Copiar
-                  </Button>
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 space-y-1">
+                  <p><strong>Atenção:</strong> ao conectar seu número à API oficial da Meta, ele será desvinculado do WhatsApp no celular.</p>
+                  <p>Ligações e SMS continuam funcionando normalmente. Se cancelar o serviço, basta reinstalar o WhatsApp para recuperar o uso normal.</p>
                 </div>
                 <p className="text-sm text-gray-600">
-                  Cole este número quando a Meta solicitar — o código de verificação por SMS chega automaticamente.
+                  Clique no botão abaixo para iniciar o processo. A Meta vai solicitar o número e enviar um código de verificação por SMS ou ligação.
                 </p>
                 <div className="flex gap-2">
                   <Button onClick={connectWhatsAppMeta} className="bg-green-600 hover:bg-green-700 text-white"
                     disabled={whatsappEmbeddedSignupMutation.isPending}>
                     {whatsappEmbeddedSignupMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                    Continuar e conectar à Meta
+                    Conectar meu número à Meta
                   </Button>
-                  <Button variant="ghost" onClick={() => { setShowVirtualNumberForm(false); setPurchasedVirtualNumber(null); setSelectedAreaCode('') }}>Fechar</Button>
+                  <Button variant="ghost" onClick={() => setShowVirtualNumberForm(false)}>Cancelar</Button>
                 </div>
               </>
             )}
 
-            <div className="flex items-center justify-end gap-1.5 pt-2 border-t text-xs text-gray-400">
-              <span>powered by Salvy</span>
-            </div>
           </CardContent>
         </Card>
       )}
