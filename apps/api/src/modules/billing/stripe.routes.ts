@@ -23,9 +23,9 @@ const PLAN_CREDITS: Record<string, number> = {
 
 // Preços por plano e ciclo (em centavos)
 const PLAN_PRICES: Record<string, Record<string, number>> = {
-  STARTER:  { MONTHLY: 6000,  ANNUAL: 5300  },
-  PRO:      { MONTHLY: 14700, ANNUAL: 13000 },
-  BUSINESS: { MONTHLY: 43900, ANNUAL: 38700 },
+  STARTER:  { MONTHLY: 9700,  ANNUAL: 104760  },
+  PRO:      { MONTHLY: 19700, ANNUAL: 212760  },
+  BUSINESS: { MONTHLY: 49700, ANNUAL: 536760  },
 }
 
 // Pacote de créditos avulsos (recarga única)

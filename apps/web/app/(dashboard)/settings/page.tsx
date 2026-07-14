@@ -188,9 +188,9 @@ function ProfileTab() {
 
 // ─── ABA: FATURAMENTO ─────────────────────────────────────────────────────────
 const BILLING_PLANS = [
-  { id: 'STARTER',  name: 'Starter',  credits: 2000,  agents: 5,  highlight: false, prices: { MONTHLY: 6000,  ANNUAL: 63600  } },
-  { id: 'PRO',      name: 'Pro',      credits: 5000,  agents: 15, highlight: true,  prices: { MONTHLY: 14700, ANNUAL: 156000 } },
-  { id: 'BUSINESS', name: 'Business', credits: 15000, agents: 40, highlight: false, prices: { MONTHLY: 43900, ANNUAL: 464400 } },
+  { id: 'STARTER',  name: 'Starter',  credits: 2000,  agents: 5,  highlight: false, prices: { MONTHLY: 9700,  ANNUAL: 104760  } },
+  { id: 'PRO',      name: 'Pro',      credits: 5000,  agents: 15, highlight: true,  prices: { MONTHLY: 19700, ANNUAL: 212760  } },
+  { id: 'BUSINESS', name: 'Business', credits: 15000, agents: 40, highlight: false, prices: { MONTHLY: 49700, ANNUAL: 536760  } },
 ]
 
 const BILLING_CYCLES = [
@@ -324,7 +324,6 @@ function BillingTab() {
                   <div className="flex items-center gap-2 font-semibold text-gray-900">
                     <Coins className="w-4 h-4 text-[#1565C0]" />{plan.credits.toLocaleString()} créditos/mês
                   </div>
-                  <div className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" />Até {plan.agents} agentes</div>
                   {planFeatures.map(f => (
                     <div key={f} className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" />{f}</div>
                   ))}

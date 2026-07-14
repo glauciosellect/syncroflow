@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Check, Coins, Loader2, Zap, AlertTriangle, ExternalLink, CreditCard, MessageSquare } from 'lucide-react'
+import { Check, Coins, Loader2, Zap, AlertTriangle, ExternalLink, CreditCard } from 'lucide-react'
 import { useAuthStore } from '@/store/auth.store'
 import { formatDate } from '@/lib/utils'
 import { useSearchParams } from 'next/navigation'
@@ -17,9 +17,6 @@ const creditPackages = [
   { id: 'pack_1000', name: '1.000 créditos', credits: 1000, priceLabel: 'R$ 35,00', popular: true },
 ]
 
-const activeMsgPackages = [
-  { id: 'active_msg_100', name: '100 mensagens ativas', amount: 100, priceLabel: 'R$ 10,00', popular: true },
-]
 
 const modelCosts: Record<string, { label: string; credits: number }> = {
   'claude-haiku-4-5': { label: 'Haiku', credits: 1 },
@@ -34,9 +31,9 @@ const cycleOptions = [
 // Preços reais por plano (centavos)
 // MONTHLY = cobrado todo mês | ANNUAL = cobrado à vista 1x por ano
 const PLAN_PRICES: Record<string, Record<string, number>> = {
-  STARTER:  { MONTHLY: 6000,   ANNUAL: 63600  },
-  PRO:      { MONTHLY: 14700,  ANNUAL: 156000 },
-  BUSINESS: { MONTHLY: 43900,  ANNUAL: 464400 },
+  STARTER:  { MONTHLY: 9700,   ANNUAL: 104760  },
+  PRO:      { MONTHLY: 19700,  ANNUAL: 212760  },
+  BUSINESS: { MONTHLY: 49700,  ANNUAL: 536760  },
 }
 
 // Label do ciclo para exibição
@@ -66,13 +63,6 @@ export default function BillingPage() {
   // Compra de créditos avulsos
   const checkoutMutation = useMutation({
     mutationFn: (packageId: string) => api.post('/billing/checkout', { packageId }).then(r => r.data),
-    onSuccess: (data) => { if (data.url) window.location.href = data.url },
-    onError: () => toast({ title: 'Erro ao processar pagamento', variant: 'destructive' }),
-  })
-
-  // Compra de mensagens ativas avulsas
-  const checkoutActiveMsgsMutation = useMutation({
-    mutationFn: (packageId: string) => api.post('/billing/checkout-active-msgs', { packageId }).then(r => r.data),
     onSuccess: (data) => { if (data.url) window.location.href = data.url },
     onError: () => toast({ title: 'Erro ao processar pagamento', variant: 'destructive' }),
   })
@@ -268,8 +258,6 @@ export default function BillingPage() {
 
                   <div className="space-y-2 mb-6 text-sm text-gray-600">
                     <div className="flex items-center gap-2"><Coins className="w-4 h-4 text-[#1565C0]" />{plan.credits?.toLocaleString()} créditos/mês</div>
-                    <div className="flex items-center gap-2"><MessageSquare className="w-4 h-4 text-[#1565C0]" />{plan.activeMsgs?.toLocaleString()} mensagens ativas/mês</div>
-                    <div className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" />Até {plan.agents} agentes</div>
                     {features.map((f) => (
                       <div key={f} className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" />{f}</div>
                     ))}
@@ -344,43 +332,6 @@ export default function BillingPage() {
                 onClick={() => checkoutMutation.mutate(pkg.id)}
               >
                 {checkoutMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Comprar'}
-              </Button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Mensagens ativas avulsas */}
-      <div>
-        <div className="flex items-center gap-2 mb-2">
-          <MessageSquare className="w-5 h-5 text-[#1565C0]" />
-          <h2 className="text-lg font-semibold text-gray-900">Comprar mensagens ativas avulsas</h2>
-        </div>
-        <p className="text-sm text-gray-500 mb-4">Use quando esgotar a cota mensal de lembretes/avisos automáticos do seu plano. As respostas normais aos seus clientes nunca são afetadas.</p>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {activeMsgPackages.map((pkg) => (
-            <div key={pkg.id} className={`relative rounded-xl border-2 p-4 text-center ${pkg.popular ? 'border-[#1565C0] shadow-md shadow-blue-100' : 'border-gray-200'}`}>
-              {pkg.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#1565C0] text-white text-xs font-bold px-3 py-0.5 rounded-full">
-                  Mais popular
-                </div>
-              )}
-              <div className="font-bold text-gray-900 mb-1">{pkg.name}</div>
-              <div className="flex items-center justify-center gap-1 text-[#1565C0] mb-1">
-                <MessageSquare className="w-4 h-4" />
-                <span className="font-bold text-lg">{pkg.amount.toLocaleString('pt-BR')}</span>
-              </div>
-              <div className="text-xs text-gray-400 mb-3">mensagens ativas</div>
-              <div className="text-xl font-bold text-gray-900 mb-3">{pkg.priceLabel}</div>
-              <Button
-                size="sm"
-                className="w-full"
-                variant={pkg.popular ? 'default' : 'outline'}
-                disabled={checkoutActiveMsgsMutation.isPending}
-                onClick={() => checkoutActiveMsgsMutation.mutate(pkg.id)}
-              >
-                {checkoutActiveMsgsMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Comprar'}
               </Button>
             </div>
           ))}
