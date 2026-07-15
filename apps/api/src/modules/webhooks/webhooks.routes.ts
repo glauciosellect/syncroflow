@@ -96,16 +96,10 @@ export async function webhookRoutes(app: FastifyInstance) {
   })
 
   app.post('/webhooks/meta', { config: { rawBody: true } }, async (req, reply) => {
-    console.log('[META-ROUTE] chegou — sig:', req.headers['x-hub-signature-256']?.toString().slice(0, 20))
-    if (!isValidMetaSignature(req)) {
-      console.log('[META-ROUTE] assinatura inválida — rejeitando 403')
-      return reply.status(403).send()
-    }
+    if (!isValidMetaSignature(req)) return reply.status(403).send()
 
     const body = req.body as any
-    console.log('[META-ROUTE] payload genérico:', JSON.stringify(body).slice(0, 400))
 
-    // Extrai todos os IDs possíveis do payload para identificar o canal
     const recipientId: string =
       body?.entry?.[0]?.messaging?.[0]?.recipient?.id ||
       body?.entry?.[0]?.changes?.[0]?.value?.recipient?.id ||
@@ -113,8 +107,6 @@ export async function webhookRoutes(app: FastifyInstance) {
       ''
 
     const entryId: string = body?.entry?.[0]?.id || ''
-
-    console.log('[META-ROUTE] recipientId:', recipientId, '| entryId:', entryId)
 
     if (!recipientId && !entryId) {
       console.log('[META-ROUTE] nenhum ID encontrado no payload')
