@@ -149,6 +149,16 @@ export function startMessageWorker() {
 
         console.log('[META] messaging extraído:', JSON.stringify(messaging))
         if (!messaging) return
+
+        // Ignora echos (mensagens enviadas pelo próprio canal)
+        if (messaging.message?.is_echo) {
+          console.log('[META] ignorando echo')
+          return
+        }
+
+        // Ignora eventos sem mensagem de texto (edições, reações, etc)
+        if (!messaging.message) return
+
         from = messaging.sender?.id || String(messaging.sender)
         name = 'Usuário'
         text = messaging.message?.text
