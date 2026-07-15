@@ -87,12 +87,7 @@ export async function webhookRoutes(app: FastifyInstance) {
   })
 
   app.post('/webhooks/meta', { config: { rawBody: true } }, async (req, reply) => {
-    console.log('[META-ROUTE] recebido — headers:', JSON.stringify({ sig: req.headers['x-hub-signature-256']?.toString().slice(0, 20), ct: req.headers['content-type'] }))
-    const sigValid = isValidMetaSignature(req)
-    console.log('[META-ROUTE] assinatura válida:', sigValid)
-    if (!sigValid) {
-      console.log('[META-ROUTE] assinatura inválida — continuando mesmo assim para diagnóstico')
-    }
+    if (!isValidMetaSignature(req)) return reply.status(403).send()
 
     const body = req.body as any
     console.log('[META-ROUTE] payload genérico:', JSON.stringify(body).slice(0, 400))
