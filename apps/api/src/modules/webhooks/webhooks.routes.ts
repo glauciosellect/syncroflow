@@ -17,15 +17,24 @@ function safeEqual(a: string, b: string): boolean {
 // qualquer requisição externa que descubra a URL do webhook pode injetar
 // mensagens/eventos falsos como se viessem da Meta.
 function isValidMetaSignature(req: FastifyRequest): boolean {
-  const appSecret = process.env.META_APP_SECRET
-  if (!appSecret) return true // sem secret configurado, não há como validar — não bloqueia
-
   const signatureHeader = req.headers['x-hub-signature-256'] as string | undefined
   if (!signatureHeader?.startsWith('sha256=')) return false
 
   const rawBody = (req as any).rawBody || Buffer.from(JSON.stringify(req.body ?? {}))
-  const expected = crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex')
-  return safeEqual(signatureHeader.slice('sha256='.length), expected)
+  const received = signatureHeader.slice('sha256='.length)
+
+  // Valida contra todos os secrets configurados (app principal + produto Instagram)
+  const secrets = [
+    process.env.META_APP_SECRET,
+    process.env.META_IG_APP_SECRET,
+  ].filter(Boolean) as string[]
+
+  if (secrets.length === 0) return true // sem secret configurado, não bloqueia
+
+  return secrets.some(secret => {
+    const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex')
+    return safeEqual(received, expected)
+  })
 }
 
 export async function webhookRoutes(app: FastifyInstance) {
