@@ -332,7 +332,7 @@ export default function ChatPage() {
   const [search, setSearch] = useState('')
   const [channelFilter, setChannelFilter] = useState('all')
   const [message, setMessage] = useState('')
-  const [showProfile, setShowProfile] = useState(true)
+  const [showProfile, setShowProfile] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useSocketConnect()
