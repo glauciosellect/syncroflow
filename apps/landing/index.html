@@ -1738,7 +1738,7 @@
       <!-- Toggle Mensal / Anual -->
       <div style="display:flex;justify-content:center;gap:8px;margin-bottom:40px">
         <button id="btn-mensal" onclick="setPlanCycle('mensal')" style="padding:8px 24px;border-radius:999px;border:2px solid #1565C0;background:#1565C0;color:white;font-weight:600;cursor:pointer;font-size:14px">Mensal</button>
-        <button id="btn-anual" onclick="setPlanCycle('anual')" style="padding:8px 24px;border-radius:999px;border:2px solid #e5e7eb;background:white;color:#374151;font-weight:600;cursor:pointer;font-size:14px">Anual <span style="color:#2E7D32;font-size:12px">Pague 1x · Economize até R$ 1.596</span></button>
+        <button id="btn-anual" onclick="setPlanCycle('anual')" style="padding:8px 24px;border-radius:999px;border:2px solid #e5e7eb;background:white;color:#374151;font-weight:600;cursor:pointer;font-size:14px">Anual <span style="color:#2E7D32;font-size:12px">Pague 1x · Economize até R$ 596</span></button>
       </div>
 
       <div class="plans-grid">
@@ -1746,7 +1746,7 @@
           <div class="plan-name">Starter</div>
           <div class="plan-price" id="price-basic">R$ 97<span>,00</span></div>
           <div style="font-size:13px;color:#6b7280;margin-top:-8px;margin-bottom:4px" class="price-period">/mês</div>
-          <div class="price-saving" style="display:none;font-size:12px;color:#2E7D32;margin-bottom:8px;font-weight:600">≈ R$ 123,00/mês · economize R$ 216,40</div>
+          <div class="price-saving" style="display:none;font-size:12px;color:#2E7D32;margin-bottom:8px;font-weight:600">≈ R$ 87,30/mês · economize R$ 116,40</div>
           <div class="plan-credits">
             <strong>2.000 créditos/mês</strong>
             <span>• Até 3 agentes</span>
@@ -1810,7 +1810,7 @@
   <script>
     const prices = {
       mensal: { basic: 'R$ 97<span>,00</span>',  standard: 'R$ 197<span>,00</span>',  corporate: 'R$ 497<span>,00</span>'  },
-      anual:  { basic: 'R$ 1.476<span>,00</span>', standard: 'R$ 2.127<span>,60</span>', corporate: 'R$ 5.367<span>,60</span>' }
+      anual:  { basic: 'R$ 1.047<span>,60</span>', standard: 'R$ 2.127<span>,60</span>', corporate: 'R$ 5.367<span>,60</span>' }
     }
     function setPlanCycle(cycle) {
       document.getElementById('price-basic').innerHTML = prices[cycle].basic
@@ -2316,7 +2316,7 @@
         O agente usa modelos <strong>Claude (Anthropic)</strong>. Você treina ele com informações da sua empresa e ele responde os clientes de forma natural e humanizada.
       </div>
       <div id="q3" class="mascote-answer">
-        Temos planos a partir de <strong>R$ 97/mês</strong> (Starter). Também há plano Pro (R$ 197/mês) e Business (R$ 497/mês). No anual você economiza até R$ 1.596. Veja todos os detalhes em <a href="#planos" style="color:#1565C0">Planos</a>.
+        Temos planos a partir de <strong>R$ 97/mês</strong> (Starter). Também há plano Pro (R$ 197/mês) e Business (R$ 497/mês). No anual você economiza até R$ 596. Veja todos os detalhes em <a href="#planos" style="color:#1565C0">Planos</a>.
       </div>
       <div id="q4" class="mascote-answer">
         Sim! Ao se cadastrar você ganha <strong>14 dias de trial grátis</strong> com 1.000 créditos inclusos, sem precisar de cartão de crédito.
