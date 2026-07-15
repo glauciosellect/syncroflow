@@ -9,6 +9,7 @@ const FRONTEND_URL = process.env.FRONTEND_URL!
 
 // Troca code por token de curta duração, depois converte para longa duração (60 dias)
 async function exchangeCodeForLongLivedToken(code: string, redirectUri: string): Promise<string> {
+  console.log('[META-OAUTH] exchangeCode — app_id:', META_APP_ID, '| secret_prefix:', META_APP_SECRET?.slice(0, 8), '| redirect_uri:', redirectUri)
   const shortRes = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
     params: {
       client_id: META_APP_ID,
