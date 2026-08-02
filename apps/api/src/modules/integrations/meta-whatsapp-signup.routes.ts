@@ -21,14 +21,56 @@ async function exchangeEmbeddedSignupCode(code: string): Promise<string> {
 }
 
 // Assina o app no WABA para receber mensagens via webhook (equivalente a setupMetaWebhook para páginas)
-async function subscribeAppToWaba(wabaId: string, accessToken: string) {
+async function subscribeAppToWaba(wabaId: string, accessToken: string): Promise<{ ok: boolean; error?: string }> {
   try {
     await axios.post(`https://graph.facebook.com/v21.0/${wabaId}/subscribed_apps`, {}, {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
+    return { ok: true }
   } catch (err: any) {
+    const error = err?.response?.data?.error?.message || err?.message || 'Erro desconhecido'
     console.error('[META-WA-SIGNUP] Erro ao assinar app no WABA:', err?.response?.data || err?.message)
+    return { ok: false, error }
   }
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+// Sem este passo o número fica com phoneNumberId criado no WABA mas nunca fica
+// ativo de fato na rede do WhatsApp (não recebe/envia mensagem nenhuma,
+// aparece para terceiros como "convidar via SMS"). O Embedded Signup completo
+// (número escolhido dentro do fluxo Meta) dispara isso sozinho, mas números
+// vindos de provedor externo (Salvy) ficam só com o SMS de verificação
+// confirmado, sem o /register — por isso essa chamada precisa ser explícita.
+//
+// Tenta até 3 vezes com pequeno intervalo: logo após subscribeAppToWaba, a
+// Meta às vezes ainda não propagou a assinatura do app no WABA internamente,
+// e o /register falha por uma condição de corrida transitória — não por o
+// número estar realmente inválido. Retry simples resolve a maioria desses
+// casos sem exigir nenhuma ação manual.
+async function registerPhoneNumber(
+  phoneNumberId: string,
+  accessToken: string
+): Promise<{ ok: boolean; error?: string }> {
+  let lastError = 'Erro desconhecido'
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      await axios.post(`https://graph.facebook.com/v21.0/${phoneNumberId}/register`, {
+        messaging_product: 'whatsapp',
+        pin: '000000',
+      }, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      return { ok: true }
+    } catch (err: any) {
+      lastError = err?.response?.data?.error?.message || err?.message || 'Erro desconhecido'
+      console.error(`[META-WA-SIGNUP] Tentativa ${attempt}/3 falhou ao registrar número:`, err?.response?.data || err?.message)
+      if (attempt < 3) await sleep(1500)
+    }
+  }
+  return { ok: false, error: lastError }
 }
 
 export async function metaWhatsAppSignupRoutes(app: FastifyInstance) {
@@ -69,25 +111,57 @@ export async function metaWhatsAppSignupRoutes(app: FastifyInstance) {
     })
     if (existing) return reply.send(existing)
 
+    // Os dois passos abaixo são obrigatórios para o número ficar realmente
+    // ativo na rede do WhatsApp — não apenas "existente" no WABA. Rodam ANTES
+    // de criar o canal: se falharem definitivamente, a rota retorna erro real
+    // ao invés de criar um canal "conectado" que na prática não funciona.
+    const subscribeResult = await subscribeAppToWaba(wabaId, accessToken)
+    const registerResult = await registerPhoneNumber(phoneNumberId, accessToken)
+
+    if (!registerResult.ok) {
+      return reply.status(502).send({
+        error: `Não foi possível ativar o número na Meta: ${registerResult.error}. Tente novamente — se persistir, o número pode já estar registrado em outro WhatsApp Business ou app.`,
+      })
+    }
+
     const channel = await prisma.channel.create({
       data: {
         workspaceId,
         type: 'WHATSAPP',
         name: displayPhoneNumber || 'WhatsApp (Meta)',
-        config: { provider: 'meta-cloud', phoneNumberId, wabaId, accessToken, displayPhoneNumber },
+        config: {
+          provider: 'meta-cloud',
+          phoneNumberId,
+          wabaId,
+          accessToken,
+          displayPhoneNumber,
+          registeredAt: new Date().toISOString(),
+          subscribeWarning: subscribeResult.ok ? undefined : subscribeResult.error,
+        },
       },
     })
 
-    await subscribeAppToWaba(wabaId, accessToken)
+    if (!subscribeResult.ok) {
+      // O número está registrado (recebe/envia mensagem), mas o app pode não
+      // receber os webhooks de mensagens recebidas até isso ser resolvido —
+      // avisa no canal em vez de esconder atrás de um "conectado" genérico.
+      console.error(`[META-WA-SIGNUP] Canal ${channel.id} criado e número registrado, mas assinatura do webhook falhou:`, subscribeResult.error)
+    }
 
     const provider = new MetaCloudApiProvider()
+    let statusFinal: string = 'desconhecido'
     try {
-      const status = await provider.getStatus(channel.id)
-      if (status !== 'connected') console.error(`[META-WA-SIGNUP] Canal ${channel.id} criado mas status não é 'connected':`, status)
+      statusFinal = await provider.getStatus(channel.id)
+      if (statusFinal !== 'connected') console.error(`[META-WA-SIGNUP] Canal ${channel.id} criado mas status não é 'connected':`, statusFinal)
     } catch (err: any) {
       console.error('[META-WA-SIGNUP] Erro ao validar status do canal recém-criado:', err?.message)
     }
 
-    return reply.status(201).send(channel)
+    return reply.status(201).send({
+      ...channel,
+      warning: !subscribeResult.ok
+        ? 'Número ativado, mas pode haver atraso para começar a receber mensagens. Se não funcionar em alguns minutos, desconecte e tente novamente.'
+        : undefined,
+    })
   })
 }

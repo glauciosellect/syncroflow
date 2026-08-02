@@ -453,7 +453,14 @@ function ChannelsTab() {
   const whatsappEmbeddedSignupMutation = useMutation({
     mutationFn: (params: { code: string; wabaId?: string; phoneNumberId?: string }) =>
       api.post('/channels/whatsapp-meta/signup', params),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['channels'] }); toast({ title: '✅ WhatsApp (Meta) conectado!' }) },
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['channels'] })
+      if (res.data?.warning) {
+        toast({ title: '⚠️ Conectado com ressalva', description: res.data.warning, variant: 'destructive' })
+      } else {
+        toast({ title: '✅ WhatsApp (Meta) conectado!' })
+      }
+    },
     onError: (err: any) => toast({ title: 'Erro', description: err.response?.data?.error || 'Erro ao conectar', variant: 'destructive' }),
   })
 
