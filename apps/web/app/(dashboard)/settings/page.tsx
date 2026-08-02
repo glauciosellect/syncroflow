@@ -552,13 +552,19 @@ function ChannelsTab() {
       toast({ title: 'SDK da Meta ainda não carregou — tente novamente em alguns segundos', variant: 'destructive' })
       return
     }
+    const pin = ownNumberPin.trim()
+    // A Graph API só aceita PIN de verificação em duas etapas com exatamente
+    // 6 dígitos — validar aqui evita mandar pra Meta e voltar com erro genérico.
+    if (pin && pin.length !== 6) {
+      toast({ title: 'PIN inválido', description: 'O PIN de verificação em duas etapas deve ter exatamente 6 dígitos.', variant: 'destructive' })
+      return
+    }
     window.FB.login((response) => {
       const code = response.authResponse?.code
       if (!code) {
         toast({ title: 'Conexão cancelada', variant: 'destructive' })
         return
       }
-      const pin = ownNumberPin.trim()
       whatsappEmbeddedSignupMutation.mutate({
         code,
         ...embeddedSignupDataRef.current,
@@ -701,19 +707,20 @@ function ChannelsTab() {
                   Clique no botão abaixo para iniciar o processo. A Meta vai solicitar o número e enviar um código de verificação por SMS ou ligação.
                 </p>
                 <div>
-                  <Label>PIN de verificação em duas etapas (opcional)</Label>
+                  <Label>PIN de verificação em duas etapas (deixe em branco na maioria dos casos)</Label>
                   <Input
                     type="text"
                     inputMode="numeric"
                     maxLength={6}
-                    placeholder="Deixe em branco se nunca configurou um PIN"
+                    placeholder="Deixe em branco — só preencha se já apareceu um erro de PIN"
                     value={ownNumberPin}
                     onChange={e => setOwnNumberPin(e.target.value.replace(/\D/g, ''))}
                     className="mt-1"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Se esse número já foi conectado antes ao WhatsApp Business e tem verificação em duas etapas
-                    ativada, informe o PIN de 6 dígitos configurado nele. Se nunca configurou, deixe em branco.
+                    A grande maioria dos números nunca teve verificação em duas etapas configurada — deixe este
+                    campo em branco. Só preencha se você já tentou conectar este número antes, recebeu um erro
+                    de PIN incorreto, e sabe o PIN de 6 dígitos que foi configurado nele na Meta.
                   </p>
                 </div>
                 <div className="flex gap-2">

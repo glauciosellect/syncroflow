@@ -101,7 +101,8 @@ export async function metaWhatsAppSignupRoutes(app: FastifyInstance) {
       code: z.string().min(1),
       wabaId: z.string().optional(),
       phoneNumberId: z.string().optional(),
-      twoFactorPin: z.string().regex(/^\d{4,6}$/).optional(),
+      // A Graph API exige exatamente 6 dígitos — "(#100) Param pin must be 6 characters long."
+      twoFactorPin: z.string().regex(/^\d{6}$/, 'O PIN deve ter exatamente 6 dígitos').optional(),
     }).parse(req.body)
 
     if (!wabaId || !phoneNumberId) {
