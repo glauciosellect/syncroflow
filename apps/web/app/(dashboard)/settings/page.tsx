@@ -451,7 +451,7 @@ function ChannelsTab() {
   })
 
   const whatsappEmbeddedSignupMutation = useMutation({
-    mutationFn: (params: { code: string; wabaId?: string; phoneNumberId?: string }) =>
+    mutationFn: (params: { code: string; wabaId?: string; phoneNumberId?: string; twoFactorPin?: string }) =>
       api.post('/channels/whatsapp-meta/signup', params),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['channels'] })
@@ -468,6 +468,11 @@ function ChannelsTab() {
   const [whatsappMode, setWhatsappMode] = useState<'virtual' | 'own'>('virtual')
   const [selectedAreaCode, setSelectedAreaCode] = useState<string>('')
   const [purchasedVirtualNumber, setPurchasedVirtualNumber] = useState<{ phoneNumber: string; channelId: string } | null>(null)
+  // PIN de verificação em duas etapas do WhatsApp Business — só é pedido no modo
+  // "número próprio", pois um número que já foi usado antes pode ter 2FA
+  // configurado com um PIN diferente do padrão (000000, usado para números
+  // virgens/virtuais). Ver erro "(#133005) Two step verification PIN Mismatch".
+  const [ownNumberPin, setOwnNumberPin] = useState('')
 
   const areaCodesQuery = useQuery({
     queryKey: ['salvy-area-codes'],
@@ -553,7 +558,12 @@ function ChannelsTab() {
         toast({ title: 'Conexão cancelada', variant: 'destructive' })
         return
       }
-      whatsappEmbeddedSignupMutation.mutate({ code, ...embeddedSignupDataRef.current })
+      const pin = ownNumberPin.trim()
+      whatsappEmbeddedSignupMutation.mutate({
+        code,
+        ...embeddedSignupDataRef.current,
+        ...(pin ? { twoFactorPin: pin } : {}),
+      })
     }, {
       config_id: process.env.NEXT_PUBLIC_META_WHATSAPP_CONFIG_ID,
       response_type: 'code',
@@ -690,6 +700,22 @@ function ChannelsTab() {
                 <p className="text-sm text-gray-600">
                   Clique no botão abaixo para iniciar o processo. A Meta vai solicitar o número e enviar um código de verificação por SMS ou ligação.
                 </p>
+                <div>
+                  <Label>PIN de verificação em duas etapas (opcional)</Label>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="Deixe em branco se nunca configurou um PIN"
+                    value={ownNumberPin}
+                    onChange={e => setOwnNumberPin(e.target.value.replace(/\D/g, ''))}
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Se esse número já foi conectado antes ao WhatsApp Business e tem verificação em duas etapas
+                    ativada, informe o PIN de 6 dígitos configurado nele. Se nunca configurou, deixe em branco.
+                  </p>
+                </div>
                 <div className="flex gap-2">
                   <Button onClick={connectWhatsAppMeta} className="bg-green-600 hover:bg-green-700 text-white"
                     disabled={whatsappEmbeddedSignupMutation.isPending}>

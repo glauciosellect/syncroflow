@@ -45,32 +45,51 @@ function sleep(ms: number) {
 // vindos de provedor externo (Salvy) ficam só com o SMS de verificação
 // confirmado, sem o /register — por isso essa chamada precisa ser explícita.
 //
+// O PIN de verificação em duas etapas é obrigatório na chamada. Números
+// virgens (nunca conectados ao WhatsApp Business antes — caso do número
+// virtual Salvy) aceitam o padrão '000000' na primeira ativação. Números que
+// JÁ tiveram 2FA configurado antes (caso comum em "já tenho um número")
+// exigem o PIN real já cadastrado — daí o parâmetro opcional pinCandidate,
+// preenchido pelo usuário no formulário "número próprio". Erro típico quando
+// o PIN não bate: "(#133005) Two step verification PIN Mismatch".
+//
 // Tenta até 3 vezes com pequeno intervalo: logo após subscribeAppToWaba, a
 // Meta às vezes ainda não propagou a assinatura do app no WABA internamente,
 // e o /register falha por uma condição de corrida transitória — não por o
-// número estar realmente inválido. Retry simples resolve a maioria desses
-// casos sem exigir nenhuma ação manual.
+// número estar realmente inválido nem pelo PIN. Retry simples resolve a
+// maioria desses casos sem exigir nenhuma ação manual.
 async function registerPhoneNumber(
   phoneNumberId: string,
-  accessToken: string
-): Promise<{ ok: boolean; error?: string }> {
+  accessToken: string,
+  pinCandidate?: string
+): Promise<{ ok: boolean; error?: string; pinMismatch?: boolean }> {
+  const pin = pinCandidate || '000000'
   let lastError = 'Erro desconhecido'
+  let lastPinMismatch = false
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       await axios.post(`https://graph.facebook.com/v21.0/${phoneNumberId}/register`, {
         messaging_product: 'whatsapp',
-        pin: '000000',
+        pin,
       }, {
         headers: { Authorization: `Bearer ${accessToken}` },
       })
       return { ok: true }
     } catch (err: any) {
-      lastError = err?.response?.data?.error?.message || err?.message || 'Erro desconhecido'
+      const code = err?.response?.data?.error?.code
+      lastPinMismatch = code === 133005
+      lastError = err?.response?.data?.error?.error_data?.details
+        || err?.response?.data?.error?.message
+        || err?.message
+        || 'Erro desconhecido'
       console.error(`[META-WA-SIGNUP] Tentativa ${attempt}/3 falhou ao registrar número:`, err?.response?.data || err?.message)
+      // PIN incorreto não é transitório — repetir com o mesmo PIN errado não
+      // vai funcionar, então não vale a pena gastar os 3 retries/4.5s nesse caso.
+      if (lastPinMismatch) break
       if (attempt < 3) await sleep(1500)
     }
   }
-  return { ok: false, error: lastError }
+  return { ok: false, error: lastError, pinMismatch: lastPinMismatch }
 }
 
 export async function metaWhatsAppSignupRoutes(app: FastifyInstance) {
@@ -78,10 +97,11 @@ export async function metaWhatsAppSignupRoutes(app: FastifyInstance) {
     const { sub, wid } = req.user as { sub: string; wid?: string }
     const workspaceId = await getWorkspaceId(sub, wid)
 
-    const { code, wabaId, phoneNumberId } = z.object({
+    const { code, wabaId, phoneNumberId, twoFactorPin } = z.object({
       code: z.string().min(1),
       wabaId: z.string().optional(),
       phoneNumberId: z.string().optional(),
+      twoFactorPin: z.string().regex(/^\d{4,6}$/).optional(),
     }).parse(req.body)
 
     if (!wabaId || !phoneNumberId) {
@@ -116,12 +136,15 @@ export async function metaWhatsAppSignupRoutes(app: FastifyInstance) {
     // de criar o canal: se falharem definitivamente, a rota retorna erro real
     // ao invés de criar um canal "conectado" que na prática não funciona.
     const subscribeResult = await subscribeAppToWaba(wabaId, accessToken)
-    const registerResult = await registerPhoneNumber(phoneNumberId, accessToken)
+    const registerResult = await registerPhoneNumber(phoneNumberId, accessToken, twoFactorPin)
 
     if (!registerResult.ok) {
-      return reply.status(502).send({
-        error: `Não foi possível ativar o número na Meta: ${registerResult.error}. Tente novamente — se persistir, o número pode já estar registrado em outro WhatsApp Business ou app.`,
-      })
+      const error = registerResult.pinMismatch
+        ? twoFactorPin
+          ? 'O PIN informado não confere com a verificação em duas etapas já configurada para este número. Confirme o PIN correto ou redefina a verificação em duas etapas no WhatsApp Business Manager da Meta.'
+          : 'Este número já tem verificação em duas etapas configurada na Meta com um PIN próprio. Volte e informe esse PIN no campo "PIN de verificação em duas etapas" antes de conectar.'
+        : `Não foi possível ativar o número na Meta: ${registerResult.error}. Tente novamente — se persistir, o número pode já estar registrado em outro WhatsApp Business ou app.`
+      return reply.status(502).send({ error })
     }
 
     const channel = await prisma.channel.create({
