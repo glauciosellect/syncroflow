@@ -696,73 +696,76 @@ export function startMessageWorker() {
       })
 
 
-      if (channelType === 'WHATSAPP') {
-        const provider = getWhatsAppProvider()
-        if (audioPreference === 'audio') {
-          const agentVoice = (config as any)?.ttsVoice || 'onyx'
-          const audioBuffer = await generateSpeech(responseText, channel.workspaceId, agentVoice)
-          if (audioBuffer && provider.sendAudioBase64) {
-            await provider.sendAudioBase64(channelId, from, audioBuffer.toString('base64'))
+      // A resposta da IA já foi gerada e salva acima — se o envio ao canal externo falhar,
+      // não relançamos o erro: isso evitaria que o BullMQ reprocesse o job inteiro (attempts: 3),
+      // o que gerava uma NOVA resposta de IA a cada retry (mesma pergunta do usuário respondida
+      // várias vezes de formas diferentes) sem nunca corrigir a causa real do erro de envio.
+      try {
+        if (channelType === 'WHATSAPP') {
+          const provider = getWhatsAppProvider()
+          if (audioPreference === 'audio') {
+            const agentVoice = (config as any)?.ttsVoice || 'onyx'
+            const audioBuffer = await generateSpeech(responseText, channel.workspaceId, agentVoice)
+            if (audioBuffer && provider.sendAudioBase64) {
+              await provider.sendAudioBase64(channelId, from, audioBuffer.toString('base64'))
+            } else {
+              await provider.sendText(channelId, from, responseText)
+            }
           } else {
-            await provider.sendText(channelId, from, responseText)
+            const parts = config?.splitLongMessages && responseText.length > 800
+              ? responseText.match(/.{1,800}(?:\s|$)/g) || [responseText]
+              : [responseText]
+            for (const part of parts) {
+              await provider.sendText(channelId, from, part.trim())
+            }
           }
-        } else {
-          const parts = config?.splitLongMessages && responseText.length > 800
-            ? responseText.match(/.{1,800}(?:\s|$)/g) || [responseText]
-            : [responseText]
-          for (const part of parts) {
-            await provider.sendText(channelId, from, part.trim())
-          }
-        }
-      } else if (channelType === 'TELEGRAM') {
-        const botToken = (channel.config as any).botToken
-        await axios.post(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-          chat_id: from,
-          text: responseText,
-        })
-      } else if (channelType === 'LINKEDIN') {
-        const accessToken = (channel.config as any).accessToken
-        if (accessToken && from) {
-          try {
+        } else if (channelType === 'TELEGRAM') {
+          const botToken = (channel.config as any).botToken
+          await axios.post(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            chat_id: from,
+            text: responseText,
+          })
+        } else if (channelType === 'LINKEDIN') {
+          const accessToken = (channel.config as any).accessToken
+          if (accessToken && from) {
             await axios.post('https://api.linkedin.com/v2/messages', {
               recipients: [{ 'com.linkedin.voyager.messaging.MessagingMember': { 'com.linkedin.common.UrnId': from } }],
               subject: '',
               body: responseText,
             }, { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } })
-          } catch (err: any) {
-            console.error('[LINKEDIN-SEND]', err?.response?.data || err?.message)
           }
-        }
-      } else if (channelType === 'META' || channelType === 'INSTAGRAM' || channelType === 'FACEBOOK') {
-        const pageToken = (channel.config as any).pageAccessToken
-        // Instagram: envia via /{pageId}/messages (pageId da página FB vinculada ao Instagram)
-        // Facebook: envia via /{pageId}/messages
-        const pageId = (channel.config as any).pageId
-        console.log('[META-SEND] channelType:', channelType, '| pageId:', pageId, '| from:', from, '| token prefix:', pageToken?.slice(0, 20))
-        try {
+        } else if (channelType === 'META' || channelType === 'INSTAGRAM' || channelType === 'FACEBOOK') {
+          const pageToken = (channel.config as any).pageAccessToken
+          // Instagram: envia via /{pageId}/messages (pageId da página FB vinculada ao Instagram)
+          // Facebook: envia via /{pageId}/messages
+          const pageId = (channel.config as any).pageId
+          console.log('[META-SEND] channelType:', channelType, '| pageId:', pageId, '| from:', from, '| token prefix:', pageToken?.slice(0, 20))
           await axios.post(`https://graph.facebook.com/v21.0/${pageId}/messages`, {
             recipient: { id: from },
             message: { text: responseText },
             messaging_type: 'RESPONSE',
           }, { params: { access_token: pageToken } })
-        } catch (sendErr: any) {
-          console.error('[META-SEND] ERRO:', sendErr?.response?.data || sendErr?.message)
-          throw sendErr
+        } else if (channelType === 'EMAIL' && emailMetadata) {
+          const accessToken = await getValidGmailToken(channelId)
+          if (accessToken) {
+            await sendReply(accessToken, {
+              threadId: emailMetadata.threadId,
+              messageId: emailMetadata.messageId,
+              references: emailMetadata.references,
+              to: from,
+              subject: emailMetadata.subject.toLowerCase().startsWith('re:') ? emailMetadata.subject : `Re: ${emailMetadata.subject}`,
+              body: responseText,
+            })
+          } else {
+            console.error('[EMAIL-SEND] Token inválido para canal', channelId)
+          }
         }
-      } else if (channelType === 'EMAIL' && emailMetadata) {
-        const accessToken = await getValidGmailToken(channelId)
-        if (accessToken) {
-          await sendReply(accessToken, {
-            threadId: emailMetadata.threadId,
-            messageId: emailMetadata.messageId,
-            references: emailMetadata.references,
-            to: from,
-            subject: emailMetadata.subject.toLowerCase().startsWith('re:') ? emailMetadata.subject : `Re: ${emailMetadata.subject}`,
-            body: responseText,
-          })
-        } else {
-          console.error('[EMAIL-SEND] Token inválido para canal', channelId)
-        }
+      } catch (sendErr: any) {
+        // Log alto e claro: a resposta foi gerada mas NÃO chegou ao cliente de verdade.
+        console.error(
+          `[WORKER] FALHA NO ENVIO (canal ${channelType}, channelId ${channelId}) — mensagem gerada mas não entregue:`,
+          sendErr?.response?.data || sendErr?.message
+        )
       }
 
       } catch (err: any) {

@@ -9,8 +9,12 @@ const SALVY_WEBHOOK_SECRET = process.env.SALVY_WEBHOOK_SECRET!
 
 export async function salvyRoutes(app: FastifyInstance) {
   app.get('/integrations/salvy/area-codes', { onRequest: [app.authenticate] }, async (_req, reply) => {
-    const areaCodes = await listAvailableAreaCodes()
-    return reply.send({ areaCodes })
+    try {
+      const areaCodes = await listAvailableAreaCodes()
+      return reply.send({ areaCodes })
+    } catch (err: any) {
+      return reply.status(502).send({ error: `Não foi possível consultar DDDs disponíveis: ${err.message}` })
+    }
   })
 
   // Cliente clica "contratar número" — provisiona na Salvy e cria Channel em status pending
@@ -19,24 +23,35 @@ export async function salvyRoutes(app: FastifyInstance) {
     const workspaceId = await getWorkspaceId(sub, wid)
     const { areaCode } = z.object({ areaCode: z.number().int() }).parse(req.body)
 
-    const account = await createVirtualPhoneAccount(areaCode, `SyncroFlow-${workspaceId}`)
+    let account
+    try {
+      account = await createVirtualPhoneAccount(areaCode, `SyncroFlow-${workspaceId}`)
+    } catch (err: any) {
+      return reply.status(502).send({ error: `Não foi possível contratar o número virtual: ${err.message}` })
+    }
 
-    const channel = await prisma.channel.create({
-      data: {
-        workspaceId,
-        type: 'WHATSAPP',
-        name: account.phoneNumber,
-        isActive: false, // só ativa depois da validação do SMS na Meta
-        config: {
-          provider: 'meta-cloud',
-          salvyVirtualPhoneAccountId: account.id,
-          salvyStatus: account.status,
-          displayPhoneNumber: account.phoneNumber,
+    try {
+      const channel = await prisma.channel.create({
+        data: {
+          workspaceId,
+          type: 'WHATSAPP',
+          name: account.phoneNumber,
+          isActive: false, // só ativa depois da validação do SMS na Meta
+          config: {
+            provider: 'meta-cloud',
+            salvyVirtualPhoneAccountId: account.id,
+            salvyStatus: account.status,
+            displayPhoneNumber: account.phoneNumber,
+          },
         },
-      },
-    })
-
-    return reply.status(201).send({ channel, salvyAccount: account })
+      })
+      return reply.status(201).send({ channel, salvyAccount: account })
+    } catch (err: any) {
+      // Número já foi provisionado (e cobrado) na Salvy, mas não conseguimos salvar o canal —
+      // sem isso logado, a cobrança fica órfã e ninguém percebe até a fatura chegar.
+      console.error(`[SALVY] ALERTA: número ${account.id} (${account.phoneNumber}) provisionado na Salvy mas Channel não foi criado:`, err?.message)
+      return reply.status(500).send({ error: 'Número contratado na Salvy, mas houve erro ao salvar no sistema. Contate o suporte informando este horário.' })
+    }
   })
 
   app.delete('/integrations/salvy/virtual-numbers/:channelId', { onRequest: [app.authenticate] }, async (req, reply) => {
@@ -57,18 +72,23 @@ export async function salvyRoutes(app: FastifyInstance) {
       data: { config: { ...config, salvyStatus: 'cancelamento_solicitado' } },
     })
 
-    await cancelVirtualPhoneAccount(salvyId, 'company-canceled')
-
-    const confirmed = await getVirtualPhoneAccount(salvyId)
-    await prisma.channel.update({
-      where: { id: channelId },
-      data: {
-        isActive: false,
-        config: { ...config, salvyStatus: confirmed.status },
-      },
-    })
-
-    return reply.send({ status: confirmed.status })
+    try {
+      await cancelVirtualPhoneAccount(salvyId, 'company-canceled')
+      const confirmed = await getVirtualPhoneAccount(salvyId)
+      await prisma.channel.update({
+        where: { id: channelId },
+        data: {
+          isActive: false,
+          config: { ...config, salvyStatus: confirmed.status },
+        },
+      })
+      return reply.send({ status: confirmed.status })
+    } catch (err: any) {
+      // Canal já ficou marcado como "cancelamento_solicitado" — evita perder esse rastro
+      // mesmo se a Salvy falhar, para não cobrar indefinidamente sem ninguém perceber.
+      console.error(`[SALVY] Erro ao cancelar/confirmar número ${salvyId} (canal ${channelId}):`, err?.message)
+      return reply.status(502).send({ error: `Cancelamento solicitado, mas não foi possível confirmar com a Salvy: ${err.message}. Tente novamente em instantes.` })
+    }
   })
 
   // Webhook da Salvy (assinado via Svix) — recebe sms.received com o código de verificação do WhatsApp

@@ -535,11 +535,22 @@ function ChannelsTab() {
       if (event.origin !== 'https://www.facebook.com') return
       try {
         const data = JSON.parse(event.data)
-        if (data.type === 'WA_EMBEDDED_SIGNUP' && data.event === 'FINISH') {
+        if (data.type !== 'WA_EMBEDDED_SIGNUP') return
+        if (data.event === 'FINISH') {
           embeddedSignupDataRef.current = {
             wabaId: data.data?.waba_id,
             phoneNumberId: data.data?.phone_number_id,
           }
+        } else if (data.event === 'CANCEL') {
+          embeddedSignupDataRef.current = {}
+          toast({ title: 'Conexão cancelada', description: 'Você fechou a janela da Meta antes de concluir.' })
+        } else if (data.event === 'ERROR') {
+          embeddedSignupDataRef.current = {}
+          toast({
+            title: 'Erro na conexão com a Meta',
+            description: data.data?.error_message || 'A Meta reportou um erro durante o processo. Tente novamente.',
+            variant: 'destructive',
+          })
         }
       } catch {}
     }

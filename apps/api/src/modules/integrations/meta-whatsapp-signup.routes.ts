@@ -28,8 +28,12 @@ async function subscribeAppToWaba(wabaId: string, accessToken: string): Promise<
     })
     return { ok: true }
   } catch (err: any) {
-    const error = err?.response?.data?.error?.message || err?.message || 'Erro desconhecido'
-    console.error('[META-WA-SIGNUP] Erro ao assinar app no WABA:', err?.response?.data || err?.message)
+    const graphError = err?.response?.data?.error
+    const error = graphError?.message || err?.message || 'Erro desconhecido'
+    console.error(
+      '[META-WA-SIGNUP] Erro ao assinar app no WABA:', graphError?.code, graphError?.error_subcode, '—', error,
+      '| raw:', err?.response?.data || err?.message
+    )
     return { ok: false, error }
   }
 }
@@ -76,13 +80,17 @@ async function registerPhoneNumber(
       })
       return { ok: true }
     } catch (err: any) {
-      const code = err?.response?.data?.error?.code
+      const graphError = err?.response?.data?.error
+      const code = graphError?.code
       lastPinMismatch = code === 133005
-      lastError = err?.response?.data?.error?.error_data?.details
-        || err?.response?.data?.error?.message
+      lastError = graphError?.error_data?.details
+        || graphError?.message
         || err?.message
         || 'Erro desconhecido'
-      console.error(`[META-WA-SIGNUP] Tentativa ${attempt}/3 falhou ao registrar número:`, err?.response?.data || err?.message)
+      console.error(
+        `[META-WA-SIGNUP] Tentativa ${attempt}/3 falhou ao registrar número:`, code, graphError?.error_subcode, '—', lastError,
+        '| raw:', err?.response?.data || err?.message
+      )
       // PIN incorreto não é transitório — repetir com o mesmo PIN errado não
       // vai funcionar, então não vale a pena gastar os 3 retries/4.5s nesse caso.
       if (lastPinMismatch) break
@@ -113,7 +121,12 @@ export async function metaWhatsAppSignupRoutes(app: FastifyInstance) {
     try {
       accessToken = await exchangeEmbeddedSignupCode(code)
     } catch (err: any) {
-      console.error('[META-WA-SIGNUP] Erro ao trocar code por token:', err?.response?.data || err?.message)
+      const graphError = err?.response?.data?.error
+      console.error(
+        '[META-WA-SIGNUP] Erro ao trocar code por token:', graphError?.code, graphError?.error_subcode, '—',
+        graphError?.message || err?.message,
+        '| raw:', err?.response?.data || err?.message
+      )
       return reply.status(400).send({ error: 'Não foi possível validar a conexão com a Meta' })
     }
 

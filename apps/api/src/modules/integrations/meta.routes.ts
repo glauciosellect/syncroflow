@@ -113,7 +113,7 @@ export async function metaIntegrationRoutes(app: FastifyInstance) {
     if (!token) return reply.status(400).send({ error: 'Token JWT obrigatório' })
 
     const redirectUri = `${API_URL}/integrations/meta/callback`
-    const scope = 'pages_show_list,pages_messaging,pages_manage_metadata,instagram_basic,instagram_manage_messages,business_management'
+    const scope = 'pages_show_list,pages_messaging,pages_manage_metadata,instagram_business_basic,instagram_business_manage_messages,business_management'
 
     const state = Buffer.from(JSON.stringify({ token, type: type || 'instagram' })).toString('base64url')
 
@@ -285,8 +285,13 @@ export async function metaIntegrationRoutes(app: FastifyInstance) {
 
       return reply.redirect(`${FRONTEND_URL}/settings?meta_success=${encodeURIComponent(successMsg)}`)
     } catch (err: any) {
-      console.error('[META-OAUTH] Erro:', err?.response?.data || err?.message)
-      const errMsg = err?.response?.data?.error?.message || 'Erro ao conectar com Meta'
+      const graphError = err?.response?.data?.error
+      console.error(
+        '[META-OAUTH] Erro:', graphError?.code, graphError?.error_subcode, '—',
+        graphError?.message || err?.message,
+        '| raw:', err?.response?.data || err?.message
+      )
+      const errMsg = graphError?.message || 'Erro ao conectar com Meta'
       return reply.redirect(`${FRONTEND_URL}/settings?meta_error=${encodeURIComponent(errMsg)}`)
     }
   })
