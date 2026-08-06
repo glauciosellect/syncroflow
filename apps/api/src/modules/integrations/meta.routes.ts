@@ -55,7 +55,6 @@ async function exchangeInstagramLoginCode(code: string, redirectUri: string): Pr
     })
   )
   const shortToken: string = shortRes.data.access_token
-  const igUserId: string = String(shortRes.data.user_id)
 
   const longRes = await axios.get('https://graph.instagram.com/access_token', {
     params: {
@@ -66,17 +65,17 @@ async function exchangeInstagramLoginCode(code: string, redirectUri: string): Pr
   })
   const accessToken: string = longRes.data.access_token
 
-  let username: string | undefined
-  let name: string | undefined
-  try {
-    const meRes = await axios.get('https://graph.instagram.com/v21.0/me', {
-      params: { fields: 'user_id,username,name', access_token: accessToken },
-    })
-    username = meRes.data?.username
-    name = meRes.data?.name
-  } catch (e: any) {
-    console.log('[META-OAUTH][IG-LOGIN] erro ao buscar username:', e?.response?.data || e?.message)
-  }
+  // O `user_id` da troca de token (acima) é o "Instagram-scoped ID" desse produto — NÃO é o
+  // mesmo ID que a Meta manda em entry[0].id/recipient.id nos webhooks. O ID que bate com o
+  // webhook é o campo `user_id` retornado por /me (confirmado via teste real em produção:
+  // GET graph.instagram.com/v21.0/me?fields=id,user_id retorna id="277..." e user_id="1784...",
+  // e é o "1784..." que chega no payload do webhook).
+  const meRes = await axios.get('https://graph.instagram.com/v21.0/me', {
+    params: { fields: 'user_id,username,name', access_token: accessToken },
+  })
+  const igUserId: string = String(meRes.data.user_id)
+  const username: string | undefined = meRes.data?.username
+  const name: string | undefined = meRes.data?.name
 
   return { accessToken, igUserId, username, name }
 }
