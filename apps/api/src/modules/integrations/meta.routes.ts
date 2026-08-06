@@ -4,6 +4,8 @@ import { prisma } from '../../lib/prisma'
 
 const META_APP_ID = process.env.META_APP_ID!
 const META_APP_SECRET = process.env.META_APP_SECRET!
+const INSTAGRAM_APP_ID = process.env.INSTAGRAM_APP_ID!
+const INSTAGRAM_APP_SECRET = process.env.INSTAGRAM_APP_SECRET!
 const API_URL = process.env.API_URL!
 const FRONTEND_URL = process.env.FRONTEND_URL!
 
@@ -29,6 +31,54 @@ async function exchangeCodeForLongLivedToken(code: string, redirectUri: string):
     },
   })
   return longRes.data.access_token
+}
+
+type InstagramLoginResult = {
+  accessToken: string
+  igUserId: string
+  username?: string
+  name?: string
+}
+
+// Fluxo "Instagram API with Instagram Login" — endpoints e app separados do Facebook Login clássico.
+// instagram_business_basic/instagram_business_manage_messages só funcionam por aqui (aprovados
+// no App Review de 03/08/2026, mas o dialog do Facebook rejeita esses nomes como "Invalid Scopes").
+async function exchangeInstagramLoginCode(code: string, redirectUri: string): Promise<InstagramLoginResult> {
+  const shortRes = await axios.post(
+    'https://api.instagram.com/oauth/access_token',
+    new URLSearchParams({
+      client_id: INSTAGRAM_APP_ID,
+      client_secret: INSTAGRAM_APP_SECRET,
+      grant_type: 'authorization_code',
+      redirect_uri: redirectUri,
+      code,
+    })
+  )
+  const shortToken: string = shortRes.data.access_token
+  const igUserId: string = String(shortRes.data.user_id)
+
+  const longRes = await axios.get('https://graph.instagram.com/access_token', {
+    params: {
+      grant_type: 'ig_exchange_token',
+      client_secret: INSTAGRAM_APP_SECRET,
+      access_token: shortToken,
+    },
+  })
+  const accessToken: string = longRes.data.access_token
+
+  let username: string | undefined
+  let name: string | undefined
+  try {
+    const meRes = await axios.get('https://graph.instagram.com/v21.0/me', {
+      params: { fields: 'user_id,username,name', access_token: accessToken },
+    })
+    username = meRes.data?.username
+    name = meRes.data?.name
+  } catch (e: any) {
+    console.log('[META-OAUTH][IG-LOGIN] erro ao buscar username:', e?.response?.data || e?.message)
+  }
+
+  return { accessToken, igUserId, username, name }
 }
 
 type MetaPage = {
@@ -113,10 +163,22 @@ export async function metaIntegrationRoutes(app: FastifyInstance) {
     if (!token) return reply.status(400).send({ error: 'Token JWT obrigatório' })
 
     const redirectUri = `${API_URL}/integrations/meta/callback`
-    const scope = 'pages_show_list,pages_messaging,pages_manage_metadata,instagram_basic,instagram_manage_messages,business_management'
-
     const state = Buffer.from(JSON.stringify({ token, type: type || 'instagram' })).toString('base64url')
 
+    // Instagram usa o produto "Instagram API with Instagram Login" (app separado, endpoints
+    // instagram.com) — o dialog clássico do Facebook rejeita os scopes aprovados no App Review
+    // (instagram_business_basic/instagram_business_manage_messages) como "Invalid Scopes".
+    if (type === 'instagram') {
+      const authUrl = new URL('https://www.instagram.com/oauth/authorize')
+      authUrl.searchParams.set('client_id', INSTAGRAM_APP_ID)
+      authUrl.searchParams.set('redirect_uri', redirectUri)
+      authUrl.searchParams.set('scope', 'instagram_business_basic,instagram_business_manage_messages')
+      authUrl.searchParams.set('state', state)
+      authUrl.searchParams.set('response_type', 'code')
+      return reply.redirect(authUrl.toString())
+    }
+
+    const scope = 'pages_show_list,pages_messaging,pages_manage_metadata,instagram_basic,instagram_manage_messages,business_management'
     const authUrl = new URL('https://www.facebook.com/v21.0/dialog/oauth')
     authUrl.searchParams.set('client_id', META_APP_ID)
     authUrl.searchParams.set('redirect_uri', redirectUri)
@@ -174,6 +236,47 @@ export async function metaIntegrationRoutes(app: FastifyInstance) {
     const workspaceId = member.workspaceId
 
     const redirectUri = `${API_URL}/integrations/meta/callback`
+
+    if (channelType === 'instagram') {
+      try {
+        const ig = await exchangeInstagramLoginCode(code, redirectUri)
+        const existing = await prisma.channel.findFirst({
+          where: { workspaceId, type: 'INSTAGRAM', config: { path: ['igAccountId'], equals: ig.igUserId } },
+        })
+        const configData = {
+          authFlow: 'instagram-login',
+          accessToken: ig.accessToken,
+          igAccountId: ig.igUserId,
+          igUsername: ig.username,
+          igName: ig.name,
+          tokenExpiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
+        }
+        if (!existing) {
+          await prisma.channel.create({
+            data: {
+              workspaceId,
+              type: 'INSTAGRAM',
+              name: ig.username ? `@${ig.username}` : (ig.name || 'Instagram'),
+              config: configData,
+            },
+          })
+        } else {
+          await prisma.channel.update({
+            where: { id: existing.id },
+            data: { config: { ...(existing.config as any), ...configData } },
+          })
+        }
+        const successMsg = ig.username ? `Conectado: @${ig.username}` : 'Instagram conectado'
+        return reply.redirect(`${FRONTEND_URL}/settings?meta_success=${encodeURIComponent(successMsg)}`)
+      } catch (err: any) {
+        const igError = err?.response?.data?.error_message || err?.response?.data?.error?.message
+        console.error(
+          '[META-OAUTH][IG-LOGIN] Erro:', err?.response?.data?.error_type, '—', igError || err?.message,
+          '| raw:', err?.response?.data || err?.message
+        )
+        return reply.redirect(`${FRONTEND_URL}/settings?meta_error=${encodeURIComponent(igError || 'Não foi possível conectar o Instagram')}`)
+      }
+    }
 
     try {
       const longToken = await exchangeCodeForLongLivedToken(code, redirectUri)
@@ -310,6 +413,25 @@ export async function metaIntegrationRoutes(app: FastifyInstance) {
     if (!channel) return reply.status(404).send({ error: 'Canal não encontrado' })
 
     const config = channel.config as any
+
+    if (config.authFlow === 'instagram-login') {
+      try {
+        const res = await axios.get('https://graph.instagram.com/refresh_access_token', {
+          params: { grant_type: 'ig_refresh_token', access_token: config.accessToken },
+        })
+        const newToken = res.data.access_token
+        const expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString()
+        await prisma.channel.update({
+          where: { id: channelId },
+          data: { config: { ...config, accessToken: newToken, tokenExpiresAt: expiresAt } },
+        })
+        return reply.send({ ok: true, expiresAt })
+      } catch (err: any) {
+        console.error('[META-OAUTH][IG-LOGIN] Erro ao renovar token:', err?.response?.data || err?.message)
+        return reply.status(400).send({ error: err?.response?.data?.error_message || 'Erro ao renovar token do Instagram' })
+      }
+    }
+
     try {
       const res = await axios.get('https://graph.facebook.com/v21.0/oauth/access_token', {
         params: {

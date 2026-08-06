@@ -735,16 +735,27 @@ export function startMessageWorker() {
             }, { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } })
           }
         } else if (channelType === 'META' || channelType === 'INSTAGRAM' || channelType === 'FACEBOOK') {
-          const pageToken = (channel.config as any).pageAccessToken
-          // Instagram: envia via /{pageId}/messages (pageId da página FB vinculada ao Instagram)
-          // Facebook: envia via /{pageId}/messages
-          const pageId = (channel.config as any).pageId
-          console.log('[META-SEND] channelType:', channelType, '| pageId:', pageId, '| from:', from, '| token prefix:', pageToken?.slice(0, 20))
-          await axios.post(`https://graph.facebook.com/v21.0/${pageId}/messages`, {
-            recipient: { id: from },
-            message: { text: responseText },
-            messaging_type: 'RESPONSE',
-          }, { params: { access_token: pageToken } })
+          const cfg = channel.config as any
+          if (cfg.authFlow === 'instagram-login') {
+            // Fluxo novo (Instagram API with Instagram Login) — token e endpoint próprios,
+            // não usa pageId/pageAccessToken do Facebook Login clássico.
+            console.log('[META-SEND] channelType:', channelType, '| authFlow: instagram-login | igAccountId:', cfg.igAccountId, '| from:', from)
+            await axios.post(`https://graph.instagram.com/v21.0/${cfg.igAccountId}/messages`, {
+              recipient: { id: from },
+              message: { text: responseText },
+            }, { params: { access_token: cfg.accessToken } })
+          } else {
+            const pageToken = cfg.pageAccessToken
+            // Instagram (fluxo legado via Facebook Login): envia via /{pageId}/messages
+            // Facebook: envia via /{pageId}/messages
+            const pageId = cfg.pageId
+            console.log('[META-SEND] channelType:', channelType, '| pageId:', pageId, '| from:', from, '| token prefix:', pageToken?.slice(0, 20))
+            await axios.post(`https://graph.facebook.com/v21.0/${pageId}/messages`, {
+              recipient: { id: from },
+              message: { text: responseText },
+              messaging_type: 'RESPONSE',
+            }, { params: { access_token: pageToken } })
+          }
         } else if (channelType === 'EMAIL' && emailMetadata) {
           const accessToken = await getValidGmailToken(channelId)
           if (accessToken) {
