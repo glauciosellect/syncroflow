@@ -91,12 +91,105 @@ function renderMarkdown(text: string) {
     .replace(/\n/g, '<br/>')
 }
 
+const POSITION_STORAGE_KEY = 'syncroflow:mascote-position'
+const BUTTON_SIZE = 64
+const DRAG_THRESHOLD = 6
+
+function getDefaultPosition() {
+  if (typeof window === 'undefined') return { x: 0, y: 0 }
+  return { x: window.innerWidth - BUTTON_SIZE - 24, y: window.innerHeight - BUTTON_SIZE - 24 }
+}
+
+function clampPosition(pos: { x: number; y: number }) {
+  if (typeof window === 'undefined') return pos
+  const maxX = window.innerWidth - BUTTON_SIZE
+  const maxY = window.innerHeight - BUTTON_SIZE
+  return { x: Math.min(Math.max(pos.x, 0), Math.max(maxX, 0)), y: Math.min(Math.max(pos.y, 0), Math.max(maxY, 0)) }
+}
+
 export function MascoteHelper() {
   const [open, setOpen] = useState(false)
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null)
   const [showTutorial, setShowTutorial] = useState(false)
   const [tutorialStep, setTutorialStep] = useState(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null)
+  const [dragging, setDragging] = useState(false)
+  const draggedRef = useRef(false)
+  const dragStartRef = useRef({ pointerX: 0, pointerY: 0, originX: 0, originY: 0 })
+
+  useEffect(() => {
+    let initial: { x: number; y: number } | null = null
+    try {
+      const saved = localStorage.getItem(POSITION_STORAGE_KEY)
+      if (saved) initial = JSON.parse(saved)
+    } catch {
+      initial = null
+    }
+    setPosition(clampPosition(initial ?? getDefaultPosition()))
+
+    const handleResize = () => setPosition(prev => (prev ? clampPosition(prev) : prev))
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  useEffect(() => {
+    if (!dragging) return
+
+    const handleMove = (clientX: number, clientY: number) => {
+      const { pointerX, pointerY, originX, originY } = dragStartRef.current
+      const dx = clientX - pointerX
+      const dy = clientY - pointerY
+      if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) draggedRef.current = true
+      setPosition(clampPosition({ x: originX + dx, y: originY + dy }))
+    }
+
+    const onMouseMove = (e: MouseEvent) => handleMove(e.clientX, e.clientY)
+    const onTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0]
+      if (touch) handleMove(touch.clientX, touch.clientY)
+    }
+    const onEnd = () => {
+      setDragging(false)
+      setPosition(prev => {
+        if (prev) {
+          try {
+            localStorage.setItem(POSITION_STORAGE_KEY, JSON.stringify(prev))
+          } catch {
+            // ignore storage errors
+          }
+        }
+        return prev
+      })
+    }
+
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onEnd)
+    window.addEventListener('touchmove', onTouchMove, { passive: false })
+    window.addEventListener('touchend', onEnd)
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onEnd)
+      window.removeEventListener('touchmove', onTouchMove)
+      window.removeEventListener('touchend', onEnd)
+    }
+  }, [dragging])
+
+  const startDrag = (clientX: number, clientY: number) => {
+    if (!position) return
+    draggedRef.current = false
+    dragStartRef.current = { pointerX: clientX, pointerY: clientY, originX: position.x, originY: position.y }
+    setDragging(true)
+  }
+
+  const handleButtonClick = () => {
+    if (draggedRef.current) {
+      draggedRef.current = false
+      return
+    }
+    setOpen(o => !o)
+  }
 
   useEffect(() => {
     if (expandedFaq !== null) {
@@ -118,20 +211,45 @@ export function MascoteHelper() {
     if (stepIndex >= 0) openTutorial(stepIndex)
   }
 
+  if (!position) return null
+
+  const openUpward = position.y > (typeof window !== 'undefined' ? window.innerHeight : 0) / 2
+  const openLeftward = position.x > (typeof window !== 'undefined' ? window.innerWidth : 0) / 2 - 160
+
   return (
     <>
-      {/* Botão flutuante */}
+      {/* Botão flutuante e arrastável */}
       <button
-        onClick={() => setOpen(o => !o)}
-        className="fixed bottom-6 right-6 z-50 w-16 h-16 rounded-full shadow-2xl overflow-hidden border-2 border-white hover:scale-110 transition-transform"
-        title="Ajuda — SyncroFlow"
+        onMouseDown={(e) => startDrag(e.clientX, e.clientY)}
+        onTouchStart={(e) => {
+          const touch = e.touches[0]
+          if (touch) startDrag(touch.clientX, touch.clientY)
+        }}
+        onClick={handleButtonClick}
+        className={cn(
+          'fixed z-50 w-16 h-16 rounded-full shadow-2xl overflow-hidden border-2 border-white hover:scale-110 transition-transform touch-none select-none',
+          dragging ? 'cursor-grabbing scale-110' : 'cursor-grab'
+        )}
+        style={{ left: position.x, top: position.y }}
+        title="Ajuda — SyncroFlow (arraste para mover)"
       >
-        <img src="/mascote.png" alt="Mascote SyncroFlow" className="w-full h-full object-cover object-top" />
+        <img src="/mascote.png" alt="Mascote SyncroFlow" className="w-full h-full object-cover object-top" draggable={false} />
       </button>
 
       {/* Janela do assistente */}
       {open && (
-        <div className="fixed bottom-24 right-6 z-50 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 flex flex-col overflow-hidden" style={{ maxHeight: '560px' }}>
+        <div
+          className="fixed z-50 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 flex flex-col overflow-hidden"
+          style={{
+            maxHeight: '560px',
+            [openLeftward ? 'right' : 'left']: openLeftward
+              ? Math.max(16, (typeof window !== 'undefined' ? window.innerWidth : 0) - position.x - BUTTON_SIZE)
+              : position.x,
+            [openUpward ? 'bottom' : 'top']: openUpward
+              ? Math.max(16, (typeof window !== 'undefined' ? window.innerHeight : 0) - position.y + 12)
+              : position.y + BUTTON_SIZE + 12,
+          }}
+        >
           {/* Header */}
           <div className="flex items-center gap-3 p-4 text-white shrink-0" style={{ background: 'linear-gradient(135deg, #1565C0, #2E7D32)' }}>
             <img src="/mascote.png" alt="" className="w-9 h-9 rounded-full object-cover object-top border-2 border-white/30" />
