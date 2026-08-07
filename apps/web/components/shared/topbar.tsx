@@ -1,6 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
-import { Coins, Bell, LogOut, Settings, Key, AlertTriangle, Calendar, TrendingUp, Sun, Moon } from 'lucide-react'
+import { Coins, Bell, LogOut, Settings, Key, AlertTriangle, Calendar, TrendingUp, Sun, Moon, Smartphone } from 'lucide-react'
 import { useAuthStore } from '@/store/auth.store'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -216,6 +216,10 @@ export function Topbar() {
           </button>
           <div className="absolute right-0 top-full mt-1 w-48 bg-[hsl(var(--card))] rounded-xl shadow-xl border border-[hsl(var(--border))] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
             <div className="p-1.5">
+              <Link href="/chat-app?install=1" className="flex items-center gap-2.5 px-3 py-2 text-sm text-[hsl(var(--card-foreground))] rounded-lg hover:bg-[hsl(var(--accent))] transition-colors">
+                <Smartphone className="w-4 h-4 text-[hsl(var(--muted-foreground))]" />
+                Atalho do ChatFlow
+              </Link>
               <Link href="/api-keys" className="flex items-center gap-2.5 px-3 py-2 text-sm text-[hsl(var(--card-foreground))] rounded-lg hover:bg-[hsl(var(--accent))] transition-colors">
                 <Key className="w-4 h-4 text-[hsl(var(--muted-foreground))]" />
                 Chaves de API
