@@ -28,7 +28,7 @@
       "name": "Chat",
       "short_name": "Chat",
       "description": "Abrir direto as conversas do SyncroFlow",
-      "url": "/chat",
+      "url": "/chat-app",
       "icons": [
         {
           "src": "/icon-192.png",
