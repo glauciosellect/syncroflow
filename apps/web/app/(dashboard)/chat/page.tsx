@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 import { formatDateTime, channelLabel } from '@/lib/utils'
 import { useSocketConnect, useSocketEvent } from '@/hooks/use-socket'
 import { ChannelIcon } from '@/components/channel-icon'
+import { MessageComposer } from '@/components/shared/message-composer'
 
 // Toca um beep suave ao chegar mensagem nova
 function playNotificationSound() {
@@ -331,7 +332,6 @@ export default function ChatPage() {
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [channelFilter, setChannelFilter] = useState('all')
-  const [message, setMessage] = useState('')
   const [showProfile, setShowProfile] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -427,11 +427,6 @@ export default function ChatPage() {
     mutationFn: (id: string) => api.post(`/conversations/${id}/close`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['conversations'] }); setSelected(null) },
   })
-  const sendMutation = useMutation({
-    mutationFn: ({ id, content }: { id: string; content: string }) => api.post(`/conversations/${id}/messages`, { content }),
-    onSuccess: () => setMessage(''),
-  })
-
   const tabs = [
     { key: 'all', label: 'Todos' },
     { key: 'WAITING_HUMAN', label: 'Em espera' },
@@ -608,7 +603,7 @@ export default function ChatPage() {
                         <FileText className="w-3.5 h-3.5" />Ver documento
                       </a>
                     )}
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                    {msg.content && <p className="whitespace-pre-wrap">{msg.content}</p>}
                     <div className={cn('text-xs mt-1 opacity-60', msg.role !== 'USER' ? 'text-right' : '')}>
                       {new Date(msg.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                     </div>
@@ -620,22 +615,10 @@ export default function ChatPage() {
           </div>
 
           {selected.status === 'HUMAN_ACTIVE' && (
-            <div className="p-4 border-t border-gray-100 flex gap-2">
-              <Input
-                value={message}
-                onChange={e => setMessage(e.target.value)}
-                placeholder="Digite sua mensagem..."
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey && message.trim()) {
-                    e.preventDefault()
-                    sendMutation.mutate({ id: selected.id, content: message })
-                  }
-                }}
-              />
-              <Button onClick={() => sendMutation.mutate({ id: selected.id, content: message })} disabled={!message.trim() || sendMutation.isPending} className="bg-[#1565C0] hover:bg-[#0D47A1]">
-                {sendMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              </Button>
-            </div>
+            <MessageComposer
+              conversationId={selected.id}
+              onSent={() => qc.invalidateQueries({ queryKey: ['messages', selected.id] })}
+            />
           )}
         </div>
       ) : (

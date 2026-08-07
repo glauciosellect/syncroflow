@@ -4,6 +4,7 @@ import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
 import jwt from '@fastify/jwt'
 import rateLimit from '@fastify/rate-limit'
+import multipart from '@fastify/multipart'
 import rawBody from 'fastify-raw-body'
 import { redis } from './lib/redis'
 import { logger } from './lib/logger'
@@ -86,6 +87,11 @@ async function bootstrap() {
   // para validar assinaturas HMAC (Stripe, Meta) sobre os bytes exatos recebidos,
   // já que o JSON re-serializado pode não ser idêntico ao original.
   await app.register(rawBody, { field: 'rawBody', global: false, runFirst: true })
+
+  // Limite alinhado ao bucket chat-attachments do Supabase Storage (25MB).
+  await app.register(multipart, {
+    limits: { fileSize: 26214400, files: 1 },
+  })
 
   // Rate limit global: 200 req/min por IP
   await app.register(rateLimit, {

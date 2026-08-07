@@ -7,9 +7,38 @@ import { redis } from '../../lib/redis'
 import { scheduleAppointment, listUpcomingAppointments, cancelAppointment, getAgendaContextForPrompt } from '../calendar/calendar.service'
 import { generateSpeech } from '../tts/tts.service'
 import { getValidGmailToken, sendReply } from '../../lib/gmail'
+import { uploadAttachment } from '../../lib/storage'
 import axios from 'axios'
 
 const AUDIO_PREFERENCE_KEY = 'audioPreference' // chave dentro de contact.variables
+
+// Baixa a mídia recebida (URL temporária/autenticada da Meta) e re-hospeda no
+// Supabase Storage, para que o link salvo em Message.mediaUrl não expire nem
+// exija o Bearer token da Meta para abrir no navegador do atendente.
+// Nunca lança — se falhar, a mensagem segue salva sem mediaUrl permanente.
+async function rehostIncomingMedia(
+  workspaceId: string,
+  mediaUrl: string,
+  mimetype: string | undefined,
+  authHeader: string | undefined,
+): Promise<string | undefined> {
+  try {
+    const res = await axios.get(mediaUrl, {
+      responseType: 'arraybuffer',
+      timeout: 30000,
+      headers: authHeader ? { Authorization: authHeader } : undefined,
+    })
+    const buffer = Buffer.from(res.data)
+    const contentTypeHeader = res.headers['content-type']
+    const resolvedMimetype = mimetype || (typeof contentTypeHeader === 'string' ? contentTypeHeader : undefined) || 'application/octet-stream'
+    const ext = resolvedMimetype.split('/').pop()?.split(';')[0] || 'bin'
+    const { publicUrl } = await uploadAttachment(workspaceId, buffer, resolvedMimetype, `recebido.${ext}`)
+    return publicUrl
+  } catch (err: any) {
+    console.error('[WORKER] Falha ao re-hospedar mídia recebida:', err?.message)
+    return undefined
+  }
+}
 
 // Detecta se o remetente é um grupo do WhatsApp (@g.us)
 function isWhatsAppGroup(from: string): boolean {
@@ -87,20 +116,33 @@ export function startMessageWorker() {
           if (providerMediaMatch && provider.downloadMedia) {
             const messageId = providerMediaMatch[2]
             const result = await provider.downloadMedia(messageId, channelId)
-            incomingMediaUrl = result.fileURL
             if (result.transcription) {
               text = result.transcription
+              if (result.fileURL) {
+                incomingMediaUrl = await rehostIncomingMedia(channel.workspaceId, result.fileURL, result.mimetype, result.authHeader)
+              }
             } else if (result.fileURL) {
-              // Passa o mimetype real e o header de auth (se exigido pelo provider) para baixar corretamente
-              text = await processIncomingMedia(result.fileURL, msg.mediaType, result.mimetype, result.authHeader)
+              // Re-hospeda no storage próprio e processa com IA em paralelo — os dois
+              // baixam da mesma URL temporária da Meta, rodar em série só aumenta a
+              // janela de risco dela expirar entre uma chamada e outra.
+              const [rehostedUrl, processedText] = await Promise.all([
+                rehostIncomingMedia(channel.workspaceId, result.fileURL, result.mimetype, result.authHeader),
+                processIncomingMedia(result.fileURL, msg.mediaType, result.mimetype, result.authHeader),
+              ])
+              incomingMediaUrl = rehostedUrl
+              text = processedText
             } else {
               text = msg.mediaType === 'audio'
                 ? '[Áudio recebido — não foi possível transcrever]'
                 : '[Mídia recebida]'
             }
           } else {
-            incomingMediaUrl = msg.mediaUrl
-            text = await processIncomingMedia(msg.mediaUrl, msg.mediaType)
+            const [rehostedUrl, processedText] = await Promise.all([
+              rehostIncomingMedia(channel.workspaceId, msg.mediaUrl, undefined, undefined),
+              processIncomingMedia(msg.mediaUrl, msg.mediaType),
+            ])
+            incomingMediaUrl = rehostedUrl || msg.mediaUrl
+            text = processedText
           }
         }
 
