@@ -1,5 +1,10 @@
 FROM node:22-alpine
 
+# Cache-bust: força o EasyPanel a reconstruir a imagem do zero em vez de
+# reaproveitar a camada antiga com node:20-alpine (causou crash em produção
+# por incompatibilidade com @supabase/supabase-js, que exige WebSocket nativo).
+ARG CACHE_BUST=2026-08-07-node22
+
 RUN apk add --no-cache openssl ffmpeg
 
 WORKDIR /app/apps/api
