@@ -3,9 +3,22 @@ import { randomUUID } from 'crypto'
 
 const BUCKET = 'chat-attachments'
 
+// Só usamos Storage aqui (upload/signed URL), nunca Realtime. O SupabaseClient
+// sempre instancia um RealtimeClient internamente, que por padrão chama
+// getWebSocketConstructor() — e isso lança e derruba o processo em Node < 22
+// (sem WebSocket nativo), incluindo o ambiente de produção atual. Passar um
+// `transport` explícito (mesmo nunca usado) evita essa chamada por completo,
+// porque o SDK só resolve o WebSocket nativo quando `transport` está ausente.
+class NoopRealtimeTransport {
+  constructor() {}
+  send() {}
+  close() {}
+}
+
 const supabase = createClient(
   process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { realtime: { transport: NoopRealtimeTransport as any } }
 )
 
 export async function uploadAttachment(
