@@ -32,7 +32,7 @@ export async function agentToolsRoutes(app: FastifyInstance) {
     const agent = await prisma.agent.findFirst({ where: { id, workspaceId }, include: { config: true } })
     if (!agent) return reply.status(404).send({ error: 'Agente não encontrado' })
 
-    const enabledTools: string[] = (agent.config as any)?.enabledTools ?? []
+    const enabledTools: string[] = (agent.config?.webhookEvents as any)?.enabledTools ?? []
     return reply.send({ enabledTools })
   })
 
@@ -47,7 +47,7 @@ export async function agentToolsRoutes(app: FastifyInstance) {
         enabledTools: z.array(z.string()),
       }).parse(req.body)
 
-      const agent = await prisma.agent.findFirst({ where: { id, workspaceId } })
+      const agent = await prisma.agent.findFirst({ where: { id, workspaceId }, include: { config: true } })
       if (!agent) return reply.status(404).send({ error: 'Agente não encontrado' })
 
       // Valida que as tools existem
@@ -55,9 +55,11 @@ export async function agentToolsRoutes(app: FastifyInstance) {
       const invalid = enabledTools.filter(t => !validTools.includes(t))
       if (invalid.length > 0) return reply.status(400).send({ error: `Tools inválidas: ${invalid.join(', ')}` })
 
+      const existingWebhookEvents = (agent.config?.webhookEvents as any) ?? {}
+
       await prisma.agentConfig.update({
         where: { agentId: id },
-        data: { webhookEvents: { enabledTools } as any },
+        data: { webhookEvents: { ...existingWebhookEvents, enabledTools } as any },
       })
 
       return reply.send({ ok: true, enabledTools })
@@ -126,7 +128,7 @@ Responda APENAS com um JSON válido no seguinte formato:
       const workspaceId = await getWorkspaceId(sub, wid)
       const { id } = req.params as { id: string }
 
-      const agent = await prisma.agent.findFirst({ where: { id, workspaceId } })
+      const agent = await prisma.agent.findFirst({ where: { id, workspaceId }, include: { config: true } })
       if (!agent) return reply.status(404).send({ error: 'Agente não encontrado' })
 
       const { name, behavior, communicationStyle, enabledTools } = req.body
@@ -141,9 +143,10 @@ Responda APENAS com um JSON válido no seguinte formato:
       })
 
       if (enabledTools) {
+        const existingWebhookEvents = (agent.config?.webhookEvents as any) ?? {}
         await prisma.agentConfig.update({
           where: { agentId: id },
-          data: { webhookEvents: { enabledTools } as any },
+          data: { webhookEvents: { ...existingWebhookEvents, enabledTools } as any },
         })
       }
 
