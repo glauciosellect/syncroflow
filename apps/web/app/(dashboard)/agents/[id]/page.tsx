@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/components/ui/use-toast'
-import { ArrowLeft, Save, Loader2, Bot, Send, X, Plus, Trash2, Pencil, Volume2, PlayCircle, StopCircle } from 'lucide-react'
+import { ArrowLeft, Save, Loader2, Bot, Send, X, Plus, Trash2, Pencil, Volume2, PlayCircle, StopCircle, Camera } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 
@@ -65,6 +65,22 @@ export default function AgentDetailPage() {
     mutationFn: (data: any) => api.patch(`/agents/${id}/config`, data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['agent', id] }); toast({ title: 'Configurações salvas!' }) },
   })
+
+  const avatarInputRef = useRef<HTMLInputElement | null>(null)
+  const avatarMutation = useMutation({
+    mutationFn: (file: File) => {
+      const fd = new FormData()
+      fd.append('file', file)
+      return api.post(`/agents/${id}/avatar`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['agent', id] }); toast({ title: 'Foto atualizada!' }) },
+    onError: (err: any) => toast({ title: 'Erro ao enviar imagem', description: err?.response?.data?.error || 'Tente novamente', variant: 'destructive' }),
+  })
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) avatarMutation.mutate(file)
+    e.target.value = ''
+  }
 
   const trainingTextMutation = useMutation({
     mutationFn: (content: string) => api.post(`/agents/${id}/trainings/text`, { content, title: content.slice(0, 60) }),
@@ -252,9 +268,35 @@ export default function AgentDetailPage() {
         </Link>
 
         <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 text-center">
-          <div className="w-16 h-16 bg-gradient-to-br from-[#1565C0] to-[#2E7D32] rounded-full flex items-center justify-center text-white text-2xl font-bold mx-auto mb-2">
-            {agent.name?.[0]?.toUpperCase()}
-          </div>
+          <button
+            type="button"
+            onClick={() => avatarInputRef.current?.click()}
+            disabled={avatarMutation.isPending}
+            className="relative w-16 h-16 mx-auto mb-2 rounded-full group"
+            title="Alterar foto do agente"
+          >
+            {agent.avatarUrl ? (
+              <img src={agent.avatarUrl} alt={agent.name} className="w-16 h-16 rounded-full object-cover" />
+            ) : (
+              <div className="w-16 h-16 bg-gradient-to-br from-[#1565C0] to-[#2E7D32] rounded-full flex items-center justify-center text-white text-2xl font-bold">
+                {agent.name?.[0]?.toUpperCase()}
+              </div>
+            )}
+            <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              {avatarMutation.isPending ? (
+                <Loader2 className="w-5 h-5 text-white animate-spin" />
+              ) : (
+                <Camera className="w-5 h-5 text-white" />
+              )}
+            </div>
+          </button>
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            className="hidden"
+            onChange={handleAvatarChange}
+          />
           <div className="font-semibold text-gray-900 text-sm">{agent.name}</div>
           <div className="text-xs text-gray-400 mt-0.5">{agent.companyName}</div>
 

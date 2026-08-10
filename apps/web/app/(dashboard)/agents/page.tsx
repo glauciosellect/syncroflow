@@ -81,9 +81,13 @@ export default function AgentsPage() {
             <CardContent className="p-4">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-[#1565C0] to-[#2E7D32] rounded-full flex items-center justify-center text-white text-xl font-bold shadow-sm">
-                    {agent.name?.[0]?.toUpperCase()}
-                  </div>
+                  {agent.avatarUrl ? (
+                    <img src={agent.avatarUrl} alt={agent.name} className="w-12 h-12 rounded-full object-cover shadow-sm" />
+                  ) : (
+                    <div className="w-12 h-12 bg-gradient-to-br from-[#1565C0] to-[#2E7D32] rounded-full flex items-center justify-center text-white text-xl font-bold shadow-sm">
+                      {agent.name?.[0]?.toUpperCase()}
+                    </div>
+                  )}
                   <div>
                     <div className="font-semibold text-gray-900">{agent.name}</div>
                     <Badge variant="secondary" className="text-xs mt-0.5">{agent.funcao || purposeLabel[agent.purpose]}</Badge>

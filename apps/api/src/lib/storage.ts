@@ -56,3 +56,27 @@ export async function refreshAttachmentUrl(path: string): Promise<string> {
   if (error || !data) throw new Error(`Falha ao renovar URL do anexo: ${error?.message}`)
   return data.signedUrl
 }
+
+const AVATARS_BUCKET = 'agent-avatars'
+
+// Bucket público — avatar de agente aparece no painel e em telas de atendimento,
+// não precisa (nem deveria) de signed URL expirando.
+export async function uploadAgentAvatar(
+  workspaceId: string,
+  agentId: string,
+  fileBuffer: Buffer,
+  mimetype: string,
+  originalName: string
+): Promise<string> {
+  const ext = originalName.includes('.') ? originalName.split('.').pop() : 'png'
+  const path = `${workspaceId}/${agentId}-${randomUUID()}.${ext}`
+
+  const { error } = await supabase.storage
+    .from(AVATARS_BUCKET)
+    .upload(path, fileBuffer, { contentType: mimetype, upsert: false })
+
+  if (error) throw new Error(`Falha ao subir avatar: ${error.message}`)
+
+  const { data } = supabase.storage.from(AVATARS_BUCKET).getPublicUrl(path)
+  return data.publicUrl
+}

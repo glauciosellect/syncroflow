@@ -380,9 +380,13 @@ export default function DashboardPage() {
               <div className="space-y-3">
                 {(topAgents || []).slice(0, 5).map((agent: any, i: number) => (
                   <div key={agent.id} className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#1565C0] to-[#2E7D32] flex items-center justify-center text-white text-xs font-bold shrink-0">
-                      {agent.name?.[0]?.toUpperCase()}
-                    </div>
+                    {agent.avatarUrl ? (
+                      <img src={agent.avatarUrl} alt={agent.name} className="w-8 h-8 rounded-full object-cover shrink-0" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#1565C0] to-[#2E7D32] flex items-center justify-center text-white text-xs font-bold shrink-0">
+                        {agent.name?.[0]?.toUpperCase()}
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-gray-900 truncate">{agent.name}</div>
                       <div className="text-xs text-gray-400">{agent.conversations} conv. · {agent.credits?.toLocaleString()} cr.</div>
@@ -478,9 +482,13 @@ export default function DashboardPage() {
             {(realtime.agents || []).map((agent: any) => (
               <Link href={`/agents/${agent.id}`} key={agent.id}>
                 <div className={cn('rounded-2xl p-4 border-2 text-center transition-all hover:shadow-md', agent.isActive ? 'border-green-200 bg-green-50/50' : 'border-gray-200 bg-gray-50 opacity-60')}>
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#1565C0] to-[#2E7D32] flex items-center justify-center text-white text-xl font-bold mx-auto mb-2 shadow-sm">
-                    {agent.name?.[0]?.toUpperCase()}
-                  </div>
+                  {agent.avatarUrl ? (
+                    <img src={agent.avatarUrl} alt={agent.name} className="w-12 h-12 rounded-full object-cover mx-auto mb-2 shadow-sm" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#1565C0] to-[#2E7D32] flex items-center justify-center text-white text-xl font-bold mx-auto mb-2 shadow-sm">
+                      {agent.name?.[0]?.toUpperCase()}
+                    </div>
+                  )}
                   <div className="text-sm font-semibold text-gray-900 truncate">{agent.name}</div>
                   {agent.funcao && <div className="text-xs text-gray-400 mt-0.5 truncate">{agent.funcao}</div>}
                   <div className={cn('text-xs font-medium mt-2', agent.isActive ? 'text-green-600' : 'text-gray-400')}>

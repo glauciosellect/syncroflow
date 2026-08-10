@@ -105,6 +105,40 @@ export async function agentRoutes(app: FastifyInstance) {
     return reply.send(await prisma.agent.findUnique({ where: { id }, include: { config: true } }))
   })
 
+  // Upload de avatar/logo do agente — sobe a imagem e já atualiza avatarUrl
+  app.post('/agents/:id/avatar', async (req, reply) => {
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
+    const { id } = req.params as { id: string }
+
+    const agentExists = await prisma.agent.findFirst({ where: { id, workspaceId } })
+    if (!agentExists) return reply.status(404).send({ error: 'Agente não encontrado' })
+
+    const file = await req.file()
+    if (!file) return reply.status(400).send({ error: 'Nenhum arquivo enviado' })
+
+    const ALLOWED_AVATAR_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+    if (!ALLOWED_AVATAR_TYPES.has(file.mimetype)) {
+      return reply.status(400).send({ error: `Tipo de arquivo não suportado: ${file.mimetype}` })
+    }
+
+    let buffer: Buffer
+    try {
+      buffer = await file.toBuffer()
+    } catch (err: any) {
+      if (err?.code === 'FST_REQ_FILE_TOO_LARGE') {
+        return reply.status(413).send({ error: 'Imagem muito grande (máximo 5MB)' })
+      }
+      throw err
+    }
+
+    const { uploadAgentAvatar } = await import('../../lib/storage')
+    const avatarUrl = await uploadAgentAvatar(workspaceId, id, buffer, file.mimetype, file.filename)
+
+    const agent = await prisma.agent.update({ where: { id }, data: { avatarUrl } })
+    return reply.send(agent)
+  })
+
   app.delete('/agents/:id', async (req, reply) => {
     const { sub, wid } = req.user as { sub: string; wid?: string }
     const workspaceId = await getWorkspaceId(sub, wid)
