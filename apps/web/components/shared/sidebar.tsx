@@ -2,11 +2,12 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Bot, Users, MessageSquare, Contact, Settings, TrendingUp, CalendarDays, X, Menu, Plug, LayoutTemplate } from 'lucide-react'
+import { LayoutDashboard, Bot, Users, MessageSquare, Contact, Settings, TrendingUp, CalendarDays, X, Menu, Plug, LayoutTemplate, GraduationCap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth.store'
 import { planLabel } from '@/lib/utils'
 import { useState, useEffect } from 'react'
+import { useTutorial } from './tutorial-context'
 
 const navItems = [
   { section: 'VISÃO GERAL', items: [{ href: '/dashboard', label: 'Dashboards', icon: LayoutDashboard }] },
@@ -21,6 +22,7 @@ export function Sidebar() {
   const pathname = usePathname()
   const { workspace } = useAuthStore()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const { openTutorial } = useTutorial()
 
   const isTrialing = workspace?.plan === 'TRIAL'
   const trialEnds = workspace?.trialEndsAt ? new Date(workspace.trialEndsAt) : null
@@ -69,6 +71,17 @@ export function Sidebar() {
             {workspace?.name}
           </span>
         </div>
+      </div>
+
+      {/* Tutorial */}
+      <div className="px-3 pt-3 shrink-0">
+        <button
+          onClick={() => openTutorial(0)}
+          className="w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-sm font-medium text-[hsl(var(--sidebar-fg))] hover:bg-[hsl(var(--sidebar-hover-bg))] hover:text-[hsl(var(--sidebar-active-fg))] transition-all duration-150"
+        >
+          <GraduationCap className="w-4 h-4 shrink-0 opacity-60" />
+          Tutorial
+        </button>
       </div>
 
       {/* Navegação */}
