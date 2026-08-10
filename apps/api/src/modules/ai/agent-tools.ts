@@ -256,6 +256,40 @@ async function toolGerarLinkPagamento(input: Record<string, any>, ctx: ToolExecu
 
 // ─── Tool: Agendar Horário ────────────────────────────────────────────────────
 
+// Interpreta "amanhã 14h", "sexta-feira de manhã" etc. em um horário concreto (duração fixa de 1h)
+async function resolveRequestedSlot(
+  dataPreferida?: string,
+  horarioPreferido?: string
+): Promise<{ start: Date; end: Date } | null> {
+  if (!dataPreferida && !horarioPreferido) return null
+
+  const now = new Date()
+  const nowInSaoPaulo = now.toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' })
+
+  try {
+    const response = await anthropic.messages.create({
+      model: 'claude-haiku-4-5',
+      max_tokens: 100,
+      system: `Você converte referências de data/horário em português (ex: "amanhã", "sexta-feira", "14h", "de manhã") para uma data e horário concretos, no fuso America/Sao_Paulo.
+A data/hora atual é: ${nowInSaoPaulo} (America/Sao_Paulo).
+Se só houver período do dia (manhã/tarde/noite) sem hora exata, use: manhã=09:00, tarde=14:00, noite=18:00.
+Se nenhuma data for identificável, responda exatamente: null
+Responda APENAS com a data/hora no formato ISO 8601 sem timezone (ex: 2026-08-11T14:00:00) ou a palavra null.`,
+      messages: [{ role: 'user', content: `Data preferida: "${dataPreferida ?? ''}". Horário preferido: "${horarioPreferido ?? ''}".` }],
+    })
+
+    const text = response.content[0].type === 'text' ? response.content[0].text.trim() : 'null'
+    if (text === 'null' || !text) return null
+
+    const startLocal = new Date(`${text}-03:00`)
+    if (isNaN(startLocal.getTime())) return null
+
+    return { start: startLocal, end: new Date(startLocal.getTime() + 3600000) }
+  } catch {
+    return null
+  }
+}
+
 async function toolAgendarHorario(input: Record<string, any>, ctx: ToolExecutionContext): Promise<string> {
   const workspace = await prisma.workspace.findUnique({
     where: { id: ctx.workspaceId },
@@ -284,27 +318,68 @@ async function toolAgendarHorario(input: Record<string, any>, ctx: ToolExecution
 
   // Com Google Calendar — criar evento
   try {
-    // Google Calendar disponível — cria evento via createCalendarEvent do lib
-    const { createCalendarEvent } = await import('../../lib/google')
-    const { getValidToken } = await import('../../lib/google')
+    const { createCalendarEvent, listCalendarEvents, getValidToken } = await import('../../lib/google')
     const accessToken = await getValidToken(ctx.workspaceId)
     if (accessToken) {
-      const startDt = new Date(Date.now() + 86400000).toISOString()
+      const slot = await resolveRequestedSlot(input.data_preferida, input.horario_preferido)
+
+      if (!slot) {
+        // Não conseguiu interpretar data/horário — pede para o cliente confirmar
+        await prisma.lead.create({
+          data: {
+            workspaceId: ctx.workspaceId,
+            name: input.nome_cliente,
+            phone: input.telefone ?? ctx.contactPhone ?? '',
+            source: 'Agente IA',
+            notes: `Solicita agendamento: ${input.servico}. Preferência não identificada com clareza: "${input.data_preferida ?? ''} ${input.horario_preferido ?? ''}".`,
+            tags: ['agendamento-solicitado'],
+          },
+        })
+        return `Não consegui identificar direitinho a data/horário — pode me confirmar um dia e horário específico para ${input.servico}?`
+      }
+
+      const dayStart = new Date(slot.start); dayStart.setHours(0, 0, 0, 0)
+      const dayEnd = new Date(slot.start); dayEnd.setHours(23, 59, 59, 999)
+      const existingEvents = await listCalendarEvents(
+        accessToken, workspace.googleCalendarId!, dayStart.toISOString(), dayEnd.toISOString()
+      )
+      const hasConflict = existingEvents.some(ev => {
+        const evStart = new Date(ev.start.dateTime).getTime()
+        const evEnd = new Date(ev.end.dateTime).getTime()
+        return slot.start.getTime() < evEnd && slot.end.getTime() > evStart
+      })
+
+      if (hasConflict) {
+        await prisma.lead.create({
+          data: {
+            workspaceId: ctx.workspaceId,
+            name: input.nome_cliente,
+            phone: input.telefone ?? ctx.contactPhone ?? '',
+            source: 'Agente IA',
+            notes: `Solicita agendamento: ${input.servico}. Horário pedido (${slot.start.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}) já está ocupado — precisa reagendar.`,
+            tags: ['agendamento-solicitado', 'conflito-horario'],
+          },
+        })
+        return `Esse horário já está ocupado na nossa agenda. Consegue me dizer outro dia ou horário para ${input.servico}?`
+      }
+
       await createCalendarEvent(accessToken, workspace.googleCalendarId!, {
         summary: `${input.servico} — ${input.nome_cliente}`,
         description: `Agendamento via agente IA. Telefone: ${input.telefone ?? ctx.contactPhone ?? 'não informado'}`,
-        start: { dateTime: startDt, timeZone: 'America/Sao_Paulo' },
-        end: { dateTime: startDt, timeZone: 'America/Sao_Paulo' },
+        start: { dateTime: slot.start.toISOString(), timeZone: 'America/Sao_Paulo' },
+        end: { dateTime: slot.end.toISOString(), timeZone: 'America/Sao_Paulo' },
       })
       await notifySyncrolex(ctx.workspaceId, 'appointment.created', {
         lead_nome: input.nome_cliente,
         lead_telefone: input.telefone ?? ctx.contactPhone ?? '',
         assunto: input.servico,
-        data_hora_inicio: startDt,
+        data_hora_inicio: slot.start.toISOString(),
       })
-      return `Agendamento registrado! ${input.servico} para ${input.nome_cliente}. Nossa equipe confirmará o horário exato com você em breve.`
+      const dataFormatada = slot.start.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' })
+      return `Agendamento confirmado! ${input.servico} para ${input.nome_cliente} em ${dataFormatada}.`
     }
-  } catch {
+  } catch (err: any) {
+    logger.error('Erro ao agendar no Google Calendar', { err: err.message })
     // Fallback — cria lead
   }
 
