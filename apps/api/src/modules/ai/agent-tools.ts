@@ -3,6 +3,7 @@ import { prisma } from '../../lib/prisma'
 import { decrypt } from '../../lib/crypto'
 import { logger } from '../../lib/logger'
 import { notifySyncrolex } from '../../lib/syncrolex-webhook'
+import { getWhatsAppProvider } from '../channels/whatsapp/provider.factory'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -318,7 +319,7 @@ async function toolAgendarHorario(input: Record<string, any>, ctx: ToolExecution
 
   // Com Google Calendar — criar evento
   try {
-    const { createCalendarEvent, listCalendarEvents, getValidToken } = await import('../../lib/google')
+    const { createCalendarEventWithMeet, listCalendarEvents, getValidToken } = await import('../../lib/google')
     const accessToken = await getValidToken(ctx.workspaceId)
     if (accessToken) {
       const slot = await resolveRequestedSlot(input.data_preferida, input.horario_preferido)
@@ -363,7 +364,7 @@ async function toolAgendarHorario(input: Record<string, any>, ctx: ToolExecution
         return `Esse horário já está ocupado na nossa agenda. Consegue me dizer outro dia ou horário para ${input.servico}?`
       }
 
-      await createCalendarEvent(accessToken, workspace.googleCalendarId!, {
+      const { meetLink } = await createCalendarEventWithMeet(accessToken, workspace.googleCalendarId!, {
         summary: `${input.servico} — ${input.nome_cliente}`,
         description: `Agendamento via agente IA. Telefone: ${input.telefone ?? ctx.contactPhone ?? 'não informado'}`,
         start: { dateTime: slot.start.toISOString(), timeZone: 'America/Sao_Paulo' },
@@ -374,9 +375,25 @@ async function toolAgendarHorario(input: Record<string, any>, ctx: ToolExecution
         lead_telefone: input.telefone ?? ctx.contactPhone ?? '',
         assunto: input.servico,
         data_hora_inicio: slot.start.toISOString(),
+        link_meet: meetLink,
       })
       const dataFormatada = slot.start.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' })
-      return `Agendamento confirmado! ${input.servico} para ${input.nome_cliente} em ${dataFormatada}.`
+      const telefoneCliente = input.telefone ?? ctx.contactPhone
+      if (meetLink && telefoneCliente) {
+        try {
+          const agentChannel = await prisma.agentChannel.findFirst({
+            where: { agentId: ctx.agentId, channel: { type: 'WHATSAPP' } },
+            select: { channelId: true },
+          })
+          if (agentChannel) {
+            const provider = getWhatsAppProvider()
+            await provider.sendText(agentChannel.channelId, telefoneCliente, `📅 Aqui está o link da sua reunião:\n${meetLink}`)
+          }
+        } catch (err: any) {
+          logger.error('Erro ao enviar link do Meet pelo WhatsApp', { err: err.message })
+        }
+      }
+      return `Agendamento confirmado! ${input.servico} para ${input.nome_cliente} em ${dataFormatada}.${meetLink ? ` Já te mandei o link da reunião: ${meetLink}` : ''}`
     }
   } catch (err: any) {
     logger.error('Erro ao agendar no Google Calendar', { err: err.message })

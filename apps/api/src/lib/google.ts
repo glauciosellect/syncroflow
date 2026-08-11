@@ -154,6 +154,37 @@ export async function createCalendarEvent(
   return data.id ?? null
 }
 
+// Mesmo que createCalendarEvent, mas pede uma sala de Google Meet junto
+// (conferenceDataVersion=1) e retorna o link de vídeo junto com o ID do
+// evento. Função separada para não mudar o retorno de createCalendarEvent,
+// já usada em outros pontos esperando só o ID como string.
+export async function createCalendarEventWithMeet(
+  accessToken: string,
+  calendarId: string,
+  event: GoogleCalendarEvent
+): Promise<{ id: string | null; meetLink: string | null }> {
+  const res = await fetch(
+    `${CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events?conferenceDataVersion=1`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...event,
+        conferenceData: {
+          createRequest: {
+            requestId: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            conferenceSolutionKey: { type: 'hangoutsMeet' },
+          },
+        },
+      }),
+    }
+  )
+  const data = await res.json() as any
+  if (!data.id) console.error('[Google Calendar] Erro ao criar evento com Meet:', JSON.stringify(data))
+  const meetLink = data.conferenceData?.entryPoints?.find((e: any) => e.entryPointType === 'video')?.uri ?? null
+  return { id: data.id ?? null, meetLink }
+}
+
 export async function listCalendarEvents(
   accessToken: string,
   calendarId: string,
