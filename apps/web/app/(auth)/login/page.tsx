@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { useAuthStore } from '@/store/auth.store'
@@ -127,7 +128,7 @@ function LoginContent() {
             <Label htmlFor="password">Senha</Label>
             <Link href="/forgot-password" className="text-xs text-[#1565C0] hover:underline">Esqueci minha senha</Link>
           </div>
-          <Input id="password" type="password" placeholder="••••••••" className="mt-1" {...register('password')} />
+          <PasswordInput id="password" placeholder="••••••••" className="mt-1" {...register('password')} />
           {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
         </div>
         {needs2FA && (

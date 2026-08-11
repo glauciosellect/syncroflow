@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { useAuthStore } from '@/store/auth.store'
@@ -173,7 +174,7 @@ export default function RegisterPage() {
             </div>
             <div>
               <Label htmlFor="password">Crie uma senha</Label>
-              <Input id="password" type="password" placeholder="Ex: Syncro123" className="mt-1" {...register('password')} />
+              <PasswordInput id="password" placeholder="Ex: Syncro123" className="mt-1" {...register('password')} />
               {passwordValue && (
                 <div className="mt-2 space-y-1">
                   <div className={cn('flex items-center gap-1.5 text-xs', passwordValue.length >= 8 ? 'text-[#2E7D32]' : 'text-gray-400')}>

@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import api from '@/lib/api'
@@ -85,9 +86,8 @@ function ResetPasswordContent() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
           <Label htmlFor="password">Nova senha</Label>
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             placeholder="Mínimo 8 caracteres"
             className="mt-1"
             {...register('password')}
@@ -96,9 +96,8 @@ function ResetPasswordContent() {
         </div>
         <div>
           <Label htmlFor="confirm">Confirmar nova senha</Label>
-          <Input
+          <PasswordInput
             id="confirm"
-            type="password"
             placeholder="Repita a senha"
             className="mt-1"
             {...register('confirm')}

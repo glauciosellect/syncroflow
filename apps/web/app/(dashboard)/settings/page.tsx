@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -1020,7 +1021,7 @@ function EnvTab() {
                   <div className="font-mono text-sm font-medium text-gray-900">{v.key}</div>
                   {editingId === v.id ? (
                     <div className="flex gap-2 mt-1">
-                      <Input type="password" className="font-mono text-xs h-7" placeholder="Novo valor" value={editValue} onChange={e => setEditValue(e.target.value)} />
+                      <PasswordInput className="font-mono text-xs h-7" placeholder="Novo valor" value={editValue} onChange={e => setEditValue(e.target.value)} />
                       <Button size="sm" className="h-7 text-xs bg-[#1565C0]" disabled={!editValue.trim() || updateMutation.isPending} onClick={() => updateMutation.mutate({ id: v.id, value: editValue })}>Salvar</Button>
                       <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingId(null)}>Cancelar</Button>
                     </div>
