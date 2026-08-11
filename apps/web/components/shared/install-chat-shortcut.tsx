@@ -26,6 +26,20 @@ export function InstallChatShortcutDialog() {
   useEffect(() => {
     setPlatform(getPlatform())
 
+    // Navegação client-side a partir do dashboard (que usa manifest.json,
+    // sem scope, cobrindo o app inteiro) pode chegar aqui antes do Next.js
+    // trocar a tag <link rel="manifest"> para manifest-chat.json — o
+    // navegador então captura beforeinstallprompt referenciando o manifest
+    // errado, e o atalho instalado abre o sistema inteiro em vez do chat.
+    // Forçamos a troca aqui, na montagem, antes de registrar o listener.
+    let link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]')
+    if (!link) {
+      link = document.createElement('link')
+      link.rel = 'manifest'
+      document.head.appendChild(link)
+    }
+    link.href = '/manifest-chat.json'
+
     const handler = (e: any) => { e.preventDefault(); setPrompt(e) }
     window.addEventListener('beforeinstallprompt', handler)
     const onInstalled = () => setInstalled(true)
