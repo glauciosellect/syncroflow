@@ -8,6 +8,7 @@ import { scheduleAppointment, listUpcomingAppointments, cancelAppointment, getAg
 import { generateSpeech } from '../tts/tts.service'
 import { getValidGmailToken, sendReply } from '../../lib/gmail'
 import { uploadAttachment } from '../../lib/storage'
+import { normalizeBrazilianNumber } from '../channels/whatsapp/providers/meta-cloud.provider'
 import axios from 'axios'
 
 const AUDIO_PREFERENCE_KEY = 'audioPreference' // chave dentro de contact.variables
@@ -259,6 +260,22 @@ export function startMessageWorker() {
         where: { workspaceId_channelId_externalId: { workspaceId: channel.workspaceId, channelId, externalId: from } },
       })
       const isNewContact = !contact
+
+      // Contato importado manualmente (sem canal ainda) pode já existir com
+      // o mesmo telefone — completa esse registro em vez de duplicar.
+      if (!contact && channelType === 'WHATSAPP') {
+        const normalizedFrom = normalizeBrazilianNumber(from)
+        const orphanContact = await prisma.contact.findFirst({
+          where: { workspaceId: channel.workspaceId, channelId: null, phone: normalizedFrom },
+        })
+        if (orphanContact) {
+          contact = await prisma.contact.update({
+            where: { id: orphanContact.id },
+            data: { channelId, externalId: from, name: orphanContact.name || name },
+          })
+        }
+      }
+
       if (!contact) {
         contact = await prisma.contact.create({
           data: { workspaceId: channel.workspaceId, channelId, externalId: from, name, phone: channelType === 'WHATSAPP' ? from : undefined },

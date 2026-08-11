@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { prisma } from '../../lib/prisma'
 import { getWorkspaceId } from '../../lib/workspace'
+import { normalizeBrazilianNumber } from '../channels/whatsapp/providers/meta-cloud.provider'
 
 
 export async function contactRoutes(app: FastifyInstance) {
@@ -27,6 +28,71 @@ export async function contactRoutes(app: FastifyInstance) {
       prisma.contact.count({ where }),
     ])
     return reply.send({ data: contacts, total, page: Number(page), limit: Number(limit) })
+  })
+
+  // Cria um contato manualmente (ex: agenda importada) — sem channelId/
+  // externalId ainda, já que não veio de mensagem recebida. Ao receber a
+  // primeira mensagem de verdade desse telefone, message.worker.ts completa
+  // o vínculo com o canal em vez de criar um contato duplicado.
+  app.post('/contacts', async (req, reply) => {
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
+    const data = z.object({
+      name: z.string().min(1),
+      phone: z.string().min(1),
+      email: z.string().email().optional().nullable(),
+      tags: z.array(z.string()).optional(),
+      notes: z.string().optional().nullable(),
+    }).parse(req.body)
+
+    const phone = normalizeBrazilianNumber(data.phone)
+    const existing = await prisma.contact.findFirst({ where: { workspaceId, phone } })
+    if (existing) return reply.status(409).send({ error: 'Já existe um contato com esse telefone', contact: existing })
+
+    const contact = await prisma.contact.create({ data: { ...data, phone, workspaceId } })
+    return reply.status(201).send(contact)
+  })
+
+  // Importação em lote (CSV já parseado no front em [{ name, phone }]).
+  // Ignora silenciosamente linhas sem telefone e duplicatas (mesmo telefone
+  // já cadastrado no workspace) — retorna quantos foram criados vs pulados.
+  app.post('/contacts/import', async (req, reply) => {
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
+    const { contacts } = z.object({
+      contacts: z.array(z.object({
+        name: z.string().optional(),
+        phone: z.string(),
+      })).min(1).max(2000),
+    }).parse(req.body)
+
+    const existingPhones = new Set(
+      (await prisma.contact.findMany({ where: { workspaceId }, select: { phone: true } }))
+        .map(c => c.phone)
+        .filter(Boolean)
+    )
+
+    let created = 0
+    let skipped = 0
+    const toCreate: { workspaceId: string; name: string; phone: string }[] = []
+    const seenInBatch = new Set<string>()
+
+    for (const c of contacts) {
+      const phone = c.phone?.trim() ? normalizeBrazilianNumber(c.phone) : ''
+      if (!phone || existingPhones.has(phone) || seenInBatch.has(phone)) {
+        skipped++
+        continue
+      }
+      seenInBatch.add(phone)
+      toCreate.push({ workspaceId, name: c.name?.trim() || phone, phone })
+    }
+
+    if (toCreate.length > 0) {
+      const result = await prisma.contact.createMany({ data: toCreate })
+      created = result.count
+    }
+
+    return reply.send({ created, skipped, total: contacts.length })
   })
 
   app.get('/contacts/:id', async (req, reply) => {

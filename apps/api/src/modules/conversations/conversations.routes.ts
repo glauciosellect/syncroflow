@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { prisma } from '../../lib/prisma'
 import { emitNewMessage, emitConversationUpdated, emitMessageDeleted } from '../../lib/socket'
 import { getWhatsAppProvider } from '../channels/whatsapp/provider.factory'
+import { normalizeBrazilianNumber } from '../channels/whatsapp/providers/meta-cloud.provider'
 import { getWorkspaceId } from '../../lib/workspace'
 import { getValidGmailToken, sendReply } from '../../lib/gmail'
 import { uploadAttachment } from '../../lib/storage'
@@ -56,6 +57,60 @@ export async function conversationRoutes(app: FastifyInstance) {
       prisma.conversation.count({ where }),
     ])
     return reply.send({ data: conversations, total, page: Number(page), limit: Number(limit) })
+  })
+
+  // Inicia uma conversa nova com um contato da agenda (ex: importado via CSV,
+  // que ainda nunca mandou mensagem). Reaproveita conversa já aberta e não
+  // encerrada com esse contato/canal, se existir, em vez de duplicar.
+  app.post('/conversations/start', async (req, reply) => {
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
+    const { contactId, channelId } = z.object({
+      contactId: z.string(),
+      channelId: z.string().optional(),
+    }).parse(req.body)
+
+    const contact = await prisma.contact.findFirst({ where: { id: contactId, workspaceId } })
+    if (!contact) return reply.status(404).send({ error: 'Contato não encontrado' })
+
+    const channel = channelId
+      ? await prisma.channel.findFirst({ where: { id: channelId, workspaceId, isActive: true } })
+      : await prisma.channel.findFirst({ where: { workspaceId, type: 'WHATSAPP', isActive: true } })
+    if (!channel) return reply.status(400).send({ error: 'Nenhum canal de WhatsApp ativo encontrado' })
+
+    const agentChannel = await prisma.agentChannel.findFirst({ where: { channelId: channel.id }, include: { agent: true } })
+    if (!agentChannel) return reply.status(400).send({ error: 'Este canal não tem agente vinculado' })
+
+    // Contato ainda sem canal vinculado (importado manualmente) — vincula
+    // agora ao canal usado para iniciar a conversa, e normaliza o telefone
+    // para bater com o formato usado quando ele responder de verdade.
+    let usedContact = contact
+    if (!contact.channelId && contact.phone) {
+      const normalizedPhone = normalizeBrazilianNumber(contact.phone)
+      usedContact = await prisma.contact.update({
+        where: { id: contact.id },
+        data: { channelId: channel.id, externalId: normalizedPhone, phone: normalizedPhone },
+      })
+    }
+
+    let conversation = await prisma.conversation.findFirst({
+      where: { channelId: channel.id, contactId: usedContact.id, status: { not: 'CLOSED' } },
+    })
+    if (!conversation) {
+      conversation = await prisma.conversation.create({
+        data: {
+          workspaceId,
+          agentId: agentChannel.agent.id,
+          channelId: channel.id,
+          contactId: usedContact.id,
+          status: 'HUMAN_ACTIVE',
+          assignedToId: sub,
+        },
+      })
+      try { emitConversationUpdated(workspaceId, conversation) } catch {}
+    }
+
+    return reply.status(201).send(conversation)
   })
 
   app.get('/conversations/:id', async (req, reply) => {
