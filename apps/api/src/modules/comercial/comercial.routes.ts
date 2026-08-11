@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { prisma } from '../../lib/prisma'
 import { getWorkspaceId } from '../../lib/workspace'
+import { notifySyncrolex } from '../../lib/syncrolex-webhook'
 
 
 const leadSchema = z.object({
@@ -111,6 +112,11 @@ export async function comercialRoutes(app: FastifyInstance) {
     const workspaceId = await getWorkspaceId(sub, wid)
     const data = leadSchema.parse(req.body)
     const lead = await prisma.lead.create({ data: { ...data, workspaceId }, include: { stage: true } })
+    notifySyncrolex(workspaceId, 'lead.created', {
+      name: lead.name,
+      phone: lead.phone ?? '',
+      resumo_conversa: lead.notes ?? `Interesse em: ${lead.source ?? 'não especificado'}`,
+    })
     return reply.status(201).send(lead)
   })
 

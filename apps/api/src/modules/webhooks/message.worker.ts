@@ -86,7 +86,7 @@ export function startMessageWorker() {
         where: { id: channelId },
         include: { agentChannels: { include: { agent: { include: { config: true, intentions: true, flows: { where: { isActive: true } } } } } } },
       })
-      if (!channel) return
+      if (!channel || !channel.isActive) return
 
       const MEDIA_CREDITS = 2
       let from: string, name: string, text: string | undefined

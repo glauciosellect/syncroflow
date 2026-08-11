@@ -97,6 +97,9 @@ export async function channelRoutes(app: FastifyInstance) {
     return reply.status(201).send(channel)
   })
 
+  // Desconecta o canal sem apagar histórico — mensagens, conversas e contatos
+  // continuam preservados; o canal fica isActive=false e para de processar
+  // mensagens (ver checagem em message.worker.ts). Reconectar reativa tudo.
   app.delete('/channels/:id', async (req, reply) => {
     const { sub, wid } = req.user as { sub: string; wid?: string }
     const workspaceId = await getWorkspaceId(sub, wid)
@@ -107,16 +110,7 @@ export async function channelRoutes(app: FastifyInstance) {
       const provider = getWhatsAppProvider()
       try { await provider.deleteInstance(id) } catch {}
     }
-    // Deleta em cascata: mensagens → conversas → contatos → agentChannels → canal
-    const conversations = await prisma.conversation.findMany({ where: { channelId: id }, select: { id: true } })
-    const convIds = conversations.map(c => c.id)
-    if (convIds.length > 0) {
-      await prisma.message.deleteMany({ where: { conversationId: { in: convIds } } })
-      await prisma.conversation.deleteMany({ where: { id: { in: convIds } } })
-    }
-    await prisma.contact.deleteMany({ where: { channelId: id } })
-    await prisma.agentChannel.deleteMany({ where: { channelId: id } })
-    await prisma.channel.delete({ where: { id } })
+    await prisma.channel.update({ where: { id }, data: { isActive: false } })
     return reply.send({ ok: true })
   })
 
