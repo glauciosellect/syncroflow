@@ -345,12 +345,17 @@ export default function ChatPage() {
       return { ...old, data: [...(old.data || []), data.message] }
     })
 
-    // Incrementa unreadCount localmente se a conversa não está selecionada
-    // e a mensagem é do usuário (não do agente/sistema)
+    // O backend sempre incrementa unreadCount ao salvar a mensagem, mesmo se
+    // a conversa já estiver aberta na tela — então, se estiver aberta, temos
+    // que zerar de novo no servidor (GET /conversations/:id), senão esse
+    // incremento "fantasma" volta a aparecer na próxima vez que a lista for
+    // recarregada, mesmo o operador já tendo visto/respondido a mensagem.
     if (data.message.role === 'USER') {
       setSelected((prev: any) => {
         const isOpen = prev?.id === data.conversationId
-        if (!isOpen) {
+        if (isOpen) {
+          api.get(`/conversations/${data.conversationId}`).catch(() => {})
+        } else {
           // Toca som de notificação
           playNotificationSound()
           // Incrementa na lista em cache
@@ -449,7 +454,9 @@ export default function ChatPage() {
     { key: 'mine', label: 'Meus' },
   ]
 
-  // Seleciona conversa e zera badge de não lidas localmente
+  // Seleciona conversa e zera badge de não lidas — local (cache) e no
+  // servidor (GET /conversations/:id já zera unreadCount no banco), senão
+  // o número volta a aparecer assim que a lista é recarregada.
   const handleSelectConversation = useCallback((conv: any) => {
     setSelected(conv)
     if ((conv.unreadCount || 0) > 0) {
@@ -462,6 +469,7 @@ export default function ChatPage() {
           ),
         }
       })
+      api.get(`/conversations/${conv.id}`).catch(() => {})
     }
   }, [qc, filter, search, channelFilter])
 
