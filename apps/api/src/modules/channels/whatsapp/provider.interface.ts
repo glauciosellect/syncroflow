@@ -13,10 +13,13 @@ export interface WhatsAppProvider {
   deleteInstance(channelId: string): Promise<void>
   getQRCode(channelId: string): Promise<string>
   getStatus(channelId: string): Promise<'connected' | 'disconnected' | 'qr_required'>
-  sendText(channelId: string, to: string, text: string): Promise<void>
-  sendMedia(channelId: string, to: string, mediaUrl: string, caption?: string): Promise<void>
-  sendAudio(channelId: string, to: string, audioUrl: string): Promise<void>
-  sendAudioBase64?(channelId: string, to: string, audioBase64: string): Promise<void>
+  // Retornam o ID da mensagem no provedor (wamid, na Meta Cloud API) quando
+  // disponível — usado para permitir excluir a mensagem remotamente depois.
+  sendText(channelId: string, to: string, text: string): Promise<string | null>
+  sendMedia(channelId: string, to: string, mediaUrl: string, caption?: string): Promise<string | null>
+  sendAudio(channelId: string, to: string, audioUrl: string): Promise<string | null>
+  sendAudioBase64?(channelId: string, to: string, audioBase64: string): Promise<string | null>
+  deleteMessage?(channelId: string, messageId: string): Promise<void>
   parseWebhook(payload: unknown): WhatsAppMessage | null
   downloadMedia?(messageId: string, channelId?: string): Promise<{ fileURL?: string; transcription?: string; mimetype?: string; authHeader?: string }>
 }

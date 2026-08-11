@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import {
   Search, MessageSquare, UserCheck, Bot, Send, Loader2,
   X, RotateCcw, ChevronRight, ChevronLeft, Tag, StickyNote, Variable,
-  Phone, Mail, Clock, Hash, Plus, Check, Pencil, FileText,
+  Phone, Mail, Clock, Hash, Plus, Check, Pencil, FileText, Trash2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDateTime, channelLabel } from '@/lib/utils'
@@ -381,8 +381,19 @@ export default function ChatPage() {
     setSelected((prev: any) => prev?.id === conv.id ? { ...prev, ...conv } : prev)
   }, [filter, search, channelFilter])
 
+  const handleMessageDeleted = useCallback((data: { conversationId: string; messageId: string }) => {
+    qc.setQueryData(['messages', data.conversationId], (old: any) => {
+      if (!old) return old
+      return {
+        ...old,
+        data: old.data?.map((m: any) => m.id === data.messageId ? { ...m, deletedAt: new Date().toISOString() } : m),
+      }
+    })
+  }, [qc])
+
   useSocketEvent('message:new', handleNewMessage)
   useSocketEvent('conversation:updated', handleConversationUpdated)
+  useSocketEvent('message:deleted', handleMessageDeleted)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -426,6 +437,10 @@ export default function ChatPage() {
   const closeMutation = useMutation({
     mutationFn: (id: string) => api.post(`/conversations/${id}/close`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['conversations'] }); setSelected(null) },
+  })
+  const deleteMessageMutation = useMutation({
+    mutationFn: (messageId: string) => api.delete(`/conversations/${selected.id}/messages/${messageId}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['messages', selected?.id] }),
   })
   const tabs = [
     { key: 'all', label: 'Todos' },
@@ -580,34 +595,50 @@ export default function ChatPage() {
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {(msgs?.data || []).map((msg: any) => (
-              <div key={msg.id} className={cn('flex', msg.role === 'USER' ? 'justify-start' : msg.role === 'SYSTEM' ? 'justify-center' : 'justify-end')}>
+              <div key={msg.id} className={cn('group flex items-center gap-1.5', msg.role === 'USER' ? 'justify-start' : msg.role === 'SYSTEM' ? 'justify-center' : 'justify-end')}>
                 {msg.role === 'SYSTEM' ? (
                   <span className="text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded-full px-3 py-1">{msg.content}</span>
-                ) : (
-                  <div className={cn('max-w-xs lg:max-w-sm rounded-2xl px-4 py-2.5 text-sm',
-                    msg.role === 'USER' ? 'bg-gray-100 text-gray-800' :
-                    msg.role === 'HUMAN' ? 'bg-green-600 text-white' : 'bg-[#1565C0] text-white')}>
-                    {msg.role === 'ASSISTANT' && (
-                      <div className="flex items-center gap-1 mb-1 opacity-70"><Bot className="w-3 h-3" /><span className="text-xs">IA</span></div>
-                    )}
-                    {msg.mediaUrl && msg.mediaType === 'audio' && (
-                      <audio controls src={msg.mediaUrl} className="mb-1.5 max-w-full" />
-                    )}
-                    {msg.mediaUrl && msg.mediaType === 'image' && (
-                      <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer">
-                        <img src={msg.mediaUrl} alt="Imagem enviada" className="mb-1.5 max-w-full rounded-lg" />
-                      </a>
-                    )}
-                    {msg.mediaUrl && msg.mediaType && msg.mediaType !== 'audio' && msg.mediaType !== 'image' && (
-                      <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 mb-1.5 underline text-sm">
-                        <FileText className="w-3.5 h-3.5" />Ver documento
-                      </a>
-                    )}
-                    {msg.content && <p className="whitespace-pre-wrap">{msg.content}</p>}
-                    <div className={cn('text-xs mt-1 opacity-60', msg.role !== 'USER' ? 'text-right' : '')}>
-                      {new Date(msg.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                    </div>
+                ) : msg.deletedAt ? (
+                  <div className={cn('max-w-xs lg:max-w-sm rounded-2xl px-4 py-2.5 text-sm italic text-gray-400 border border-dashed border-gray-200',
+                    msg.role === 'USER' ? 'bg-gray-50' : 'bg-gray-50')}>
+                    Mensagem apagada
                   </div>
+                ) : (
+                  <>
+                    {msg.role === 'HUMAN' && (
+                      <button
+                        onClick={() => { if (confirm('Excluir esta mensagem? Se possível, ela também será apagada no WhatsApp do cliente.')) deleteMessageMutation.mutate(msg.id) }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 shrink-0"
+                        title="Excluir mensagem"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    <div className={cn('max-w-xs lg:max-w-sm rounded-2xl px-4 py-2.5 text-sm',
+                      msg.role === 'USER' ? 'bg-gray-100 text-gray-800' :
+                      msg.role === 'HUMAN' ? 'bg-green-600 text-white' : 'bg-[#1565C0] text-white')}>
+                      {msg.role === 'ASSISTANT' && (
+                        <div className="flex items-center gap-1 mb-1 opacity-70"><Bot className="w-3 h-3" /><span className="text-xs">IA</span></div>
+                      )}
+                      {msg.mediaUrl && msg.mediaType === 'audio' && (
+                        <audio controls src={msg.mediaUrl} className="mb-1.5 max-w-full" />
+                      )}
+                      {msg.mediaUrl && msg.mediaType === 'image' && (
+                        <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer">
+                          <img src={msg.mediaUrl} alt="Imagem enviada" className="mb-1.5 max-w-full rounded-lg" />
+                        </a>
+                      )}
+                      {msg.mediaUrl && msg.mediaType && msg.mediaType !== 'audio' && msg.mediaType !== 'image' && (
+                        <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 mb-1.5 underline text-sm">
+                          <FileText className="w-3.5 h-3.5" />Ver documento
+                        </a>
+                      )}
+                      {msg.content && <p className="whitespace-pre-wrap">{msg.content}</p>}
+                      <div className={cn('text-xs mt-1 opacity-60', msg.role !== 'USER' ? 'text-right' : '')}>
+                        {new Date(msg.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
             ))}

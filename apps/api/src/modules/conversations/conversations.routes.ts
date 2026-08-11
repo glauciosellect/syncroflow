@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { prisma } from '../../lib/prisma'
-import { emitNewMessage, emitConversationUpdated } from '../../lib/socket'
+import { emitNewMessage, emitConversationUpdated, emitMessageDeleted } from '../../lib/socket'
 import { getWhatsAppProvider } from '../channels/whatsapp/provider.factory'
 import { getWorkspaceId } from '../../lib/workspace'
 import { getValidGmailToken, sendReply } from '../../lib/gmail'
@@ -177,13 +177,15 @@ export async function conversationRoutes(app: FastifyInstance) {
     try {
       if (conv.channel.type === 'WHATSAPP' && conv.contact.externalId) {
         const provider = getWhatsAppProvider()
+        let wamid: string | null = null
         if (mediaUrl && mediaType === 'audio') {
-          await provider.sendAudio(conv.channelId, conv.contact.externalId, mediaUrl)
+          wamid = await provider.sendAudio(conv.channelId, conv.contact.externalId, mediaUrl)
         } else if (mediaUrl) {
-          await provider.sendMedia(conv.channelId, conv.contact.externalId, mediaUrl, content || undefined)
+          wamid = await provider.sendMedia(conv.channelId, conv.contact.externalId, mediaUrl, content || undefined)
         } else {
-          await provider.sendText(conv.channelId, conv.contact.externalId, content)
+          wamid = await provider.sendText(conv.channelId, conv.contact.externalId, content)
         }
+        if (wamid) await prisma.message.update({ where: { id: message.id }, data: { externalId: wamid } })
       }
       // Telegram, Facebook, Instagram, LinkedIn e Email ainda não suportam envio
       // de mídia pelo painel — só WhatsApp. Evita mandar texto vazio quando a
@@ -250,6 +252,43 @@ export async function conversationRoutes(app: FastifyInstance) {
     }
 
     return reply.status(201).send(message)
+  })
+
+  // Exclui uma mensagem enviada por engano. Sempre soft-delete local
+  // (some da tela, fica marcada deletedAt no banco). Se a mensagem tem
+  // externalId (wamid) e o provider suporta, tenta apagar também no
+  // WhatsApp do cliente — a Meta só permite isso dentro de uma janela de
+  // tempo curta, então a falha nesse passo é ignorada silenciosamente e a
+  // exclusão local acontece de qualquer forma.
+  app.delete('/conversations/:id/messages/:messageId', async (req, reply) => {
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
+    const { id, messageId } = req.params as { id: string; messageId: string }
+
+    const conv = await prisma.conversation.findFirst({ where: { id, workspaceId }, include: { channel: true } })
+    if (!conv) return reply.status(404).send({ error: 'Conversa não encontrada' })
+
+    const message = await prisma.message.findFirst({ where: { id: messageId, conversationId: id } })
+    if (!message) return reply.status(404).send({ error: 'Mensagem não encontrada' })
+    if (message.deletedAt) return reply.send({ ok: true })
+
+    let deletedRemotely = false
+    if (message.role === 'HUMAN' && message.externalId && conv.channel.type === 'WHATSAPP') {
+      try {
+        const provider = getWhatsAppProvider()
+        if (provider.deleteMessage) {
+          await provider.deleteMessage(conv.channelId, message.externalId)
+          deletedRemotely = true
+        }
+      } catch (err: any) {
+        console.error('[chat] Falha ao excluir mensagem remotamente (fora da janela de tempo?):', err?.message)
+      }
+    }
+
+    await prisma.message.update({ where: { id: messageId }, data: { deletedAt: new Date() } })
+    try { emitMessageDeleted(workspaceId, id, messageId) } catch {}
+
+    return reply.send({ ok: true, deletedRemotely })
   })
 
   app.post('/conversations/:id/assume', async (req, reply) => {

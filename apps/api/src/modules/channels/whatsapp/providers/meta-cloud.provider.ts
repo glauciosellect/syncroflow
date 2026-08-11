@@ -80,12 +80,13 @@ export class MetaCloudApiProvider implements WhatsAppProvider {
 
   async sendText(channelId: string, to: string, text: string) {
     const { phoneNumberId, accessToken } = await this.getConfig(channelId)
-    await axios.post(`${GRAPH_URL}/${phoneNumberId}/messages`, {
+    const res = await axios.post(`${GRAPH_URL}/${phoneNumberId}/messages`, {
       messaging_product: 'whatsapp',
       to: normalizeBrazilianNumber(to),
       type: 'text',
       text: { body: text },
     }, { headers: { Authorization: `Bearer ${accessToken}` } })
+    return res.data?.messages?.[0]?.id ?? null
   }
 
   async sendMedia(channelId: string, to: string, mediaUrl: string, caption?: string) {
@@ -96,19 +97,32 @@ export class MetaCloudApiProvider implements WhatsAppProvider {
     else if (type === 'video') body.video = { link: mediaUrl, caption }
     else body.document = { link: mediaUrl, caption, filename: caption || mediaUrl.split('/').pop() }
 
-    await axios.post(`${GRAPH_URL}/${phoneNumberId}/messages`, body, {
+    const res = await axios.post(`${GRAPH_URL}/${phoneNumberId}/messages`, body, {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
+    return res.data?.messages?.[0]?.id ?? null
   }
 
   async sendAudio(channelId: string, to: string, audioUrl: string) {
     const { phoneNumberId, accessToken } = await this.getConfig(channelId)
-    await axios.post(`${GRAPH_URL}/${phoneNumberId}/messages`, {
+    const res = await axios.post(`${GRAPH_URL}/${phoneNumberId}/messages`, {
       messaging_product: 'whatsapp',
       to: normalizeBrazilianNumber(to),
       type: 'audio',
       audio: { link: audioUrl },
     }, { headers: { Authorization: `Bearer ${accessToken}` } })
+    return res.data?.messages?.[0]?.id ?? null
+  }
+
+  // Só funciona dentro da janela de tempo permitida pela Meta e apenas para
+  // mensagens enviadas por nós (não recebidas do cliente). Fora da janela, a
+  // Meta retorna erro — tratado como falha silenciosa pelo chamador (a
+  // exclusão fica só local nesse caso).
+  async deleteMessage(channelId: string, messageId: string) {
+    const { phoneNumberId, accessToken } = await this.getConfig(channelId)
+    await axios.delete(`${GRAPH_URL}/${phoneNumberId}/messages/${messageId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
   }
 
   // Cloud API não aceita base64/data URL — precisa subir a mídia primeiro e enviar pelo media_id.
@@ -126,12 +140,13 @@ export class MetaCloudApiProvider implements WhatsAppProvider {
     const mediaId = uploadRes.data?.id
     if (!mediaId) throw new Error('Meta Cloud API não retornou media_id no upload de áudio')
 
-    await axios.post(`${GRAPH_URL}/${phoneNumberId}/messages`, {
+    const res = await axios.post(`${GRAPH_URL}/${phoneNumberId}/messages`, {
       messaging_product: 'whatsapp',
       to: normalizeBrazilianNumber(to),
       type: 'audio',
       audio: { id: mediaId },
     }, { headers: { Authorization: `Bearer ${accessToken}` } })
+    return res.data?.messages?.[0]?.id ?? null
   }
 
   parseWebhook(payload: any): WhatsAppMessage | null {

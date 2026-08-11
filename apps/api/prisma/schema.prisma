@@ -386,6 +386,8 @@ model Message {
   creditsUsed    Int          @default(0)
   intentionId    String?
   metadata       Json?
+  externalId     String?
+  deletedAt      DateTime?
   createdAt      DateTime     @default(now())
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 }

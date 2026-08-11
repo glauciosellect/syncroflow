@@ -35,3 +35,8 @@ export function emitNewMessage(workspaceId: string, conversationId: string, mess
 export function emitConversationUpdated(workspaceId: string, conversation: object) {
   getIO().to(`ws:${workspaceId}`).emit('conversation:updated', conversation)
 }
+
+// Emite exclusão de mensagem para todos no workspace
+export function emitMessageDeleted(workspaceId: string, conversationId: string, messageId: string) {
+  getIO().to(`ws:${workspaceId}`).emit('message:deleted', { conversationId, messageId })
+}
