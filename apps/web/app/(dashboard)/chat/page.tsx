@@ -1,6 +1,7 @@
 'use client'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,6 +16,7 @@ import { formatDateTime, channelLabel } from '@/lib/utils'
 import { useSocketConnect, useSocketEvent } from '@/hooks/use-socket'
 import { ChannelIcon } from '@/components/channel-icon'
 import { MessageComposer } from '@/components/shared/message-composer'
+import { TemplateSelector } from '@/components/shared/template-selector'
 
 // Toca um beep suave ao chegar mensagem nova
 function playNotificationSound() {
@@ -326,9 +328,11 @@ function ContactPanel({ contactId, workspaceId }: { contactId: string; workspace
 }
 
 // ─── Página principal do Chat ─────────────────────────────────────────────────
-export default function ChatPage() {
+function ChatPageContent() {
   const qc = useQueryClient()
+  const searchParams = useSearchParams()
   const [selected, setSelected] = useState<any>(null)
+  const [pendingRequiresTemplate, setPendingRequiresTemplate] = useState(false)
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [channelFilter, setChannelFilter] = useState('all')
@@ -336,6 +340,16 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useSocketConnect()
+
+  // Chegou de "Iniciar conversa" na tela de Contatos — busca e seleciona
+  // essa conversa específica, e guarda se ela exige template (contato que
+  // nunca escreveu antes) para trocar o composer pela seleção de template.
+  useEffect(() => {
+    const conversationId = searchParams.get('conversationId')
+    if (!conversationId) return
+    setPendingRequiresTemplate(searchParams.get('requiresTemplate') === '1')
+    api.get(`/conversations/${conversationId}`).then(res => setSelected(res.data)).catch(() => {})
+  }, [searchParams])
 
   const handleNewMessage = useCallback((data: { conversationId: string; message: any }) => {
     qc.setQueryData(['messages', data.conversationId], (old: any) => {
@@ -660,10 +674,14 @@ export default function ChatPage() {
           </div>
 
           {selected.status === 'HUMAN_ACTIVE' && (
-            <MessageComposer
-              conversationId={selected.id}
-              onSent={() => qc.invalidateQueries({ queryKey: ['messages', selected.id] })}
-            />
+            pendingRequiresTemplate && !(msgs?.data || []).some((m: any) => m.role === 'HUMAN') ? (
+              <TemplateSelector channelId={selected.channelId} conversationId={selected.id} />
+            ) : (
+              <MessageComposer
+                conversationId={selected.id}
+                onSent={() => qc.invalidateQueries({ queryKey: ['messages', selected.id] })}
+              />
+            )
           )}
         </div>
       ) : (
@@ -681,5 +699,13 @@ export default function ChatPage() {
         <ContactPanel contactId={selected.contactId} />
       )}
     </div>
+  )
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense fallback={null}>
+      <ChatPageContent />
+    </Suspense>
   )
 }

@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { WhatsAppProvider, WhatsAppMessage } from '../provider.interface'
+import type { WhatsAppProvider, WhatsAppMessage, WhatsAppTemplate } from '../provider.interface'
 import { prisma } from '../../../../lib/prisma'
 
 const API_VERSION = process.env.META_WHATSAPP_API_VERSION || 'v21.0'
@@ -158,6 +158,52 @@ export class MetaCloudApiProvider implements WhatsAppProvider {
       audio: { id: mediaId },
     }, { headers: { Authorization: `Bearer ${accessToken}` } })
     return res.data?.messages?.[0]?.id ?? null
+  }
+
+  // Único jeito permitido de a empresa iniciar conversa com alguém que nunca
+  // escreveu antes (fora da janela de 24h) — a Meta rejeita/não entrega
+  // sendText nesse caso, sem retornar erro na chamada de envio.
+  async sendTemplate(channelId: string, to: string, templateName: string, languageCode: string, params?: string[]) {
+    const { phoneNumberId, accessToken } = await this.getConfig(channelId)
+    const body: Record<string, any> = {
+      messaging_product: 'whatsapp',
+      to: normalizeBrazilianNumber(to),
+      type: 'template',
+      template: {
+        name: templateName,
+        language: { code: languageCode },
+      },
+    }
+    if (params && params.length > 0) {
+      body.template.components = [{
+        type: 'body',
+        parameters: params.map(text => ({ type: 'text', text })),
+      }]
+    }
+    const res = await axios.post(`${GRAPH_URL}/${phoneNumberId}/messages`, body, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    return res.data?.messages?.[0]?.id ?? null
+  }
+
+  async listTemplates(channelId: string): Promise<WhatsAppTemplate[]> {
+    const channel = await prisma.channel.findUnique({ where: { id: channelId } })
+    const config = channel?.config as any
+    const wabaId = config?.wabaId
+    if (!wabaId || !config?.accessToken) return []
+
+    const res = await axios.get(`${GRAPH_URL}/${wabaId}/message_templates`, {
+      params: { access_token: config.accessToken, fields: 'name,language,status,category,components', limit: 100 },
+    })
+    const templates = res.data?.data ?? []
+    return templates
+      .filter((t: any) => t.status === 'APPROVED')
+      .map((t: any) => {
+        const bodyComponent = t.components?.find((c: any) => c.type === 'BODY')
+        const bodyText: string | undefined = bodyComponent?.text
+        const variableCount = bodyText ? (bodyText.match(/\{\{\d+\}\}/g) || []).length : 0
+        return { name: t.name, language: t.language, status: t.status, category: t.category, bodyText, variableCount }
+      })
   }
 
   parseWebhook(payload: any): WhatsAppMessage | null {

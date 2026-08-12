@@ -204,7 +204,10 @@ export default function ContactsPage() {
 
   const startConversationMutation = useMutation({
     mutationFn: (contactId: string) => api.post('/conversations/start', { contactId }),
-    onSuccess: () => router.push('/chat'),
+    onSuccess: (res) => {
+      const suffix = res.data.requiresTemplate ? '&requiresTemplate=1' : ''
+      router.push(`/chat?conversationId=${res.data.id}${suffix}`)
+    },
     onError: (err: any) => toast({ title: 'Erro ao iniciar conversa', description: err?.response?.data?.error || 'Tente novamente', variant: 'destructive' }),
   })
 

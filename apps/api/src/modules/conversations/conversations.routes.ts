@@ -110,7 +110,20 @@ export async function conversationRoutes(app: FastifyInstance) {
       try { emitConversationUpdated(workspaceId, conversation) } catch {}
     }
 
-    return reply.status(201).send(conversation)
+    // A Meta só entrega texto livre depois que o CLIENTE escreveu primeiro
+    // (janela de 24h). Se ele nunca mandou nenhuma mensagem nessa conversa,
+    // é preciso usar um template aprovado para iniciar — sinaliza isso para
+    // o front trocar o composer normal por um seletor de template.
+    let requiresTemplate = false
+    if (channel.type === 'WHATSAPP') {
+      const incomingMessage = await prisma.message.findFirst({
+        where: { conversationId: conversation.id, role: 'USER' },
+        select: { id: true },
+      })
+      requiresTemplate = !incomingMessage
+    }
+
+    return reply.status(201).send({ ...conversation, requiresTemplate })
   })
 
   app.get('/conversations/:id', async (req, reply) => {
@@ -205,6 +218,53 @@ export async function conversationRoutes(app: FastifyInstance) {
 
     const { publicUrl } = await uploadAttachment(workspaceId, buffer, mimetype, filename)
     return reply.send({ mediaUrl: publicUrl, mediaType: mimeToMediaType(mimetype), mimetype })
+  })
+
+  // Envia um template de mensagem aprovado pela Meta — usado para iniciar
+  // conversa com contato que nunca escreveu antes (ver requiresTemplate em
+  // POST /conversations/start). Salva como mensagem HUMAN normal no histórico.
+  app.post('/conversations/:id/send-template', async (req, reply) => {
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
+    const { id } = req.params as { id: string }
+    const { templateName, languageCode, params, previewText } = z.object({
+      templateName: z.string(),
+      languageCode: z.string(),
+      params: z.array(z.string()).optional(),
+      previewText: z.string(),
+    }).parse(req.body)
+
+    const conv = await prisma.conversation.findFirst({
+      where: { id, workspaceId },
+      include: { contact: true, channel: true },
+    })
+    if (!conv) return reply.status(404).send({ error: 'Conversa não encontrada' })
+    if (conv.channel.type !== 'WHATSAPP' || !conv.contact.externalId) {
+      return reply.status(400).send({ error: 'Templates só são suportados para conversas de WhatsApp' })
+    }
+
+    const provider = getWhatsAppProvider()
+    if (!provider.sendTemplate) return reply.status(400).send({ error: 'Provider atual não suporta envio de templates' })
+
+    const message = await prisma.message.create({
+      data: { conversationId: id, role: 'HUMAN', content: previewText },
+    })
+    try { emitNewMessage(workspaceId, id, message) } catch {}
+
+    try {
+      const wamid = await provider.sendTemplate(conv.channelId, conv.contact.externalId, templateName, languageCode, params)
+      if (wamid) await prisma.message.update({ where: { id: message.id }, data: { externalId: wamid } })
+      return reply.status(201).send(message)
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.error?.message || err?.message || 'Falha desconhecida ao enviar template'
+      console.error('[chat] Erro ao enviar template:', errorMessage)
+      const updated = await prisma.message.update({
+        where: { id: message.id },
+        data: { metadata: { sendError: errorMessage } },
+      })
+      try { emitNewMessage(workspaceId, id, updated) } catch {}
+      return reply.status(201).send(updated)
+    }
   })
 
   app.post('/conversations/:id/messages', async (req, reply) => {

@@ -18,6 +18,26 @@ export async function channelRoutes(app: FastifyInstance) {
     return reply.send(channels)
   })
 
+  // Templates de mensagem aprovados pela Meta — necessários para iniciar
+  // conversa com alguém que nunca escreveu antes (fora da janela de 24h).
+  app.get('/channels/:id/templates', async (req, reply) => {
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
+    const { id } = req.params as { id: string }
+    const channel = await prisma.channel.findFirst({ where: { id, workspaceId } })
+    if (!channel) return reply.status(404).send({ error: 'Canal não encontrado' })
+    if (channel.type !== 'WHATSAPP') return reply.send([])
+
+    const provider = getWhatsAppProvider()
+    if (!provider.listTemplates) return reply.send([])
+    try {
+      const templates = await provider.listTemplates(id)
+      return reply.send(templates)
+    } catch (err: any) {
+      return reply.status(502).send({ error: 'Falha ao buscar templates na Meta', detail: err?.response?.data?.error?.message || err?.message })
+    }
+  })
+
   app.post('/channels/telegram', async (req, reply) => {
     const { sub, wid } = req.user as { sub: string; wid?: string }
     const workspaceId = await getWorkspaceId(sub, wid)
