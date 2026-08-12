@@ -20,7 +20,26 @@ interface WhatsAppTemplate {
 // pela Meta (contato que nunca escreveu antes — texto livre não é entregue
 // nesse caso). Mostra os templates aprovados do canal e monta a prévia
 // substituindo {{1}}, {{2}}... pelos valores digitados.
-export function TemplateSelector({ channelId, conversationId }: { channelId: string; conversationId: string }) {
+export function TemplateSelector({
+  channelId,
+  conversationId,
+  contactName,
+  agentName,
+  workspaceName,
+}: {
+  channelId: string
+  conversationId: string
+  // Pré-preenchimento das 3 variáveis do template de abertura recomendado:
+  // {{1}} = nome do cliente/contato, {{2}} = nome do agente de IA vinculado
+  // ao canal (ex: "Jarbas"), {{3}} = nome do escritório/empresa que usa o
+  // SyncroFlow. O operador ainda pode editar antes de enviar — isso é só
+  // sugestão automática, para não ter que digitar toda vez (inclusive o
+  // nome do próprio escritório, que o operador nem sempre sabe escrever
+  // igual ao cadastro).
+  contactName?: string
+  agentName?: string
+  workspaceName?: string
+}) {
   const qc = useQueryClient()
   const { toast } = useToast()
   const [selectedName, setSelectedName] = useState<string>('')
@@ -52,10 +71,20 @@ export function TemplateSelector({ channelId, conversationId }: { channelId: str
     onError: (err: any) => toast({ title: 'Erro ao enviar template', description: err?.response?.data?.error || 'Tente novamente', variant: 'destructive' }),
   })
 
+  // Sugestão de pré-preenchimento por posição: só cobre o padrão de 3
+  // variáveis (nome do contato, nome do agente de IA, nome do escritório)
+  // usado no template de abertura recomendado — templates com mais
+  // variáveis, ou em ordem diferente, ficam em branco a partir da 4ª para
+  // o operador preencher manualmente.
+  function valoresSugeridos(quantidade: number): string[] {
+    const sugestoes = [contactName ?? '', agentName ?? '', workspaceName ?? '']
+    return Array.from({ length: quantidade }, (_, i) => sugestoes[i] ?? '')
+  }
+
   const handleSelectTemplate = (name: string) => {
     setSelectedName(name)
     const tpl = templates?.find(t => t.name === name)
-    setParams(new Array(tpl?.variableCount ?? 0).fill(''))
+    setParams(valoresSugeridos(tpl?.variableCount ?? 0))
   }
 
   if (isLoading) {

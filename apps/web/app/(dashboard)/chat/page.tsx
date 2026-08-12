@@ -17,6 +17,7 @@ import { useSocketConnect, useSocketEvent } from '@/hooks/use-socket'
 import { ChannelIcon } from '@/components/channel-icon'
 import { MessageComposer } from '@/components/shared/message-composer'
 import { TemplateSelector } from '@/components/shared/template-selector'
+import { useAuthStore } from '@/store/auth.store'
 
 // Toca um beep suave ao chegar mensagem nova
 function playNotificationSound() {
@@ -331,6 +332,7 @@ function ContactPanel({ contactId, workspaceId }: { contactId: string; workspace
 function ChatPageContent() {
   const qc = useQueryClient()
   const searchParams = useSearchParams()
+  const { workspace } = useAuthStore()
   const [selected, setSelected] = useState<any>(null)
   const [pendingRequiresTemplate, setPendingRequiresTemplate] = useState(false)
   const [filter, setFilter] = useState('all')
@@ -675,7 +677,13 @@ function ChatPageContent() {
 
           {selected.status === 'HUMAN_ACTIVE' && (
             pendingRequiresTemplate && !(msgs?.data || []).some((m: any) => m.role === 'HUMAN') ? (
-              <TemplateSelector channelId={selected.channelId} conversationId={selected.id} />
+              <TemplateSelector
+                channelId={selected.channelId}
+                conversationId={selected.id}
+                contactName={selected.contact?.name}
+                agentName={channels?.find((c: any) => c.id === selected.channelId)?.agentChannels?.[0]?.agent?.name}
+                workspaceName={workspace?.name}
+              />
             ) : (
               <MessageComposer
                 conversationId={selected.id}
