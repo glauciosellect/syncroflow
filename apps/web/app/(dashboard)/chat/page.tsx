@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import {
   Search, MessageSquare, UserCheck, Bot, Send, Loader2,
   X, RotateCcw, ChevronRight, ChevronLeft, Tag, StickyNote, Variable,
-  Phone, Mail, Clock, Hash, Plus, Check, Pencil, FileText, Trash2,
+  Phone, Mail, Clock, Hash, Plus, Check, Pencil, FileText, Trash2, AlertTriangle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDateTime, channelLabel } from '@/lib/utils'
@@ -642,6 +642,12 @@ export default function ChatPage() {
                         </a>
                       )}
                       {msg.content && <p className="whitespace-pre-wrap">{msg.content}</p>}
+                      {msg.metadata?.sendError && (
+                        <div className="flex items-center gap-1 mt-1.5 text-xs bg-red-500/20 text-red-50 rounded-lg px-2 py-1">
+                          <AlertTriangle className="w-3 h-3 shrink-0" />
+                          <span>Não enviada: {msg.metadata.sendError}</span>
+                        </div>
+                      )}
                       <div className={cn('text-xs mt-1 opacity-60', msg.role !== 'USER' ? 'text-right' : '')}>
                         {new Date(msg.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                       </div>

@@ -302,8 +302,18 @@ export async function conversationRoutes(app: FastifyInstance) {
         }
       }
     } catch (err: any) {
-      // Log mas não falha — mensagem já está salva no banco
-      console.error('[chat] Erro ao enviar mensagem pelo canal:', err?.message)
+      // Mensagem já está salva no banco (aparece na tela) mas o envio real
+      // pelo canal falhou — marca isso de forma visível em vez de só logar,
+      // senão o operador acha que a mensagem chegou ao cliente quando na
+      // verdade nunca saiu do painel.
+      const errorMessage = err?.response?.data?.error?.message || err?.message || 'Falha desconhecida ao enviar'
+      console.error('[chat] Erro ao enviar mensagem pelo canal:', errorMessage)
+      const updated = await prisma.message.update({
+        where: { id: message.id },
+        data: { metadata: { sendError: errorMessage } },
+      })
+      try { emitNewMessage(workspaceId, id, updated) } catch {}
+      return reply.status(201).send(updated)
     }
 
     return reply.status(201).send(message)

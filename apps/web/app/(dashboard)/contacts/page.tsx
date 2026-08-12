@@ -6,7 +6,7 @@ import api from '@/lib/api'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
-import { Search, Users, Phone, Mail, Plus, Upload, MessageCircle, X } from 'lucide-react'
+import { Search, Users, Phone, Mail, Plus, Upload, MessageCircle, X, Pencil } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
 
@@ -71,6 +71,52 @@ function AddContactModal({ onClose }: { onClose: () => void }) {
         >
           {createMutation.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
           Adicionar
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function EditContactModal({ contact, onClose }: { contact: any; onClose: () => void }) {
+  const qc = useQueryClient()
+  const { toast } = useToast()
+  const [name, setName] = useState(contact.name || '')
+  const [phone, setPhone] = useState(contact.phone || '')
+
+  const updateMutation = useMutation({
+    mutationFn: () => api.patch(`/contacts/${contact.id}`, { name, phone }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['contacts'] })
+      toast({ title: 'Contato atualizado!' })
+      onClose()
+    },
+    onError: (err: any) => toast({ title: 'Erro ao atualizar', description: err?.response?.data?.error || 'Tente novamente', variant: 'destructive' }),
+  })
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl w-full max-w-sm p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-gray-900">Editar contato</h3>
+          <button onClick={onClose}><X className="w-4 h-4 text-gray-400" /></button>
+        </div>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-gray-600">Nome</label>
+            <Input value={name} onChange={e => setName(e.target.value)} placeholder="Nome do contato" className="mt-1" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-600">WhatsApp</label>
+            <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="55DDDNUMERO" className="mt-1" />
+          </div>
+        </div>
+        <Button
+          className="w-full bg-[#1565C0] hover:bg-[#0D47A1]"
+          disabled={!name.trim() || !phone.trim() || updateMutation.isPending}
+          onClick={() => updateMutation.mutate()}
+        >
+          {updateMutation.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+          Salvar
         </Button>
       </div>
     </div>
@@ -149,6 +195,7 @@ export default function ContactsPage() {
   const [page, setPage] = useState(1)
   const [showAdd, setShowAdd] = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const [editingContact, setEditingContact] = useState<any>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['contacts', search, page],
@@ -238,16 +285,25 @@ export default function ContactsPage() {
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">{formatDate(contact.createdAt)}</td>
                     <td className="px-4 py-3 text-right">
-                      {contact.phone && (
+                      <div className="flex items-center justify-end gap-1">
                         <button
-                          onClick={() => startConversationMutation.mutate(contact.id)}
-                          disabled={startConversationMutation.isPending}
-                          title="Iniciar conversa no WhatsApp"
-                          className="p-1.5 rounded-full text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors disabled:opacity-50"
+                          onClick={() => setEditingContact(contact)}
+                          title="Editar contato"
+                          className="p-1.5 rounded-full text-gray-400 hover:text-[#1565C0] hover:bg-blue-50 transition-colors"
                         >
-                          <MessageCircle className="w-4 h-4" />
+                          <Pencil className="w-4 h-4" />
                         </button>
-                      )}
+                        {contact.phone && (
+                          <button
+                            onClick={() => startConversationMutation.mutate(contact.id)}
+                            disabled={startConversationMutation.isPending}
+                            title="Iniciar conversa no WhatsApp"
+                            className="p-1.5 rounded-full text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors disabled:opacity-50"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -267,6 +323,7 @@ export default function ContactsPage() {
 
       {showAdd && <AddContactModal onClose={() => setShowAdd(false)} />}
       {showImport && <ImportContactsModal onClose={() => setShowImport(false)} />}
+      {editingContact && <EditContactModal contact={editingContact} onClose={() => setEditingContact(null)} />}
     </div>
   )
 }

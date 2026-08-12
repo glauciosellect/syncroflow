@@ -10,8 +10,19 @@ const GRAPH_URL = `https://graph.facebook.com/${API_VERSION}`
 // Aplicada tanto no envio (sendText/sendMedia/...) quanto no recebimento
 // (parseWebhook), para o "from" já chegar normalizado e Contact.externalId
 // nunca duplicar o mesmo cliente com/sem o 9º dígito.
+// Aceita número com ou sem "55" e com ou sem o 9º dígito, sempre devolvendo
+// o formato completo que a Meta exige (55 + DDD + 9 + número, 13 dígitos).
+// O cliente nunca deveria precisar lembrar de digitar o "55" — isso é
+// preenchido automaticamente aqui, único ponto de normalização usado em
+// todo lugar que recebe telefone (contatos, envio de mensagem, etc).
 export function normalizeBrazilianNumber(to: string): string {
-  const digits = to.replace(/\D/g, '')
+  let digits = to.replace(/\D/g, '')
+
+  // Sem "55" na frente — assume número nacional (DDD + número, 10 ou 11 dígitos)
+  if (digits.length === 10 || digits.length === 11) {
+    digits = `55${digits}`
+  }
+
   // 55 + DDD (2) + número sem 9º dígito (8) = 12 dígitos
   if (digits.length === 12 && digits.startsWith('55')) {
     const ddd = digits.slice(2, 4)
