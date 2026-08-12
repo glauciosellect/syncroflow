@@ -61,7 +61,7 @@ function AddContactModal({ onClose }: { onClose: () => void }) {
           </div>
           <div>
             <label className="text-xs font-medium text-gray-600">WhatsApp</label>
-            <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="55DDDNUMERO" className="mt-1" />
+            <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="DDD + número (ex: 32988776655)" className="mt-1" />
           </div>
         </div>
         <Button
@@ -107,7 +107,7 @@ function EditContactModal({ contact, onClose }: { contact: any; onClose: () => v
           </div>
           <div>
             <label className="text-xs font-medium text-gray-600">WhatsApp</label>
-            <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="55DDDNUMERO" className="mt-1" />
+            <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="DDD + número (ex: 32988776655)" className="mt-1" />
           </div>
         </div>
         <Button
