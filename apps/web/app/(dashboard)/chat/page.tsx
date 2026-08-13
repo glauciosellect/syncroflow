@@ -1,6 +1,6 @@
 'use client'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -334,7 +334,6 @@ function ChatPageContent() {
   const searchParams = useSearchParams()
   const { workspace } = useAuthStore()
   const [selected, setSelected] = useState<any>(null)
-  const [pendingRequiresTemplate, setPendingRequiresTemplate] = useState(false)
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [channelFilter, setChannelFilter] = useState('all')
@@ -344,12 +343,13 @@ function ChatPageContent() {
   useSocketConnect()
 
   // Chegou de "Iniciar conversa" na tela de Contatos — busca e seleciona
-  // essa conversa específica, e guarda se ela exige template (contato que
-  // nunca escreveu antes) para trocar o composer pela seleção de template.
+  // essa conversa específica. Não é preciso mais ler requiresTemplate da
+  // URL aqui: `precisaTemplate` abaixo recalcula isso sempre que `selected`
+  // muda, cobrindo também o caso de clicar direto numa conversa já
+  // existente na lista lateral (que não passa por essa URL).
   useEffect(() => {
     const conversationId = searchParams.get('conversationId')
     if (!conversationId) return
-    setPendingRequiresTemplate(searchParams.get('requiresTemplate') === '1')
     api.get(`/conversations/${conversationId}`).then(res => setSelected(res.data)).catch(() => {})
   }, [searchParams])
 
@@ -442,6 +442,20 @@ function ChatPageContent() {
     queryFn: () => api.get(`/conversations/${selected.id}/messages`).then(r => r.data),
     enabled: !!selected,
   })
+
+  // Mesma regra do backend (POST /conversations/start): no WhatsApp, texto
+  // livre só é entregue depois que o CLIENTE escreveu primeiro. Recalculada
+  // aqui a cada troca de conversa/carregamento de mensagens — antes isso só
+  // vinha de um parâmetro `requiresTemplate=1` na URL, setado apenas quando
+  // a conversa era aberta a partir de "Iniciar conversa" em Contatos; ao
+  // clicar direto numa conversa já existente na lista lateral do Chat, essa
+  // detecção nunca rodava e o composer de texto livre aparecia mesmo sem o
+  // cliente ter respondido ainda — mensagem enviada, mas nunca entregue.
+  const precisaTemplate = useMemo(() => {
+    if (!selected || selected.channel?.type !== 'WHATSAPP') return false
+    if (!msgs?.data) return false
+    return !msgs.data.some((m: any) => m.role === 'USER')
+  }, [selected, msgs])
 
   useEffect(() => {
     if (msgs) messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
@@ -676,7 +690,7 @@ function ChatPageContent() {
           </div>
 
           {selected.status === 'HUMAN_ACTIVE' && (
-            pendingRequiresTemplate && !(msgs?.data || []).some((m: any) => m.role === 'HUMAN') ? (
+            precisaTemplate ? (
               <TemplateSelector
                 channelId={selected.channelId}
                 conversationId={selected.id}
