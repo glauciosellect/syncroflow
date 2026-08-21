@@ -75,6 +75,7 @@ model Workspace {
   financeConnections    FinanceConnection[]
   marketingConnections  MarketingConnection[]
   auditLogs             AuditLog[]
+  agentLearnings        AgentLearning[]
 }
 
 model WorkspaceMember {
@@ -149,6 +150,7 @@ model Agent {
   intentions         Intention[]
   trainings          Training[]
   flows              Flow[]
+  agentLearnings     AgentLearning[]
 }
 
 model AgentConfig {
@@ -287,6 +289,24 @@ model Flow {
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
   agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+}
+
+// Memória de aprendizado contínuo do agente: regras/fatos extraídos automaticamente
+// de conversas em que um atendente humano interveio, para o agente aplicar em
+// atendimentos futuros sem precisar reprocessar toda a conversa antiga.
+model AgentLearning {
+  id                   String    @id @default(cuid())
+  workspaceId          String
+  agentId              String
+  content              String    @db.Text
+  sourceType           String // 'correcao_humana' — único tipo suportado hoje; sempre originado de mensagem de atendente humano, nunca direto da mensagem do cliente
+  sourceConversationId String?
+  active               Boolean   @default(true)
+  createdAt            DateTime  @default(now())
+  agent                Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  workspace            Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([agentId, active])
 }
 
 model Channel {

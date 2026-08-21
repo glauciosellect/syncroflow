@@ -8,6 +8,7 @@ import { getWorkspaceId } from '../../lib/workspace'
 import { getValidGmailToken, sendReply } from '../../lib/gmail'
 import { uploadAttachment } from '../../lib/storage'
 import { convertToOggOpus } from '../../lib/audio-convert'
+import { captureLearningFromConversation } from '../ai/agent-learning.service'
 
 const ALLOWED_MIME_TYPES = new Set([
   'image/jpeg', 'image/png', 'image/webp', 'image/gif',
@@ -493,6 +494,12 @@ export async function conversationRoutes(app: FastifyInstance) {
     })
 
     try { emitConversationUpdated(workspaceId, updated) } catch {}
+
+    // Dispara em segundo plano (não bloqueia a resposta de encerrar a conversa):
+    // se um atendente humano participou, tenta extrair uma lição reaproveitável
+    // pro agente. Ver agent-learning.service.ts para a lógica e as travas de segurança.
+    captureLearningFromConversation({ conversationId: id, workspaceId, agentId: conv.agentId }).catch(() => {})
+
     return reply.send(updated)
   })
 }

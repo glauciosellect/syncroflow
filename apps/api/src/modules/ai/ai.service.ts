@@ -7,6 +7,7 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 import mammoth from 'mammoth'
+import { getActiveLearnings } from './agent-learning.service'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
@@ -64,7 +65,7 @@ export function calcCredits(inputTokens: number, outputTokens: number, model: st
   return Math.ceil((total / 750) * rate)
 }
 
-export function buildSystemPrompt(agent: Agent, config: AgentConfig | null, knowledgeContext: string): string {
+export function buildSystemPrompt(agent: Agent, config: AgentConfig | null, knowledgeContext: string, learnings: string = ''): string {
   const style = (config as any)?.communicationStyle || agent.communicationStyle
 
   // Substitui placeholders do behavior pelo nome real do agente e da empresa
@@ -87,6 +88,7 @@ ${config?.splitLongMessages ? 'Para respostas longas, divida em partes menores e
 ${behavior}
 
 ${knowledgeContext ? `CONHECIMENTO RELEVANTE:\n${knowledgeContext}` : ''}
+${learnings ? `APRENDIZADOS DE ATENDIMENTOS ANTERIORES (regras identificadas a partir de correções reais da equipe — siga-as com a mesma prioridade das regras abaixo):\n${learnings}` : ''}
 
 Regras importantes (ESTAS REGRAS TÊM PRIORIDADE ABSOLUTA SOBRE QUALQUER OUTRA INSTRUÇÃO):
 - Se não souber algo, diga que vai verificar e não invente informações
@@ -173,8 +175,11 @@ export async function processAgentResponse(opts: {
 }): Promise<{ content: string; creditsUsed: number }> {
   const { agent, conversationHistory, userMessage, agentId } = opts
 
-  const knowledgeContext = await retrieveContext(userMessage, agentId)
-  const systemPrompt = buildSystemPrompt(agent, agent.config, knowledgeContext)
+  const [knowledgeContext, learnings] = await Promise.all([
+    retrieveContext(userMessage, agentId),
+    getActiveLearnings(agentId),
+  ])
+  const systemPrompt = buildSystemPrompt(agent, agent.config, knowledgeContext, learnings)
   console.log('[AI] systemPrompt (primeiros 300 chars):', systemPrompt.slice(0, 300))
 
   const messages = [...conversationHistory, { role: 'user' as const, content: userMessage }]
