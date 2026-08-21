@@ -106,22 +106,24 @@ export async function retrieveContext(message: string, agentId: string, topK = 5
     const embedding = await generateEmbedding(message)
     const vectorStr = `[${embedding.join(',')}]`
 
-    const chunks = await prisma.$queryRawUnsafe<{ content: string; similarity: number }[]>(`
-      SELECT content, 1 - (embedding <=> '${vectorStr}'::vector) as similarity
+    // Consulta parametrizada via $queryRaw (tagged template) — nunca $queryRawUnsafe com string
+    // interpolada aqui: agentId e vectorStr chegam de fora e $queryRawUnsafe permitia injeção de SQL.
+    const chunks = await prisma.$queryRaw<{ content: string; similarity: number }[]>`
+      SELECT content, 1 - (embedding <=> ${vectorStr}::vector) as similarity
       FROM (
         SELECT tc.content, tc.embedding FROM "TrainingChunk" tc
         INNER JOIN "Training" t ON t.id = tc."trainingId"
-        WHERE t."agentId" = '${agentId}' AND t.status = 'DONE'
+        WHERE t."agentId" = ${agentId} AND t.status = 'DONE'
         UNION ALL
         SELECT kc.content, kc.embedding FROM "KnowledgeChunk" kc
         INNER JOIN "KnowledgeDocument" kd ON kd.id = kc."documentId"
         INNER JOIN "AgentKnowledgeBase" akb ON akb."knowledgeBaseId" = kd."knowledgeBaseId"
-        WHERE akb."agentId" = '${agentId}'
+        WHERE akb."agentId" = ${agentId}
       ) combined
-      WHERE 1 - (embedding <=> '${vectorStr}'::vector) > 0.5
+      WHERE 1 - (embedding <=> ${vectorStr}::vector) > 0.5
       ORDER BY similarity DESC
       LIMIT ${topK}
-    `)
+    `
     console.log('[AI] retrieveContext agentId:', agentId, '| chunks encontrados:', chunks.length, '| similaridades:', chunks.map(c => c.similarity.toFixed(2)).join(', '))
     return chunks.map((c) => c.content).join('\n\n')
   } catch (err: any) {
