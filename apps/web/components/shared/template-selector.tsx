@@ -45,10 +45,17 @@ export function TemplateSelector({
   const [selectedName, setSelectedName] = useState<string>('')
   const [params, setParams] = useState<string[]>([])
 
-  const { data: templates, isLoading, isError } = useQuery<WhatsAppTemplate[]>({
+  const { data: templates, isLoading, isError, error } = useQuery<WhatsAppTemplate[]>({
     queryKey: ['whatsapp-templates', channelId],
     queryFn: () => api.get(`/channels/${channelId}/templates`).then(r => r.data),
+    retry: false,
   })
+  // O backend já manda o motivo real (token inválido, permissão negada, etc.)
+  // em `detail` quando a chamada pra Meta falha (ver channels.routes.ts) —
+  // antes isso era descartado e qualquer falha aparecia como "nenhum
+  // template encontrado", escondendo problemas reais (token expirado) atrás
+  // da mesma mensagem de "basta criar um template".
+  const errorDetail = (error as any)?.response?.data?.detail || (error as any)?.response?.data?.error
 
   const selected = templates?.find(t => t.name === selectedName)
 
@@ -95,7 +102,26 @@ export function TemplateSelector({
     )
   }
 
-  if (isError || !templates || templates.length === 0) {
+  if (isError) {
+    return (
+      <div className="p-4 border-t border-gray-100 bg-red-50">
+        <div className="flex items-start gap-2 text-sm text-red-800">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium">Não foi possível buscar os templates da Meta.</p>
+            <p className="text-xs text-red-700 mt-0.5">
+              {errorDetail || 'Erro desconhecido ao consultar a Meta.'}
+            </p>
+            <p className="text-xs text-red-700/80 mt-1">
+              Isso costuma ser token de acesso expirado/revogado ou permissão faltando — confira a conexão do canal em Configurações › Canais, ou reconecte o WhatsApp.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!templates || templates.length === 0) {
     return (
       <div className="p-4 border-t border-gray-100 bg-amber-50">
         <div className="flex items-start gap-2 text-sm text-amber-800">
