@@ -100,13 +100,20 @@ export class MetaCloudApiProvider implements WhatsAppProvider {
     return res.data?.messages?.[0]?.id ?? null
   }
 
-  async sendMedia(channelId: string, to: string, mediaUrl: string, caption?: string) {
+  // filename é o nome ORIGINAL do arquivo (ex: "contrato.pdf"), vindo do
+  // upload — nunca deriva do `caption` (texto livre digitado junto do anexo,
+  // sem relação com o nome/extensão do arquivo) nem da mediaUrl bruta (que é
+  // uma signed URL do Supabase com "?token=..." no final: cortar só na
+  // última "/" deixava o token grudado no nome, sem terminar em ".pdf" — bug
+  // corrigido em 2026-08, era a causa de o cliente receber o documento sem
+  // extensão reconhecível no WhatsApp).
+  async sendMedia(channelId: string, to: string, mediaUrl: string, caption?: string, filename?: string) {
     const { phoneNumberId, accessToken } = await this.getConfig(channelId)
     const type = detectMediaType(mediaUrl)
     const body: Record<string, any> = { messaging_product: 'whatsapp', to: normalizeBrazilianNumber(to), type }
     if (type === 'image') body.image = { link: mediaUrl, caption }
     else if (type === 'video') body.video = { link: mediaUrl, caption }
-    else body.document = { link: mediaUrl, caption, filename: caption || mediaUrl.split('/').pop() }
+    else body.document = { link: mediaUrl, caption, filename: filename || mediaUrl.split('?')[0].split('/').pop() || 'arquivo' }
 
     const res = await axios.post(`${GRAPH_URL}/${phoneNumberId}/messages`, body, {
       headers: { Authorization: `Bearer ${accessToken}` },

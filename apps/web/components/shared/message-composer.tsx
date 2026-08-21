@@ -99,6 +99,10 @@ export function MessageComposer({ conversationId, onSent }: MessageComposerProps
     try {
       let mediaUrl: string | undefined
       let mediaType: string | undefined
+      // Nome original do arquivo (ex: "contrato.pdf") — enviado ao backend
+      // separado da mensagem de texto, para nunca ser confundido com o
+      // caption que o atendente digitou junto do anexo.
+      let filename: string | undefined
 
       if (pending) {
         const formData = new FormData()
@@ -108,9 +112,10 @@ export function MessageComposer({ conversationId, onSent }: MessageComposerProps
         })
         mediaUrl = res.data.mediaUrl
         mediaType = res.data.mediaType
+        filename = res.data.filename
       }
 
-      await api.post(`/conversations/${conversationId}/messages`, { content: message, mediaUrl, mediaType })
+      await api.post(`/conversations/${conversationId}/messages`, { content: message, mediaUrl, mediaType, filename })
       setMessage('')
       clearPending()
       onSent()

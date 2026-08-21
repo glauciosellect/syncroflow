@@ -218,7 +218,11 @@ export async function conversationRoutes(app: FastifyInstance) {
     }
 
     const { publicUrl } = await uploadAttachment(workspaceId, buffer, mimetype, filename)
-    return reply.send({ mediaUrl: publicUrl, mediaType: mimeToMediaType(mimetype), mimetype })
+    // filename original volta pro front, que reenvia em POST /messages — é o
+    // nome real usado ao entregar o documento pro cliente no WhatsApp (ver
+    // bug corrigido em 2026-08: antes disso o backend inventava um nome a
+    // partir do caption ou da própria mediaUrl, perdendo a extensão .pdf).
+    return reply.send({ mediaUrl: publicUrl, mediaType: mimeToMediaType(mimetype), mimetype, filename })
   })
 
   // Envia um template de mensagem aprovado pela Meta — usado para iniciar
@@ -272,10 +276,14 @@ export async function conversationRoutes(app: FastifyInstance) {
     const { sub, wid } = req.user as { sub: string; wid?: string }
     const workspaceId = await getWorkspaceId(sub, wid)
     const { id } = req.params as { id: string }
-    const { content, mediaUrl, mediaType } = z.object({
+    const { content, mediaUrl, mediaType, filename } = z.object({
       content: z.string(),
       mediaUrl: z.string().url().optional(),
       mediaType: z.enum(['image', 'audio', 'document']).optional(),
+      // Nome original do arquivo anexado (ex: "contrato.pdf"), devolvido pelo
+      // POST /attachments — usado só para nomear o documento no WhatsApp,
+      // nunca confundido com `content` (que é o texto/caption da mensagem).
+      filename: z.string().optional(),
     }).refine(d => d.content.length > 0 || !!d.mediaUrl, { message: 'Mensagem vazia' }).parse(req.body)
 
     const conv = await prisma.conversation.findFirst({
@@ -297,7 +305,7 @@ export async function conversationRoutes(app: FastifyInstance) {
         if (mediaUrl && mediaType === 'audio') {
           wamid = await provider.sendAudio(conv.channelId, conv.contact.externalId, mediaUrl)
         } else if (mediaUrl) {
-          wamid = await provider.sendMedia(conv.channelId, conv.contact.externalId, mediaUrl, content || undefined)
+          wamid = await provider.sendMedia(conv.channelId, conv.contact.externalId, mediaUrl, content || undefined, filename)
         } else {
           wamid = await provider.sendText(conv.channelId, conv.contact.externalId, content)
         }

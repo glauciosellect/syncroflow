@@ -27,7 +27,11 @@ export interface WhatsAppProvider {
   // Retornam o ID da mensagem no provedor (wamid, na Meta Cloud API) quando
   // disponível — usado para permitir excluir a mensagem remotamente depois.
   sendText(channelId: string, to: string, text: string): Promise<string | null>
-  sendMedia(channelId: string, to: string, mediaUrl: string, caption?: string): Promise<string | null>
+  // filename é o nome original do arquivo (ex: "contrato.pdf") — usado como
+  // nome do documento entregue ao cliente no WhatsApp. Nunca usar o `caption`
+  // como filename: caption é o texto livre que o atendente digitou junto do
+  // anexo (pode não ter nada a ver com o nome do arquivo, nem sua extensão).
+  sendMedia(channelId: string, to: string, mediaUrl: string, caption?: string, filename?: string): Promise<string | null>
   sendAudio(channelId: string, to: string, audioUrl: string): Promise<string | null>
   sendAudioBase64?(channelId: string, to: string, audioBase64: string): Promise<string | null>
   deleteMessage?(channelId: string, messageId: string): Promise<void>
