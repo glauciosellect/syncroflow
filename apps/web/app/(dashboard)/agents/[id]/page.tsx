@@ -30,6 +30,7 @@ export default function AgentDetailPage() {
   const qc = useQueryClient()
   const router = useRouter()
   const [activeTab, setActiveTab] = useState('Perfil')
+  const [funcaoOutroSelecionado, setFuncaoOutroSelecionado] = useState(false)
   const [testMessage, setTestMessage] = useState('')
   const [testMessages, setTestMessages] = useState<{ role: string; content: string; credits?: number }[]>([])
   const [testLoading, setTestLoading] = useState(false)
@@ -369,7 +370,13 @@ export default function AgentDetailPage() {
                   const FUNCOES_LIST = ['Atendimento ao Cliente','Vendas','Suporte Técnico','Financeiro','Recursos Humanos','Marketing','Jurídico','Agendamentos','E-commerce','Outro']
                   const currentVal = f.funcao ?? ''
                   const isPreset = FUNCOES_LIST.includes(currentVal)
-                  const selectVal = isPreset ? currentVal : (currentVal ? 'Outro' : '')
+                  // "Outro" fica marcado por estado próprio, não derivado de
+                  // currentVal — ao escolher Outro, funcao é limpo pra digitar
+                  // do zero, e se a derivação dependesse só de currentVal
+                  // (vazio) o select "esquecia" que Outro tinha sido escolhido
+                  // e o campo de texto sumia.
+                  const mostrarOutro = funcaoOutroSelecionado || (!isPreset && !!currentVal)
+                  const selectVal = mostrarOutro ? 'Outro' : (isPreset ? currentVal : '')
                   return (
                     <>
                       <select
@@ -377,8 +384,10 @@ export default function AgentDetailPage() {
                         value={selectVal}
                         onChange={e => {
                           if (e.target.value !== 'Outro') {
+                            setFuncaoOutroSelecionado(false)
                             setForm((p: any) => ({ ...(p || agent), funcao: e.target.value }))
                           } else {
+                            setFuncaoOutroSelecionado(true)
                             setForm((p: any) => ({ ...(p || agent), funcao: '' }))
                           }
                         }}
@@ -388,12 +397,13 @@ export default function AgentDetailPage() {
                           <option key={func} value={func}>{func}</option>
                         ))}
                       </select>
-                      {(selectVal === 'Outro' || (!isPreset && currentVal)) && (
+                      {mostrarOutro && (
                         <Input
                           className="mt-2 text-sm"
                           placeholder="Descreva a função personalizada..."
                           value={isPreset ? '' : currentVal}
                           onChange={e => setForm((p: any) => ({ ...(p || agent), funcao: e.target.value }))}
+                          autoFocus
                         />
                       )}
                     </>
