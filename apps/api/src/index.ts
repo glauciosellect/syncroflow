@@ -8,6 +8,8 @@ import multipart from '@fastify/multipart'
 import rawBody from 'fastify-raw-body'
 import { redis } from './lib/redis'
 import { logger } from './lib/logger'
+import { prisma } from './lib/prisma'
+import { hashApiKey } from './lib/crypto'
 
 import { authRoutes } from './modules/auth/auth.routes'
 import { googleRoutes } from './modules/auth/google.routes'
@@ -42,6 +44,7 @@ import { agentToolsRoutes } from './modules/ai/agent-tools.routes'
 import { rbacRoutes } from './modules/rbac/rbac.routes'
 import { statusRoutes } from './modules/status/status.routes'
 import { templateRoutes, seedTemplates } from './modules/templates/templates.routes'
+import { publicMessageRoutes } from './modules/public-api/messages.routes'
 import { startTrainingWorker } from './modules/ai/training.worker'
 import { startMessageWorker } from './modules/webhooks/message.worker'
 import { startWelcomeWorker } from './modules/welcome/welcome.worker'
@@ -61,6 +64,7 @@ declare module '@fastify/jwt' {
 declare module 'fastify' {
   interface FastifyInstance {
     authenticate: any
+    authenticateApiKey: any
   }
 }
 
@@ -110,6 +114,24 @@ async function bootstrap() {
     } catch {
       reply.status(401).send({ error: 'Não autorizado' })
     }
+  })
+
+  // Autentica requisições servidor-a-servidor via API Key (sf_...), gerada
+  // na tela Integrações → API Keys. Usado por rotas de API pública que
+  // sistemas parceiros (ex: GestorAMA) chamam sem sessão de usuário.
+  app.decorate('authenticateApiKey', async (req: any, reply: any) => {
+    const header = req.headers.authorization
+    if (!header?.startsWith('Bearer sf_')) {
+      return reply.status(401).send({ error: 'API key ausente ou inválida' })
+    }
+    const key = header.slice('Bearer '.length)
+    const keyHash = hashApiKey(key)
+    const apiKey = await prisma.apiKey.findUnique({ where: { keyHash } })
+    if (!apiKey) {
+      return reply.status(401).send({ error: 'API key inválida' })
+    }
+    await prisma.apiKey.update({ where: { id: apiKey.id }, data: { lastUsedAt: new Date() } })
+    req.workspaceId = apiKey.workspaceId
   })
 
   app.setErrorHandler((error, req, reply) => {
@@ -178,6 +200,7 @@ async function bootstrap() {
 
   // M10 — Templates
   await app.register(templateRoutes)
+  await app.register(publicMessageRoutes)
 
   startTrainingWorker()
   startMessageWorker()
