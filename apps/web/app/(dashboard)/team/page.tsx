@@ -2,12 +2,28 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
-import { Loader2, UserPlus, Mail, X, Clock, RefreshCw, Shield, ScrollText, ChevronDown } from 'lucide-react'
+import { Loader2, UserPlus, Mail, X, Clock, RefreshCw, Shield, ScrollText, ChevronDown, Download, MapPin, Monitor } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/use-toast'
-import { cn } from '@/lib/utils'
+import { cn, formatDateTime } from '@/lib/utils'
+
+const AUDIT_ACTIONS = [
+  { value: 'member.role_changed', label: 'Papel de membro alterado' },
+  { value: 'member.removed', label: 'Membro removido' },
+  { value: 'flow.created', label: 'Fluxo criado' },
+  { value: 'flow.updated', label: 'Fluxo editado' },
+  { value: 'flow.activated', label: 'Fluxo ativado' },
+  { value: 'flow.deactivated', label: 'Fluxo desativado' },
+  { value: 'flow.deleted', label: 'Fluxo excluído' },
+  { value: 'contact.updated', label: 'Contato editado' },
+  { value: 'contact.deleted', label: 'Contato excluído' },
+  { value: 'conversation.transferred', label: 'Atendimento transferido' },
+  { value: 'conversation.closed', label: 'Atendimento encerrado' },
+  { value: 'message.deleted', label: 'Mensagem excluída' },
+]
 
 // ─── Roles ───────────────────────────────────────────────────────────────────
 
@@ -114,6 +130,8 @@ export default function TeamPage() {
   const [showInvite, setShowInvite] = useState(false)
   const [activeTab, setActiveTab] = useState('members')
   const [changingRole, setChangingRole] = useState<string | null>(null)
+  const [auditPage, setAuditPage] = useState(1)
+  const [auditFilters, setAuditFilters] = useState({ action: '', userId: '', from: '', to: '', search: '' })
 
   const { data: members = [], isLoading: loadingMembers } = useQuery<any[]>({
     queryKey: ['members'],
@@ -126,10 +144,25 @@ export default function TeamPage() {
   })
 
   const { data: auditData, isLoading: loadingAudit } = useQuery<any>({
-    queryKey: ['audit-log'],
-    queryFn: () => api.get('/workspace/audit-log?limit=50').then(r => r.data),
+    queryKey: ['audit-log', auditPage, auditFilters],
+    queryFn: () => api.get('/workspace/audit-log', {
+      params: { limit: 50, page: auditPage, ...Object.fromEntries(Object.entries(auditFilters).filter(([, v]) => v)) },
+    }).then(r => r.data),
     enabled: activeTab === 'audit',
   })
+
+  const exportAudit = async () => {
+    const res = await api.get('/workspace/audit-log/export', {
+      params: Object.fromEntries(Object.entries(auditFilters).filter(([, v]) => v)),
+      responseType: 'blob',
+    })
+    const url = URL.createObjectURL(res.data)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'trilha-de-auditoria.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   const removeMember = useMutation({
     mutationFn: (id: string) => api.delete(`/workspaces/me/members/${id}`),
@@ -159,6 +192,7 @@ export default function TeamPage() {
   })
 
   const auditLogs: any[] = auditData?.logs ?? []
+  const memberByUserId = new Map(members.map((m: any) => [m.user?.id, m.user]))
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -321,40 +355,121 @@ export default function TeamPage() {
 
       {/* ── ABA AUDITORIA ────────────────────────────────────────────────────── */}
       {activeTab === 'audit' && (
-        <div className="bg-card border rounded-2xl overflow-hidden">
-          <div className="p-4 border-b">
-            <h3 className="font-semibold">Log de auditoria</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">Últimas 50 ações sensíveis no workspace</p>
-          </div>
-          {loadingAudit ? (
-            <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
-          ) : auditLogs.length === 0 ? (
-            <div className="text-center py-12 text-sm text-muted-foreground">Nenhuma ação registrada ainda.</div>
-          ) : (
-            <div className="divide-y">
-              {auditLogs.map((log: any) => (
-                <div key={log.id} className="flex items-start gap-3 px-4 py-3">
-                  <div className="w-2 h-2 rounded-full bg-[#1565C0] mt-1.5 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">{formatAction(log.action)}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      {log.resourceType && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium uppercase">
-                          {log.resourceType}
-                        </span>
-                      )}
-                      {log.userId && (
-                        <span className="text-xs text-muted-foreground truncate">por {log.userId.slice(0, 8)}...</span>
-                      )}
-                    </div>
-                  </div>
-                  <span className="text-xs text-muted-foreground shrink-0">
-                    {new Date(log.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-              ))}
+        <div className="space-y-3">
+          <div className="bg-card border rounded-2xl p-4 flex flex-wrap items-end gap-3">
+            <div className="flex-1 min-w-[160px]">
+              <label className="text-xs text-muted-foreground mb-1 block">Cliente</label>
+              <Input placeholder="Nome ou telefone" className="h-9 text-xs" value={auditFilters.search}
+                onChange={e => { setAuditPage(1); setAuditFilters(f => ({ ...f, search: e.target.value })) }} />
             </div>
-          )}
+            <div className="flex-1 min-w-[160px]">
+              <label className="text-xs text-muted-foreground mb-1 block">Ação</label>
+              <Select value={auditFilters.action || 'all'}
+                onValueChange={val => { setAuditPage(1); setAuditFilters(f => ({ ...f, action: val === 'all' ? '' : val })) }}>
+                <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Todas as ações" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">Todas as ações</SelectItem>
+                  {AUDIT_ACTIONS.map(a => (
+                    <SelectItem key={a.value} value={a.value} className="text-xs">{a.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex-1 min-w-[160px]">
+              <label className="text-xs text-muted-foreground mb-1 block">Usuário</label>
+              <Select value={auditFilters.userId || 'all'}
+                onValueChange={val => { setAuditPage(1); setAuditFilters(f => ({ ...f, userId: val === 'all' ? '' : val })) }}>
+                <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Todos os usuários" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">Todos os usuários</SelectItem>
+                  {members.map((m: any) => (
+                    <SelectItem key={m.user.id} value={m.user.id} className="text-xs">{m.user.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">De</label>
+              <Input type="datetime-local" className="h-9 text-xs w-48" value={auditFilters.from}
+                onChange={e => { setAuditPage(1); setAuditFilters(f => ({ ...f, from: e.target.value })) }} />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Até</label>
+              <Input type="datetime-local" className="h-9 text-xs w-48" value={auditFilters.to}
+                onChange={e => { setAuditPage(1); setAuditFilters(f => ({ ...f, to: e.target.value })) }} />
+            </div>
+            <Button variant="outline" size="sm" onClick={exportAudit} className="gap-1.5">
+              <Download className="w-3.5 h-3.5" /> Exportar CSV
+            </Button>
+          </div>
+
+          <div className="bg-card border rounded-2xl overflow-hidden">
+            <div className="p-4 border-b">
+              <h3 className="font-semibold">Trilha de auditoria</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {auditData?.total ?? 0} ações registradas — quem fez, quando, de onde. Use "Exportar CSV" como comprovante em auditorias e conformidade LGPD.
+              </p>
+            </div>
+            {loadingAudit ? (
+              <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+            ) : auditLogs.length === 0 ? (
+              <div className="text-center py-12 text-sm text-muted-foreground">Nenhuma ação encontrada para esse filtro.</div>
+            ) : (
+              <div className="divide-y">
+                {auditLogs.map((log: any) => {
+                  const user = log.userId ? memberByUserId.get(log.userId) : undefined
+                  const location = [log.geoCity, log.geoRegion, log.geoCountry].filter(Boolean).join(', ')
+                  return (
+                    <div key={log.id} className="flex items-start gap-3 px-4 py-3">
+                      <div className="w-2 h-2 rounded-full bg-[#1565C0] mt-1.5 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">{formatAction(log.action)}</p>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
+                          {log.resourceType && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium uppercase">
+                              {log.resourceType}
+                            </span>
+                          )}
+                          <span className="text-xs text-muted-foreground truncate">
+                            por {user?.name ?? (log.userId ? `${log.userId.slice(0, 8)}...` : 'sistema')}
+                          </span>
+                          {log.metadata?.contactName && (
+                            <span className="text-xs text-muted-foreground truncate">
+                              · cliente: {log.metadata.contactName}
+                            </span>
+                          )}
+                          {log.ipAddress && (
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground" title={`IP: ${log.ipAddress}`}>
+                              <MapPin className="w-3 h-3" /> {location || log.ipAddress}
+                            </span>
+                          )}
+                          {log.userAgent && (
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground truncate max-w-[220px]" title={log.userAgent}>
+                              <Monitor className="w-3 h-3 shrink-0" /> {log.userAgent}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-xs text-muted-foreground shrink-0" title={formatDateTime(log.createdAt)}>
+                        {formatDateTime(log.createdAt)}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            {auditData && auditData.totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t text-sm text-muted-foreground">
+                <span>Página {auditData.page} de {auditData.totalPages}</span>
+                <div className="flex gap-2">
+                  <button onClick={() => setAuditPage(p => Math.max(1, p - 1))} disabled={auditPage === 1}
+                    className="px-3 py-1 border rounded-md disabled:opacity-50 hover:bg-muted">Anterior</button>
+                  <button onClick={() => setAuditPage(p => Math.min(auditData.totalPages, p + 1))} disabled={auditPage >= auditData.totalPages}
+                    className="px-3 py-1 border rounded-md disabled:opacity-50 hover:bg-muted">Próxima</button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -373,6 +488,16 @@ function formatAction(action: string): string {
     'integration.connected': 'Integração conectada',
     'integration.disconnected': 'Integração desconectada',
     'billing.plan_changed': 'Plano alterado',
+    'flow.created': 'Fluxo criado',
+    'flow.updated': 'Fluxo editado',
+    'flow.activated': 'Fluxo ativado',
+    'flow.deactivated': 'Fluxo desativado',
+    'flow.deleted': 'Fluxo excluído',
+    'contact.updated': 'Contato editado',
+    'contact.deleted': 'Contato excluído',
+    'conversation.transferred': 'Atendimento transferido',
+    'conversation.closed': 'Atendimento encerrado',
+    'message.deleted': 'Mensagem excluída',
   }
   return map[action] ?? action
 }

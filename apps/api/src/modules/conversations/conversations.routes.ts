@@ -5,6 +5,7 @@ import { emitNewMessage, emitConversationUpdated, emitMessageDeleted } from '../
 import { getWhatsAppProvider } from '../channels/whatsapp/provider.factory'
 import { normalizeBrazilianNumber } from '../channels/whatsapp/providers/meta-cloud.provider'
 import { getWorkspaceId } from '../../lib/workspace'
+import { auditLog } from '../../lib/rbac'
 import { getValidGmailToken, sendReply } from '../../lib/gmail'
 import { uploadAttachment } from '../../lib/storage'
 import { convertToOggOpus } from '../../lib/audio-convert'
@@ -170,6 +171,33 @@ export async function conversationRoutes(app: FastifyInstance) {
       prisma.message.count({ where: { conversationId: id } }),
     ])
     return reply.send({ data: messages, total })
+  })
+
+  // Exporta a conversa inteira em CSV com data/hora completa de cada mensagem
+  // (não só a hora) — serve como transcrição/comprovante para auditoria.
+  app.get('/conversations/:id/messages/export', async (req, reply) => {
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
+    const { id } = req.params as { id: string }
+
+    const conv = await prisma.conversation.findFirst({ where: { id, workspaceId }, include: { contact: true } })
+    if (!conv) return reply.status(404).send({ error: 'Conversa não encontrada' })
+
+    const messages = await prisma.message.findMany({ where: { conversationId: id }, orderBy: { createdAt: 'asc' } })
+
+    const roleLabel: Record<string, string> = { USER: 'Cliente', ASSISTANT: 'IA', HUMAN: 'Atendente', SYSTEM: 'Sistema' }
+    const headers = ['Data/Hora', 'Remetente', 'Mensagem', 'Apagada']
+    const rows = messages.map((m) => [
+      m.createdAt.toISOString(),
+      roleLabel[m.role] || m.role,
+      m.deletedAt ? '(mensagem apagada)' : (m.content || (m.mediaUrl ? `[mídia: ${m.mediaType || 'arquivo'}]` : '')),
+      m.deletedAt ? m.deletedAt.toISOString() : '',
+    ])
+
+    const csv = [headers, ...rows].map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    reply.header('Content-Type', 'text/csv; charset=utf-8')
+    reply.header('Content-Disposition', `attachment; filename="conversa-${conv.protocol}.csv"`)
+    return reply.send('﻿' + csv)
   })
 
   // Upload de anexo (imagem, PDF, doc, áudio) — retorna a URL para ser usada
@@ -399,7 +427,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     const workspaceId = await getWorkspaceId(sub, wid)
     const { id, messageId } = req.params as { id: string; messageId: string }
 
-    const conv = await prisma.conversation.findFirst({ where: { id, workspaceId }, include: { channel: true } })
+    const conv = await prisma.conversation.findFirst({ where: { id, workspaceId }, include: { channel: true, contact: true } })
     if (!conv) return reply.status(404).send({ error: 'Conversa não encontrada' })
 
     const message = await prisma.message.findFirst({ where: { id: messageId, conversationId: id } })
@@ -421,6 +449,17 @@ export async function conversationRoutes(app: FastifyInstance) {
 
     await prisma.message.update({ where: { id: messageId }, data: { deletedAt: new Date() } })
     try { emitMessageDeleted(workspaceId, id, messageId) } catch {}
+
+    await auditLog({
+      workspaceId,
+      userId: sub,
+      action: 'message.deleted',
+      resourceType: 'Message',
+      resourceId: messageId,
+      metadata: { conversationId: id, deletedRemotely, contactName: conv.contact?.name, contactPhone: conv.contact?.phone },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    })
 
     return reply.send({ ok: true, deletedRemotely })
   })
@@ -451,7 +490,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string }
     const { to } = z.object({ to: z.enum(['human', 'ai']) }).parse(req.body)
 
-    const conv = await prisma.conversation.findFirst({ where: { id, workspaceId } })
+    const conv = await prisma.conversation.findFirst({ where: { id, workspaceId }, include: { contact: true } })
     if (!conv) return reply.status(404).send({ error: 'Conversa não encontrada' })
 
     const status = to === 'human' ? 'WAITING_HUMAN' : 'AI_ACTIVE'
@@ -461,6 +500,18 @@ export async function conversationRoutes(app: FastifyInstance) {
     })
     try { emitConversationUpdated(workspaceId, updated) } catch {}
     try { emitNewMessage(workspaceId, id, sysMsg) } catch {}
+
+    await auditLog({
+      workspaceId,
+      userId: sub,
+      action: 'conversation.transferred',
+      resourceType: 'Conversation',
+      resourceId: id,
+      metadata: { to, protocol: conv.protocol, contactName: conv.contact?.name, contactPhone: conv.contact?.phone },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    })
+
     return reply.send(updated)
   })
 
@@ -502,6 +553,17 @@ export async function conversationRoutes(app: FastifyInstance) {
     })
 
     try { emitConversationUpdated(workspaceId, updated) } catch {}
+
+    await auditLog({
+      workspaceId,
+      userId: sub,
+      action: 'conversation.closed',
+      resourceType: 'Conversation',
+      resourceId: id,
+      metadata: { protocol: conv.protocol, contactName: conv.contact?.name, contactPhone: conv.contact?.phone, durationSeconds: duration },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    })
 
     // Dispara em segundo plano (não bloqueia a resposta de encerrar a conversa):
     // se um atendente humano participou, tenta extrair uma lição reaproveitável

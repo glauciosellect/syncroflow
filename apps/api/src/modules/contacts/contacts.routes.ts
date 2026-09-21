@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { prisma } from '../../lib/prisma'
 import { getWorkspaceId } from '../../lib/workspace'
 import { normalizeBrazilianNumber } from '../channels/whatsapp/providers/meta-cloud.provider'
+import { auditLog } from '../../lib/rbac'
 
 
 export async function contactRoutes(app: FastifyInstance) {
@@ -120,14 +121,39 @@ export async function contactRoutes(app: FastifyInstance) {
 
     const updated = await prisma.contact.updateMany({ where: { id, workspaceId }, data })
     if (updated.count === 0) return reply.status(404).send({ error: 'Contato não encontrado' })
-    return reply.send(await prisma.contact.findUnique({ where: { id } }))
+
+    const contactAfter = await prisma.contact.findUnique({ where: { id } })
+    await auditLog({
+      workspaceId,
+      userId: sub,
+      action: 'contact.updated',
+      resourceType: 'Contact',
+      resourceId: id,
+      metadata: { contactName: contactAfter?.name, contactPhone: contactAfter?.phone, changedFields: Object.keys(data) },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    })
+    return reply.send(contactAfter)
   })
 
   app.delete('/contacts/:id', async (req, reply) => {
     const { sub, wid } = req.user as { sub: string; wid?: string }
     const workspaceId = await getWorkspaceId(sub, wid)
     const { id } = req.params as { id: string }
+    const contact = await prisma.contact.findFirst({ where: { id, workspaceId } })
+    if (!contact) return reply.status(404).send({ error: 'Contato não encontrado' })
+
     await prisma.contact.deleteMany({ where: { id, workspaceId } })
+    await auditLog({
+      workspaceId,
+      userId: sub,
+      action: 'contact.deleted',
+      resourceType: 'Contact',
+      resourceId: id,
+      metadata: { contactName: contact.name, contactPhone: contact.phone },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    })
     return reply.send({ ok: true })
   })
 

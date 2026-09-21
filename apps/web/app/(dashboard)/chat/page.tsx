@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import {
   Search, MessageSquare, UserCheck, Bot, Send, Loader2,
   X, RotateCcw, ChevronRight, ChevronLeft, Tag, StickyNote, Variable,
-  Phone, Mail, Clock, Hash, Plus, Check, Pencil, FileText, Trash2, AlertTriangle,
+  Phone, Mail, Clock, Hash, Plus, Check, Pencil, FileText, Trash2, AlertTriangle, Download,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDateTime, channelLabel } from '@/lib/utils'
@@ -34,6 +34,18 @@ function playNotificationSound() {
     osc.start(ctx.currentTime)
     osc.stop(ctx.currentTime + 0.3)
   } catch {}
+}
+
+// Separador de dia no histórico do chat ("Hoje" / "Ontem" / "21/09/2026") —
+// sem isso, mensagens de dias diferentes ficavam ambíguas mostrando só HH:mm.
+function formatDayLabel(date: string | Date) {
+  const d = new Date(date)
+  const today = new Date()
+  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1)
+  const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString()
+  if (sameDay(d, today)) return 'Hoje'
+  if (sameDay(d, yesterday)) return 'Ontem'
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 const statusColors: Record<string, string> = {
@@ -477,6 +489,20 @@ function ChatPageContent() {
     mutationFn: (messageId: string) => api.delete(`/conversations/${selected.id}/messages/${messageId}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['messages', selected?.id] }),
   })
+
+  // Exporta a conversa com data/hora completa de cada mensagem (não só HH:mm),
+  // para servir de comprovante/transcrição em auditorias.
+  const exportConversation = async () => {
+    if (!selected) return
+    const res = await api.get(`/conversations/${selected.id}/messages/export`, { responseType: 'blob' })
+    const url = URL.createObjectURL(res.data)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `conversa-${selected.protocol || selected.id}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const tabs = [
     { key: 'all', label: 'Todos' },
     { key: 'WAITING_HUMAN', label: 'Em espera' },
@@ -622,6 +648,13 @@ function ChatPageContent() {
                 </Button>
               )}
               <button
+                onClick={exportConversation}
+                className="p-1.5 rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-50 transition-colors"
+                title="Exportar conversa (data/hora completa de cada mensagem)"
+              >
+                <Download className="w-4 h-4" />
+              </button>
+              <button
                 onClick={() => setShowProfile(p => !p)}
                 className={cn('p-1.5 rounded-lg border transition-colors', showProfile ? 'bg-blue-50 border-blue-200 text-[#1565C0]' : 'border-gray-200 text-gray-400 hover:bg-gray-50')}
                 title="Ver perfil do contato"
@@ -632,8 +665,18 @@ function ChatPageContent() {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {(msgs?.data || []).map((msg: any) => (
-              <div key={msg.id} className={cn('group flex items-center gap-1.5', msg.role === 'USER' ? 'justify-start' : msg.role === 'SYSTEM' ? 'justify-center' : 'justify-end')}>
+            {(msgs?.data || []).map((msg: any, i: number, all: any[]) => {
+              const showDaySeparator = i === 0 || new Date(msg.createdAt).toDateString() !== new Date(all[i - 1].createdAt).toDateString()
+              return (
+              <div key={msg.id}>
+                {showDaySeparator && (
+                  <div className="flex justify-center py-2">
+                    <span className="text-[11px] font-medium text-gray-400 bg-gray-50 border border-gray-100 rounded-full px-3 py-1">
+                      {formatDayLabel(msg.createdAt)}
+                    </span>
+                  </div>
+                )}
+              <div className={cn('group flex items-center gap-1.5', msg.role === 'USER' ? 'justify-start' : msg.role === 'SYSTEM' ? 'justify-center' : 'justify-end')}>
                 {msg.role === 'SYSTEM' ? (
                   <span className="text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded-full px-3 py-1">{msg.content}</span>
                 ) : msg.deletedAt ? (
@@ -678,14 +721,16 @@ function ChatPageContent() {
                           <span>Não enviada: {msg.metadata.sendError}</span>
                         </div>
                       )}
-                      <div className={cn('text-xs mt-1 opacity-60', msg.role !== 'USER' ? 'text-right' : '')}>
+                      <div className={cn('text-xs mt-1 opacity-60', msg.role !== 'USER' ? 'text-right' : '')} title={formatDateTime(msg.createdAt)}>
                         {new Date(msg.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                       </div>
                     </div>
                   </>
                 )}
               </div>
-            ))}
+              </div>
+              )
+            })}
             <div ref={messagesEndRef} />
           </div>
 

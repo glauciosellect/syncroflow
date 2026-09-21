@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { prisma } from '../../lib/prisma'
+import { auditLog } from '../../lib/rbac'
 
 const flowSchema = z.object({
   name: z.string().min(1).max(255),
@@ -40,14 +41,25 @@ export async function flowRoutes(app: FastifyInstance) {
   app.post('/agents/:agentId/flows', async (req, reply) => {
     const { sub } = req.user as { sub: string }
     const { agentId } = req.params as { agentId: string }
+    let agent
     try {
-      await verifyAgentOwner(sub, agentId)
+      agent = await verifyAgentOwner(sub, agentId)
     } catch {
       return reply.status(403).send({ error: 'Sem permissão' })
     }
     const body = flowSchema.parse(req.body)
     const flow = await prisma.flow.create({
       data: { agentId, ...body },
+    })
+    await auditLog({
+      workspaceId: agent.workspaceId,
+      userId: sub,
+      action: 'flow.created',
+      resourceType: 'Flow',
+      resourceId: flow.id,
+      metadata: { name: flow.name, agentId },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
     })
     return reply.status(201).send(flow)
   })
@@ -70,17 +82,33 @@ export async function flowRoutes(app: FastifyInstance) {
   app.patch('/agents/:agentId/flows/:flowId', async (req, reply) => {
     const { sub } = req.user as { sub: string }
     const { agentId, flowId } = req.params as { agentId: string; flowId: string }
+    let agent
     try {
-      await verifyAgentOwner(sub, agentId)
+      agent = await verifyAgentOwner(sub, agentId)
     } catch {
       return reply.status(403).send({ error: 'Sem permissão' })
     }
+    const before = await prisma.flow.findFirst({ where: { id: flowId, agentId } })
+    if (!before) return reply.status(404).send({ error: 'Fluxo não encontrado' })
+
     const body = flowSchema.partial().parse(req.body)
     const flow = await prisma.flow.updateMany({
       where: { id: flowId, agentId },
       data: body,
     })
     if (flow.count === 0) return reply.status(404).send({ error: 'Fluxo não encontrado' })
+
+    const statusChanged = typeof body.isActive === 'boolean' && body.isActive !== before.isActive
+    await auditLog({
+      workspaceId: agent.workspaceId,
+      userId: sub,
+      action: statusChanged ? (body.isActive ? 'flow.activated' : 'flow.deactivated') : 'flow.updated',
+      resourceType: 'Flow',
+      resourceId: flowId,
+      metadata: { name: body.name ?? before.name, agentId, changedFields: Object.keys(body) },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    })
     return reply.send(await prisma.flow.findUnique({ where: { id: flowId } }))
   })
 
@@ -88,12 +116,26 @@ export async function flowRoutes(app: FastifyInstance) {
   app.delete('/agents/:agentId/flows/:flowId', async (req, reply) => {
     const { sub } = req.user as { sub: string }
     const { agentId, flowId } = req.params as { agentId: string; flowId: string }
+    let agent
     try {
-      await verifyAgentOwner(sub, agentId)
+      agent = await verifyAgentOwner(sub, agentId)
     } catch {
       return reply.status(403).send({ error: 'Sem permissão' })
     }
+    const flow = await prisma.flow.findFirst({ where: { id: flowId, agentId } })
+    if (!flow) return reply.status(404).send({ error: 'Fluxo não encontrado' })
+
     await prisma.flow.deleteMany({ where: { id: flowId, agentId } })
+    await auditLog({
+      workspaceId: agent.workspaceId,
+      userId: sub,
+      action: 'flow.deleted',
+      resourceType: 'Flow',
+      resourceId: flowId,
+      metadata: { name: flow.name, agentId },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    })
     return reply.status(204).send()
   })
 }

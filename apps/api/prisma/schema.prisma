@@ -802,8 +802,14 @@ model AuditLog {
   resourceId   String?
   metadata     Json?
   ipAddress    String?
+  userAgent    String?
+  geoCity      String?
+  geoRegion    String?
+  geoCountry   String?
   createdAt    DateTime  @default(now())
   workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
 }
 
 // ─── Public Templates Marketplace (M10) ──────────────────────────────────────

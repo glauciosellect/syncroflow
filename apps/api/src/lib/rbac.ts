@@ -1,6 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify'
 import { prisma } from './prisma'
 import { getWorkspaceId } from './workspace'
+import { lookupGeo } from './geo'
 
 export type Permission =
   | 'workspace.settings'
@@ -76,10 +77,39 @@ export async function auditLog(opts: {
   resourceId?: string
   metadata?: Record<string, any>
   ipAddress?: string
+  userAgent?: string
 }) {
   try {
-    await prisma.auditLog.create({ data: opts })
+    const geo = lookupGeo(opts.ipAddress)
+    await prisma.auditLog.create({
+      data: {
+        ...opts,
+        geoCity: geo?.city ?? undefined,
+        geoRegion: geo?.region ?? undefined,
+        geoCountry: geo?.country ?? undefined,
+      },
+    })
   } catch {
     // Audit log nunca pode quebrar a operação principal
   }
+}
+
+// Atalho para os módulos de negócio: extrai workspace/usuário/IP/user-agent
+// direto da request autenticada, para não repetir esse boilerplate em cada rota.
+export async function auditLogFromRequest(
+  req: FastifyRequest,
+  opts: { action: string; resourceType?: string; resourceId?: string; metadata?: Record<string, any>; workspaceId?: string }
+) {
+  const user = req.user as { sub: string; wid?: string }
+  const workspaceId = opts.workspaceId ?? (await getWorkspaceId(user.sub, user.wid))
+  await auditLog({
+    workspaceId,
+    userId: user.sub,
+    ipAddress: req.ip,
+    userAgent: req.headers['user-agent'],
+    action: opts.action,
+    resourceType: opts.resourceType,
+    resourceId: opts.resourceId,
+    metadata: opts.metadata,
+  })
 }
