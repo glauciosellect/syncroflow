@@ -4,6 +4,7 @@ import { prisma } from '../../lib/prisma'
 import { getWorkspaceId } from '../../lib/workspace'
 import { normalizeBrazilianNumber } from '../channels/whatsapp/providers/meta-cloud.provider'
 import { auditLog } from '../../lib/rbac'
+import { findContactIdsBySearch } from '../../lib/search'
 
 
 export async function contactRoutes(app: FastifyInstance) {
@@ -18,11 +19,8 @@ export async function contactRoutes(app: FastifyInstance) {
     const where: any = { workspaceId }
     if (channelId) where.channelId = channelId
     if (tag) where.tags = { has: tag }
-    if (search) where.OR = [
-      { name: { contains: search, mode: 'insensitive' } },
-      { phone: { contains: search } },
-      { email: { contains: search, mode: 'insensitive' } },
-    ]
+    // Busca ignorando acento (ver findContactIdsBySearch) — "joao" acha "João".
+    if (search) where.id = { in: await findContactIdsBySearch(workspaceId, search) }
 
     const [contacts, total] = await prisma.$transaction([
       prisma.contact.findMany({ where, orderBy: { createdAt: 'desc' }, skip, take: Number(limit) }),

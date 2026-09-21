@@ -6,6 +6,7 @@ import { getWhatsAppProvider } from '../channels/whatsapp/provider.factory'
 import { normalizeBrazilianNumber } from '../channels/whatsapp/providers/meta-cloud.provider'
 import { getWorkspaceId } from '../../lib/workspace'
 import { auditLog } from '../../lib/rbac'
+import { findContactIdsBySearch } from '../../lib/search'
 import { getValidGmailToken, sendReply } from '../../lib/gmail'
 import { uploadAttachment } from '../../lib/storage'
 import { convertToOggOpus } from '../../lib/audio-convert'
@@ -41,7 +42,10 @@ export async function conversationRoutes(app: FastifyInstance) {
     // "Meus": conversas com atendimento humano atribuídas a quem está logado —
     // sem isso, a aba "Meus" misturava conversas de todos os atendentes.
     if (assignedToMe === 'true') where.assignedToId = sub
-    if (search) where.contact = { OR: [{ name: { contains: search, mode: 'insensitive' } }, { phone: { contains: search } }] }
+    // Busca por nome/telefone ignorando acento (ver findContactIdsBySearch) —
+    // vale tanto pra conversa tocada pela IA quanto pela equipe humana, já que
+    // filtra pelo contato, não pelo responsável pelo atendimento.
+    if (search) where.contactId = { in: await findContactIdsBySearch(workspaceId, search) }
 
     const [conversations, total] = await prisma.$transaction([
       prisma.conversation.findMany({

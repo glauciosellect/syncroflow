@@ -7,7 +7,7 @@ datasource db {
   provider   = "postgresql"
   url        = env("DATABASE_URL")
   directUrl  = env("DIRECT_URL")
-  extensions = [uuid_ossp(map: "uuid-ossp", schema: "extensions"), vector]
+  extensions = [uuid_ossp(map: "uuid-ossp", schema: "extensions"), vector, unaccent(schema: "extensions")]
 }
 
 model User {
