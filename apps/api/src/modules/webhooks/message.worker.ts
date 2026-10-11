@@ -66,11 +66,15 @@ function isBotMessage(text: string): boolean {
 // Quando detectado, o agente responde uma última vez e silencia a conversa por 2h
 function isFarewellMessage(text: string): boolean {
   const t = text.trim()
+  // "Oi. Boa tarde" / "Olá, bom dia" são saudações, não despedidas — antes caíam aqui
+  // e silenciavam a conversa por 2h logo na primeira mensagem do cliente.
+  if (/^(oi+|ol[áa]|e\s*a[íi]|opa|hey|hello)\b/i.test(t)) return false
   // Mensagem muito curta com emoji de despedida ou palavras simples
+  // (bom dia/boa tarde/boa noite ficam de fora: sem contexto não dá pra separar saudação de despedida)
   const farewellPatterns = [
     /^(tchau|xau|tchauzinho|xauzinho|até\s*mais|até\s*logo|até\s*breve|até\s*amanhã|falou|flw|fui|valeu\s*falou|abraços?|bjs?|bjão|bjoca)[\s!.]*$/i,
     /^(bye|cya|see\s*you|goodbye|hasta\s*luego)[\s!.]*$/i,
-    /\b(tchau|xau|até\s*mais|até\s*logo|até\s*breve|até\s*a\s*próxima|boa\s*noite|boa\s*tarde|bom\s*dia)\s*[\W]*$/i,
+    /\b(tchau|xau|até\s*mais|até\s*logo|até\s*breve|até\s*a\s*próxima)\s*[\W]*$/i,
   ]
   // Só aplica em mensagens curtas (≤ 60 chars) para não bloquear respostas longas que mencionem despedida
   return t.length <= 60 && farewellPatterns.some((p) => p.test(t))
@@ -403,16 +407,20 @@ export function startMessageWorker() {
       }
 
       // Carregar histórico e salvar mensagem do usuário em paralelo
-      const [history, userMsg] = await Promise.all([
+      // As 20 mais RECENTES (desc + reverse). Antes era asc + take 20, que pegava as 20
+      // mais antigas: em conversas longas a IA ficava sem enxergar o que aconteceu depois.
+      const [recentHistoryDesc, userMsg] = await Promise.all([
         prisma.message.findMany({
           where: { conversationId: conversation.id },
-          orderBy: { createdAt: 'asc' },
+          orderBy: { createdAt: 'desc' },
           take: 20,
         }),
         prisma.message.create({
           data: { conversationId: conversation.id, role: 'USER', content: text, mediaUrl: incomingMediaUrl, mediaType: incomingMediaType, metadata: emailMetadata as any },
         }),
       ])
+      // userMsg é gravada em paralelo: tira ela do histórico (já vai como userMessage) e põe em ordem cronológica
+      const history = recentHistoryDesc.filter((m) => m.id !== userMsg.id).reverse()
 
       await Promise.all([
         prisma.conversation.update({ where: { id: conversation.id }, data: { unreadCount: { increment: 1 } } }),
