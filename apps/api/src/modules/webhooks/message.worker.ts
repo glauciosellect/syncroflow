@@ -98,6 +98,7 @@ export function startMessageWorker() {
       let incomingMediaType: string | undefined
       let incomingMediaUrl: string | undefined
       let emailMetadata: { threadId: string; messageId: string; references?: string; subject: string } | undefined
+      let suppressReply = false
 
       if (channelType === 'WHATSAPP') {
         const provider = getWhatsAppProvider()
@@ -153,16 +154,19 @@ export function startMessageWorker() {
 
         if (!text) return
         if (isWhatsAppGroup(from)) return
-        if (isBotMessage(text)) return
+        // Mensagem de bot ou conversa silenciada: a IA NÃO responde, mas a mensagem do
+        // cliente precisa chegar no chat — antes era descartada antes de ser gravada,
+        // e o atendente nunca via o que o cliente escreveu.
+        if (isBotMessage(text)) suppressReply = true
 
         const silenceKey = `silence:${channelId}:${from}`
         const isSilenced = await redis.get(silenceKey)
-        if (isSilenced) { console.log(`[WORKER] conversa silenciada (chave ${silenceKey}) — descartada`); return }
+        if (isSilenced) { console.log(`[WORKER] conversa silenciada (chave ${silenceKey}) — mensagem gravada, sem resposta`); suppressReply = true }
 
         // Se cliente se despediu, agenda silêncio de 2h para evitar loop de despedidas
         // O worker continua e processa normalmente — o agente responde a despedida uma última vez
         // Depois disso a conversa fica silenciada até o próximo contato do cliente
-        const farewell = isFarewellMessage(text)
+        const farewell = !suppressReply && isFarewellMessage(text)
         if (farewell) {
           await redis.set(silenceKey, '1', 'EX', 2 * 60 * 60)
           console.log(`[WORKER] Despedida detectada de ${from} — silenciando por 2h após esta resposta`)
@@ -238,21 +242,24 @@ export function startMessageWorker() {
 
       if (workspace.credits <= 0) {
         const noCreditsMsg = '⚠️ O atendimento automático está temporariamente indisponível. Entre em contato conosco para reativar o serviço.'
-        if (channelType === 'WHATSAPP') {
-          const provider = getWhatsAppProvider()
-          await provider.sendText(channelId, from!, noCreditsMsg)
-        } else if (channelType === 'TELEGRAM') {
-          const botToken = (channel.config as any).botToken
-          await axios.post(`https://api.telegram.org/bot${botToken}/sendMessage`, { chat_id: from, text: noCreditsMsg })
+        if (!suppressReply) {
+          if (channelType === 'WHATSAPP') {
+            const provider = getWhatsAppProvider()
+            await provider.sendText(channelId, from!, noCreditsMsg)
+          } else if (channelType === 'TELEGRAM') {
+            const botToken = (channel.config as any).botToken
+            await axios.post(`https://api.telegram.org/bot${botToken}/sendMessage`, { chat_id: from, text: noCreditsMsg })
+          }
         }
-        return
+        // Sem créditos a IA não responde, mas a mensagem do cliente ainda é gravada no chat
+        suppressReply = true
       }
 
       // Aviso de créditos baixos (≤20% do plano)
       const planCredits: Record<string, number> = { TRIAL: 1000, STARTER: 2000, PRO: 5000, BUSINESS: 15000, ENTERPRISE: 50000 }
       const totalCredits = planCredits[workspace.plan] || 1000
       const lowCreditThreshold = Math.floor(totalCredits * 0.2)
-      if (workspace.credits <= lowCreditThreshold && workspace.credits > 0) {
+      if (!suppressReply && workspace.credits <= lowCreditThreshold && workspace.credits > 0) {
         const lowMsg = `⚠️ Atenção: você está com apenas ${workspace.credits} créditos restantes. Adquira mais créditos para não interromper seu atendimento.`
         if (channelType === 'WHATSAPP') {
           const provider = getWhatsAppProvider()
@@ -351,7 +358,7 @@ export function startMessageWorker() {
       }
 
       // ── Primeiro Atendimento ────────────────────────────────────────────────
-      if (!(contact as any).humanOnly && isNewContact && config?.firstContactEnabled && (config.firstContactText || config.firstContactVideoUrl || config.firstContactFileUrl)) {
+      if (!suppressReply && !(contact as any).humanOnly && isNewContact && config?.firstContactEnabled && (config.firstContactText || config.firstContactVideoUrl || config.firstContactFileUrl)) {
         const sentKey = `firstContactSent_${agent.id}`
         const contactVarsCheck = (contact.variables as Record<string, any>) || {}
         if (!contactVarsCheck[sentKey]) {
@@ -426,6 +433,8 @@ export function startMessageWorker() {
         prisma.conversation.update({ where: { id: conversation.id }, data: { unreadCount: { increment: 1 } } }),
         Promise.resolve().then(() => { try { emitNewMessage(channel.workspaceId, conversation.id, userMsg) } catch {} }),
       ])
+
+      if (suppressReply) return
 
       // Relê o status no banco (não o valor lido no início do worker) para evitar responder
       // quando o operador assumiu a conversa entre a leitura inicial e este ponto (race condition
