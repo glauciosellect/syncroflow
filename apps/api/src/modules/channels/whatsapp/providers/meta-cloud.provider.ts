@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { WhatsAppProvider, WhatsAppMessage, WhatsAppTemplate } from '../provider.interface'
+import type { WhatsAppProvider, WhatsAppMessage, WhatsAppTemplate, WhatsAppBusinessProfile } from '../provider.interface'
 import { prisma } from '../../../../lib/prisma'
 
 const API_VERSION = process.env.META_WHATSAPP_API_VERSION || 'v21.0'
@@ -211,6 +211,43 @@ export class MetaCloudApiProvider implements WhatsAppProvider {
         const variableCount = bodyText ? (bodyText.match(/\{\{\d+\}\}/g) || []).length : 0
         return { name: t.name, language: t.language, status: t.status, category: t.category, bodyText, variableCount }
       })
+  }
+
+  async getBusinessProfile(channelId: string): Promise<WhatsAppBusinessProfile> {
+    const { phoneNumberId, accessToken } = await this.getConfig(channelId)
+    const res = await axios.get(`${GRAPH_URL}/${phoneNumberId}/whatsapp_business_profile`, {
+      params: { fields: 'about,description,profile_picture_url' },
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    const p = res.data?.data?.[0] ?? {}
+    return { profilePictureUrl: p.profile_picture_url, about: p.about, description: p.description }
+  }
+
+  // A foto de perfil não aceita URL/arquivo direto: primeiro sobe o binário pela
+  // Resumable Upload API do app (gera um "handle"), e só então o handle é aplicado
+  // ao perfil do número. A Meta aceita só JPEG/PNG (até 5MB, ideal 640x640).
+  async setProfilePicture(channelId: string, image: Buffer, mimetype: string) {
+    const { phoneNumberId, accessToken } = await this.getConfig(channelId)
+    const appId = process.env.META_APP_ID
+    if (!appId) throw new Error('META_APP_ID não configurado no servidor')
+
+    const session = await axios.post(`${GRAPH_URL}/${appId}/uploads`, null, {
+      params: { file_length: image.length, file_type: mimetype, access_token: accessToken },
+    })
+    const sessionId: string | undefined = session.data?.id
+    if (!sessionId) throw new Error('Meta não abriu a sessão de upload da imagem')
+
+    const upload = await axios.post(`${GRAPH_URL}/${sessionId}`, image, {
+      headers: { Authorization: `OAuth ${accessToken}`, file_offset: '0', 'Content-Type': 'application/octet-stream' },
+      maxBodyLength: Infinity,
+    })
+    const handle: string | undefined = upload.data?.h
+    if (!handle) throw new Error('Meta não retornou o handle da imagem enviada')
+
+    await axios.post(`${GRAPH_URL}/${phoneNumberId}/whatsapp_business_profile`, {
+      messaging_product: 'whatsapp',
+      profile_picture_handle: handle,
+    }, { headers: { Authorization: `Bearer ${accessToken}` } })
   }
 
   parseWebhook(payload: any): WhatsAppMessage | null {

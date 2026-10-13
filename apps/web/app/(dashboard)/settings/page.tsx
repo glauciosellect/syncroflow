@@ -22,6 +22,93 @@ import { ChannelIcon } from '@/components/channel-icon'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
+// Foto de perfil do número no WhatsApp (logo da empresa ou foto de um atendente) —
+// é o que o cliente vê ao abrir o contato; sem ela aparece só a silhueta cinza.
+function WhatsAppProfilePhoto({ channel }: { channel: any }) {
+  const { toast } = useToast()
+  const qc = useQueryClient()
+  const inputRef = useRef<HTMLInputElement | null>(null)
+  const linkedAgent = channel.agentChannels?.[0]?.agent
+
+  const { data: profile, isLoading } = useQuery({
+    queryKey: ['whatsapp-profile', channel.id],
+    queryFn: () => api.get(`/channels/${channel.id}/whatsapp-profile`).then(r => r.data),
+    retry: false,
+  })
+
+  const onDone = () => {
+    qc.invalidateQueries({ queryKey: ['whatsapp-profile', channel.id] })
+    toast({ title: 'Foto do WhatsApp atualizada!', description: 'Pode levar alguns minutos para aparecer no celular do cliente.' })
+  }
+  const onError = (err: any) => toast({
+    title: err?.response?.data?.error || 'Erro ao atualizar a foto',
+    description: err?.response?.data?.detail,
+    variant: 'destructive',
+  })
+
+  const uploadMutation = useMutation({
+    mutationFn: (file: File) => {
+      const fd = new FormData()
+      fd.append('file', file)
+      return api.post(`/channels/${channel.id}/whatsapp-profile/picture`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+    },
+    onSuccess: onDone,
+    onError,
+  })
+  const agentPhotoMutation = useMutation({
+    mutationFn: (agentId: string) => api.post(`/channels/${channel.id}/whatsapp-profile/picture`, { agentId }),
+    onSuccess: onDone,
+    onError,
+  })
+  const busy = uploadMutation.isPending || agentPhotoMutation.isPending
+
+  return (
+    <div className="mt-3 flex items-center gap-3 rounded-lg bg-gray-50 border border-gray-100 p-3">
+      {isLoading ? (
+        <div className="w-14 h-14 rounded-full bg-gray-200 animate-pulse shrink-0" />
+      ) : profile?.profilePictureUrl ? (
+        <img src={profile.profilePictureUrl} alt="Foto do WhatsApp" className="w-14 h-14 rounded-full object-cover shrink-0" />
+      ) : (
+        <div className="w-14 h-14 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
+          <User className="w-6 h-6 text-gray-400" />
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="text-xs text-green-600 font-medium truncate">
+          ✓ {channel.config?.displayPhoneNumber || 'WhatsApp Business'}
+        </div>
+        <div className="text-[11px] text-gray-500">
+          {profile?.profilePictureUrl ? 'Foto do perfil no WhatsApp' : 'Sem foto no WhatsApp ainda'}
+        </div>
+        <div className="flex flex-wrap gap-1.5 mt-1.5">
+          <Button size="sm" variant="outline" className="h-7 px-2 text-xs" disabled={busy} onClick={() => inputRef.current?.click()}>
+            {uploadMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
+            Enviar foto/logo
+          </Button>
+          {linkedAgent?.avatarUrl && (
+            <Button size="sm" variant="outline" className="h-7 px-2 text-xs" disabled={busy} onClick={() => agentPhotoMutation.mutate(linkedAgent.id)}>
+              {agentPhotoMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
+              Usar foto de {linkedAgent.name}
+            </Button>
+          )}
+        </div>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/jpeg,image/png"
+          className="hidden"
+          onChange={e => {
+            const file = e.target.files?.[0]
+            if (file) uploadMutation.mutate(file)
+            e.target.value = ''
+          }}
+        />
+        <p className="text-[10px] text-gray-400 mt-1">JPG ou PNG, até 5MB (ideal: quadrada, 640×640).</p>
+      </div>
+    </div>
+  )
+}
+
 // ─── ABA: PERFIL ──────────────────────────────────────────────────────────────
 function ProfileTab() {
   const { user, workspace, setUser, setWorkspace } = useAuthStore()
@@ -844,11 +931,7 @@ function ChannelsTab() {
                   <span className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full">{channelLabel(channel.type)}</span>
                 </div>
 
-                {channel.type === 'WHATSAPP' && (
-                  <div className="mt-3 text-center text-sm text-green-600 font-medium py-2">
-                    ✓ Conectado via API oficial — {channel.config?.displayPhoneNumber || 'WhatsApp Business'}
-                  </div>
-                )}
+                {channel.type === 'WHATSAPP' && <WhatsAppProfilePhoto channel={channel} />}
 
                 {(channel.type === 'INSTAGRAM' || channel.type === 'FACEBOOK') && channel.config?.igUsername && (
                   <div className="mt-2 text-xs text-gray-500">

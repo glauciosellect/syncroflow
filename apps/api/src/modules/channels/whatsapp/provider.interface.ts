@@ -19,6 +19,12 @@ export interface WhatsAppTemplate {
   variableCount: number
 }
 
+export interface WhatsAppBusinessProfile {
+  profilePictureUrl?: string
+  about?: string
+  description?: string
+}
+
 export interface WhatsAppProvider {
   createInstance(channelId: string): Promise<void>
   deleteInstance(channelId: string): Promise<void>
@@ -42,6 +48,10 @@ export interface WhatsAppProvider {
   // Lista os templates aprovados na WABA do canal, para a UI oferecer ao
   // operador escolher qual usar ao iniciar uma conversa nova.
   listTemplates?(channelId: string): Promise<WhatsAppTemplate[]>
+  // Perfil comercial do número no WhatsApp (foto, sobre, descrição...) — é isso que
+  // o cliente vê ao abrir o contato; sem foto, aparece só a silhueta cinza.
+  getBusinessProfile?(channelId: string): Promise<WhatsAppBusinessProfile>
+  setProfilePicture?(channelId: string, image: Buffer, mimetype: string): Promise<void>
   parseWebhook(payload: unknown): WhatsAppMessage | null
   downloadMedia?(messageId: string, channelId?: string): Promise<{ fileURL?: string; transcription?: string; mimetype?: string; authHeader?: string }>
 }
