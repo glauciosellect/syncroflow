@@ -216,11 +216,20 @@ export class MetaCloudApiProvider implements WhatsAppProvider {
   async getBusinessProfile(channelId: string): Promise<WhatsAppBusinessProfile> {
     const { phoneNumberId, accessToken } = await this.getConfig(channelId)
     const res = await axios.get(`${GRAPH_URL}/${phoneNumberId}/whatsapp_business_profile`, {
-      params: { fields: 'about,description,profile_picture_url' },
+      params: { fields: 'about,description,address,email,websites,profile_picture_url' },
       headers: { Authorization: `Bearer ${accessToken}` },
     })
     const p = res.data?.data?.[0] ?? {}
-    return { profilePictureUrl: p.profile_picture_url, about: p.about, description: p.description }
+    return { profilePictureUrl: p.profile_picture_url, about: p.about, description: p.description, address: p.address, email: p.email, websites: p.websites }
+  }
+
+  // Textos do perfil comercial: "about" é o recado curto que aparece abaixo da foto.
+  async setBusinessProfile(channelId: string, fields: Partial<Omit<WhatsAppBusinessProfile, 'profilePictureUrl'>>) {
+    const { phoneNumberId, accessToken } = await this.getConfig(channelId)
+    await axios.post(`${GRAPH_URL}/${phoneNumberId}/whatsapp_business_profile`, {
+      messaging_product: 'whatsapp',
+      ...fields,
+    }, { headers: { Authorization: `Bearer ${accessToken}` } })
   }
 
   // A foto de perfil não aceita URL/arquivo direto: primeiro sobe o binário pela

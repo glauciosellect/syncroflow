@@ -34,6 +34,7 @@ function WhatsAppProfilePhoto({ channel }: { channel: any }) {
     queryKey: ['whatsapp-profile', channel.id],
     queryFn: () => api.get(`/channels/${channel.id}/whatsapp-profile`).then(r => r.data),
     retry: false,
+    refetchOnWindowFocus: false, // não sobrescrever o que o usuário está digitando nos campos
   })
 
   const onDone = () => {
@@ -62,7 +63,35 @@ function WhatsAppProfilePhoto({ channel }: { channel: any }) {
   })
   const busy = uploadMutation.isPending || agentPhotoMutation.isPending
 
+  const [text, setText] = useState({ about: '', description: '', email: '', address: '', website: '' })
+  useEffect(() => {
+    if (!profile) return
+    setText({
+      about: profile.about || '',
+      description: profile.description || '',
+      email: profile.email || '',
+      address: profile.address || '',
+      website: profile.websites?.[0] || '',
+    })
+  }, [profile])
+
+  const textMutation = useMutation({
+    mutationFn: () => api.patch(`/channels/${channel.id}/whatsapp-profile`, {
+      about: text.about.trim() || undefined,
+      description: text.description.trim(),
+      email: text.email.trim(),
+      address: text.address.trim(),
+      websites: text.website.trim() ? [text.website.trim()] : [],
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['whatsapp-profile', channel.id] })
+      toast({ title: 'Perfil do WhatsApp atualizado!', description: 'Pode levar alguns minutos para aparecer no celular do cliente.' })
+    },
+    onError,
+  })
+
   return (
+    <>
     <div className="mt-3 flex items-center gap-3 rounded-lg bg-gray-50 border border-gray-100 p-3">
       {isLoading ? (
         <div className="w-14 h-14 rounded-full bg-gray-200 animate-pulse shrink-0" />
@@ -106,6 +135,49 @@ function WhatsAppProfilePhoto({ channel }: { channel: any }) {
         <p className="text-[10px] text-gray-400 mt-1">JPG ou PNG, até 5MB (ideal: quadrada, 640×640).</p>
       </div>
     </div>
+
+    <div className="mt-2 rounded-lg bg-gray-50 border border-gray-100 p-3 space-y-2">
+      <div>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-gray-500">Recado (aparece abaixo da foto)</Label>
+          <span className={cn('text-[10px]', text.about.length > 139 ? 'text-red-500' : 'text-gray-400')}>{text.about.length}/139</span>
+        </div>
+        <Input className="h-8 text-xs mt-1" maxLength={139} placeholder="Ex: Atendimento jurídico — seg a sex, 9h às 18h"
+          value={text.about} onChange={e => setText(t => ({ ...t, about: e.target.value }))} />
+      </div>
+      <div>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-gray-500">Descrição da empresa</Label>
+          <span className="text-[10px] text-gray-400">{text.description.length}/512</span>
+        </div>
+        <textarea className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 mt-1 bg-white" rows={3} maxLength={512}
+          placeholder="O que a empresa faz, para quem, diferenciais..."
+          value={text.description} onChange={e => setText(t => ({ ...t, description: e.target.value }))} />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div>
+          <Label className="text-xs text-gray-500">E-mail</Label>
+          <Input className="h-8 text-xs mt-1" type="email" placeholder="contato@empresa.com.br"
+            value={text.email} onChange={e => setText(t => ({ ...t, email: e.target.value }))} />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Site</Label>
+          <Input className="h-8 text-xs mt-1" placeholder="https://empresa.com.br"
+            value={text.website} onChange={e => setText(t => ({ ...t, website: e.target.value }))} />
+        </div>
+      </div>
+      <div>
+        <Label className="text-xs text-gray-500">Endereço</Label>
+        <Input className="h-8 text-xs mt-1" maxLength={256} placeholder="Rua, número, bairro, cidade — UF"
+          value={text.address} onChange={e => setText(t => ({ ...t, address: e.target.value }))} />
+      </div>
+      <Button size="sm" className="h-8 text-xs w-full bg-[#1565C0] hover:bg-[#0D47A1] text-white"
+        disabled={textMutation.isPending || !text.about.trim()} onClick={() => textMutation.mutate()}>
+        {textMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Save className="w-3 h-3 mr-1" />}
+        Salvar perfil do WhatsApp
+      </Button>
+    </div>
+    </>
   )
 }
 

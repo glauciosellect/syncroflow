@@ -23,6 +23,9 @@ export interface WhatsAppBusinessProfile {
   profilePictureUrl?: string
   about?: string
   description?: string
+  address?: string
+  email?: string
+  websites?: string[]
 }
 
 export interface WhatsAppProvider {
@@ -52,6 +55,7 @@ export interface WhatsAppProvider {
   // o cliente vê ao abrir o contato; sem foto, aparece só a silhueta cinza.
   getBusinessProfile?(channelId: string): Promise<WhatsAppBusinessProfile>
   setProfilePicture?(channelId: string, image: Buffer, mimetype: string): Promise<void>
+  setBusinessProfile?(channelId: string, fields: Partial<Omit<WhatsAppBusinessProfile, 'profilePictureUrl'>>): Promise<void>
   parseWebhook(payload: unknown): WhatsAppMessage | null
   downloadMedia?(messageId: string, channelId?: string): Promise<{ fileURL?: string; transcription?: string; mimetype?: string; authHeader?: string }>
 }

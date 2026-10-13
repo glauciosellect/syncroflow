@@ -37,6 +37,46 @@ export async function channelRoutes(app: FastifyInstance) {
     }
   })
 
+  // Textos do perfil comercial (recado abaixo da foto, descrição, e-mail, endereço,
+  // site) — identificam a empresa para o cliente. Limites são os da Meta.
+  app.patch('/channels/:id/whatsapp-profile', async (req, reply) => {
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
+    const { id } = req.params as { id: string }
+    const channel = await prisma.channel.findFirst({ where: { id, workspaceId } })
+    if (!channel) return reply.status(404).send({ error: 'Canal não encontrado' })
+    if (channel.type !== 'WHATSAPP') return reply.status(400).send({ error: 'Disponível apenas para canais WhatsApp' })
+
+    const parsed = z.object({
+      about: z.string().trim().min(1, 'O recado não pode ficar vazio').max(139, 'O recado aceita no máximo 139 caracteres').optional(),
+      description: z.string().trim().max(512, 'A descrição aceita no máximo 512 caracteres').optional(),
+      address: z.string().trim().max(256, 'O endereço aceita no máximo 256 caracteres').optional(),
+      email: z.string().trim().max(128).email('E-mail inválido').or(z.literal('')).optional(),
+      websites: z.array(z.string().trim().url('Site inválido (use http:// ou https://)').max(256)).max(2).optional(),
+    }).safeParse(req.body)
+    if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message || 'Dados inválidos' })
+
+    const provider = getWhatsAppProvider()
+    if (!provider.setBusinessProfile) return reply.status(501).send({ error: 'Provedor de WhatsApp não suporta alterar o perfil' })
+    try {
+      await provider.setBusinessProfile(id, parsed.data)
+    } catch (err: any) {
+      return reply.status(502).send({ error: 'A Meta recusou os dados do perfil', detail: err?.response?.data?.error?.message || err?.message })
+    }
+
+    await auditLog({
+      workspaceId,
+      userId: sub,
+      action: 'channel.whatsapp_profile_updated',
+      resourceType: 'Channel',
+      resourceId: id,
+      metadata: { channelName: channel.name, changedFields: Object.keys(parsed.data) },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    })
+    return reply.send({ ok: true })
+  })
+
   // Define a foto do perfil do WhatsApp: ou um arquivo enviado (multipart, campo
   // "file") ou a foto de um agente do workspace (JSON { agentId }).
   app.post('/channels/:id/whatsapp-profile/picture', async (req, reply) => {

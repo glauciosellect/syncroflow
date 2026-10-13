@@ -24,6 +24,7 @@ const AUDIT_ACTIONS = [
   { value: 'conversation.closed', label: 'Atendimento encerrado' },
   { value: 'message.deleted', label: 'Mensagem excluída' },
   { value: 'channel.whatsapp_picture_updated', label: 'Foto do WhatsApp alterada' },
+  { value: 'channel.whatsapp_profile_updated', label: 'Perfil do WhatsApp alterado' },
 ]
 
 // ─── Roles ───────────────────────────────────────────────────────────────────
@@ -500,6 +501,7 @@ function formatAction(action: string): string {
     'conversation.closed': 'Atendimento encerrado',
     'message.deleted': 'Mensagem excluída',
     'channel.whatsapp_picture_updated': 'Foto do WhatsApp alterada',
+    'channel.whatsapp_profile_updated': 'Perfil do WhatsApp alterado',
   }
   return map[action] ?? action
 }
