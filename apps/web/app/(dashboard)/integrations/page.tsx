@@ -60,7 +60,7 @@ const TABS = [
 
 interface EcommerceIntegration { id: string; platform: string; status: string; shopName: string | null; shopUrl: string | null; createdAt: string; _count: { automations: number } }
 interface Automation { id: string; name: string; trigger: string; isActive: boolean; _count: { executions: number } }
-interface CrmConnection { id: string; platform: string; status: string; accountName: string | null; createdAt: string }
+interface CrmConnection { id: string; platform: string; status: string; accountName: string | null; createdAt: string; lastDispatch?: { at: string; ok: boolean; error: string | null } | null }
 interface FinanceConnection { id: string; platform: string; status: string; accountName: string | null; createdAt: string }
 interface MarketingConnection { id: string; platform: string; status: string; accountName: string | null; createdAt: string }
 
@@ -205,6 +205,14 @@ export default function IntegrationsPage() {
     onError: (err: any) => toast({ title: err?.response?.data?.error ?? 'Erro ao conectar', variant: 'destructive' }),
   })
 
+  const testSyncrolexMutation = useMutation({
+    mutationFn: () => api.post('/crm/syncrolex/test').then(r => r.data as { ok: boolean; message: string }),
+    onSuccess: (r) => {
+      queryClient.invalidateQueries({ queryKey: ['crm-connections'] })
+      toast({ title: r.ok ? 'Conexão funcionando' : 'Conexão com problema', description: r.message, variant: r.ok ? 'default' : 'destructive' })
+    },
+    onError: () => toast({ title: 'Não foi possível testar', description: 'Tente novamente.', variant: 'destructive' }),
+  })
   const disconnectCrmMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/crm/connections/${id}`),
     onSuccess: () => {
@@ -526,6 +534,20 @@ export default function IntegrationsPage() {
                               <CheckCircle className="w-3 h-3" /> Ativo
                             </span>
                           </div>
+                          {conn.platform === 'syncrolex' && (
+                            <div className="space-y-2">
+                              <p className={cn('text-xs', conn.lastDispatch ? (conn.lastDispatch.ok ? 'text-green-700' : 'text-red-600') : 'text-muted-foreground')}>
+                                {conn.lastDispatch
+                                  ? (conn.lastDispatch.ok
+                                    ? `Último envio com sucesso em ${new Date(conn.lastDispatch.at).toLocaleString('pt-BR')}`
+                                    : `Último envio falhou em ${new Date(conn.lastDispatch.at).toLocaleString('pt-BR')}: ${conn.lastDispatch.error ?? 'erro'}`)
+                                  : 'Nenhum envio ainda. Clique em Testar conexão.'}
+                              </p>
+                              <Button variant="outline" size="sm" className="w-full text-xs" onClick={() => testSyncrolexMutation.mutate()} disabled={testSyncrolexMutation.isPending}>
+                                {testSyncrolexMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Zap className="w-3 h-3 mr-1" />} Testar conexão
+                              </Button>
+                            </div>
+                          )}
                           <Button variant="outline" size="sm" className="w-full text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
                             onClick={() => disconnectCrmMutation.mutate(conn.id)}
                             disabled={disconnectCrmMutation.isPending}>

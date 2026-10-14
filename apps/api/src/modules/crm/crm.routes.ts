@@ -5,7 +5,7 @@ import { prisma } from '../../lib/prisma'
 import { encrypt, decrypt } from '../../lib/crypto'
 import { getWorkspaceId } from '../../lib/workspace'
 import { logger } from '../../lib/logger'
-import { dispatchSyncrolexWebhook, type SyncrolexEvent } from '../../lib/syncrolex-webhook'
+import { dispatchSyncrolexWebhook, testSyncrolexConnection, type SyncrolexEvent } from '../../lib/syncrolex-webhook'
 
 // ─── Webhook Receiver CRM ─────────────────────────────────────────────────────
 
@@ -201,9 +201,10 @@ export async function crmRoutes(app: FastifyInstance) {
     const workspaceId = await getWorkspaceId(sub, wid)
     const connections = await prisma.crmConnection.findMany({
       where: { workspaceId },
-      select: { id: true, platform: true, status: true, accountId: true, accountName: true, createdAt: true, updatedAt: true },
+      select: { id: true, platform: true, status: true, accountId: true, accountName: true, createdAt: true, updatedAt: true, metadata: true },
     })
-    return reply.send(connections)
+    // metadata guarda a URL do webhook: não expõe; só devolve o resultado do último envio.
+    return reply.send(connections.map(({ metadata, ...c }) => ({ ...c, lastDispatch: (metadata as any)?.lastDispatch ?? null })))
   })
 
   // Iniciar OAuth de uma plataforma CRM
@@ -244,6 +245,13 @@ export async function crmRoutes(app: FastifyInstance) {
     const workspaceId = await getWorkspaceId(sub, wid)
     await prisma.crmConnection.deleteMany({ where: { id: req.params.id, workspaceId } })
     return reply.send({ ok: true })
+  })
+
+  // Testa a conexão com o SyncroLex e diz, em português, o que está errado se falhar.
+  app.post('/crm/syncrolex/test', async (req, reply) => {
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
+    return reply.send(await testSyncrolexConnection(workspaceId))
   })
 
   // Conectar SyncroLex (webhook customizado, sem OAuth)

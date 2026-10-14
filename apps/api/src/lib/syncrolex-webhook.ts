@@ -5,7 +5,7 @@ import { createWorker, syncrolexQueue } from './queue'
 
 export type SyncrolexEvent = 'lead.created' | 'appointment.created'
 
-export interface SyncrolexConnection { url: string; token: string }
+export interface SyncrolexConnection { id: string; url: string; token: string; metadata: Record<string, any> }
 
 /**
  * Conexão SyncroLex ativa do workspace (URL do webhook + token), ou null.
@@ -19,7 +19,46 @@ export async function getSyncrolexConnection(workspaceId: string): Promise<Syncr
   if (!conn || conn.status !== 'active' || !conn.accessToken) return null
   const url = (conn.metadata as { webhookUrl?: string } | null)?.webhookUrl
   if (!url) return null
-  return { url, token: decrypt(conn.accessToken) }
+  return { id: conn.id, url, token: decrypt(conn.accessToken), metadata: (conn.metadata as Record<string, any>) || {} }
+}
+
+async function recordDispatch(conn: SyncrolexConnection, ok: boolean, error?: string) {
+  try {
+    await prisma.crmConnection.update({
+      where: { id: conn.id },
+      data: { metadata: { ...conn.metadata, lastDispatch: { at: new Date().toISOString(), ok, error: error ?? null } } as any },
+    })
+  } catch { /* observabilidade nunca pode quebrar o envio */ }
+}
+
+/**
+ * Testa a conexão sem criar nada no SyncroLex: manda uma verificação de CPF fictícia.
+ * 200 = URL e token corretos. Devolve o motivo em português quando falha.
+ */
+export async function testSyncrolexConnection(workspaceId: string): Promise<{ ok: boolean; message: string }> {
+  const conn = await getSyncrolexConnection(workspaceId)
+  if (!conn) return { ok: false, message: 'Conexão com o SyncroLex não encontrada. Conecte novamente.' }
+  try {
+    const res = await fetch(conn.url, {
+      method: 'POST',
+      redirect: 'manual',
+      headers: { Authorization: `Bearer ${conn.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event: 'contract.verify', phone: '0000000000', contract: '00000000000' }),
+    })
+    let result: { ok: boolean; message: string }
+    if (res.status >= 300 && res.status < 400) result = { ok: false, message: 'O endereço está redirecionando. Cole a URL exatamente como aparece no SyncroLex (com www).' }
+    else if (res.status === 401) result = { ok: false, message: 'Token inválido ou integração inativa no SyncroLex. Copie o token de novo e reconecte.' }
+    else if (res.status === 404) result = { ok: false, message: 'Endereço não encontrado. Confira a URL copiada do SyncroLex.' }
+    else if (res.status === 400) result = { ok: true, message: 'Conectado. (O SyncroLex ainda não tem a verificação por CPF; leads e agendamentos funcionam.)' }
+    else if (res.ok) result = { ok: true, message: 'Conectado! O SyncroLex aceitou a conexão.' }
+    else result = { ok: false, message: `O SyncroLex respondeu com erro ${res.status}. Tente de novo em instantes.` }
+    await recordDispatch(conn, result.ok, result.ok ? undefined : result.message)
+    return result
+  } catch {
+    const result = { ok: false, message: 'Não consegui alcançar o SyncroLex. Confira o endereço da URL.' }
+    await recordDispatch(conn, false, result.message)
+    return result
+  }
 }
 
 /**
@@ -49,11 +88,14 @@ export async function dispatchSyncrolexWebhook(
     if (!res.ok) {
       const body = await res.text().catch(() => '')
       logger.error('SyncroLex webhook retornou erro', { workspaceId, event, status: res.status, body })
+      await recordDispatch(conn, false, `Erro ${res.status} ao enviar ${event}`)
       return { ok: false, error: `SyncroLex webhook retornou ${res.status}`, retryable: res.status >= 500 || res.status === 429 }
     }
+    await recordDispatch(conn, true)
     return { ok: true }
   } catch (err) {
     logger.error('Falha ao chamar webhook SyncroLex', { workspaceId, event, err })
+    await recordDispatch(conn, false, 'Falha de conexão ao enviar ' + event)
     return { ok: false, error: 'Falha de conexão com o webhook do SyncroLex', retryable: true }
   }
 }
