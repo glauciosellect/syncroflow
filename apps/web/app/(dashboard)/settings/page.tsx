@@ -1578,6 +1578,9 @@ function UrgencyTab() {
 }
 
 // ─── ABA: DOCUMENTOS (GOOGLE DRIVE) ──────────────────────────────────────────
+// O cliente só vê orientação, o e-mail para copiar e o campo do link. Nada técnico:
+// o e-mail e a credencial ficam fixos no servidor; a parte do sistema mãe só aparece
+// para a equipe da NuClick (isPlatformAdmin).
 function DocumentsTab() {
   const { toast } = useToast()
   const qc = useQueryClient()
@@ -1589,24 +1592,28 @@ function DocumentsTab() {
   const [folder, setFolder] = useState('')
   const [verifyUrl, setVerifyUrl] = useState('')
   const [verifyToken, setVerifyToken] = useState('')
+  const [copied, setCopied] = useState(false)
   const [testResult, setTestResult] = useState<{ folders: string[]; filesAtRoot: number } | null>(null)
 
   useEffect(() => {
     if (!data) return
-    setEnabled(data.enabled !== false)
+    setEnabled(data.hasFolder ? data.enabled !== false : true)
     setVerifyUrl(data.verifyUrl || '')
   }, [data])
 
   const save = useMutation({
-    mutationFn: () => api.put('/documents/config', { enabled, folder: folder || undefined, verifyUrl: verifyUrl || '', verifyToken: verifyToken || undefined }),
-    onSuccess: () => { setFolder(''); setVerifyToken(''); qc.invalidateQueries({ queryKey: ['documents-config'] }); toast({ title: 'Configuração de documentos salva' }) },
+    mutationFn: () => api.put('/documents/config', {
+      enabled,
+      folder: folder || undefined,
+      ...(data?.isPlatformAdmin ? { verifyUrl: verifyUrl || '', verifyToken: verifyToken || undefined } : {}),
+    }),
+    onSuccess: () => { setFolder(''); setVerifyToken(''); qc.invalidateQueries({ queryKey: ['documents-config'] }); toast({ title: 'Salvo com sucesso' }) },
     onError: (err: any) => {
       const d = err?.response?.data
       const issue = Array.isArray(d?.details) ? d.details[0] : null
-      const campo = issue?.path?.[0] === 'verifyUrl' ? 'URL de verificação' : issue?.path?.[0] === 'folder' ? 'link da pasta' : issue?.path?.[0]
       toast({
         title: 'Não foi possível salvar',
-        description: issue ? `Campo "${campo}": ${issue.message}` : (d?.error || 'Confira os dados.'),
+        description: issue ? `Campo "${issue.path?.[0] === 'verifyUrl' ? 'URL de verificação' : issue.path?.[0]}": ${issue.message}` : (d?.error || 'Confira os dados.'),
         variant: 'destructive',
       })
     },
@@ -1617,58 +1624,77 @@ function DocumentsTab() {
     onError: (err: any) => toast({ title: 'Teste falhou', description: err?.response?.data?.error || 'Não consegui acessar a pasta.', variant: 'destructive' }),
   })
 
+  function copyEmail() {
+    if (!data?.serviceAccountEmail) return
+    navigator.clipboard?.writeText(data.serviceAccountEmail).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) }).catch(() => {})
+  }
+
   if (isLoading) return <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
 
   return (
     <Card>
-      <CardHeader><CardTitle>Entrega de documentos (Google Drive)</CardTitle></CardHeader>
+      <CardHeader><CardTitle>Envio de documentos aos seus clientes</CardTitle></CardHeader>
       <CardContent className="space-y-5">
         <p className="text-sm text-gray-600">
-          O cliente pede um documento pelo WhatsApp. O agente confere o telefone e o número do contrato, busca o arquivo
-          <strong> somente na pasta que você compartilhar aqui</strong> e envia. O SyncroFlow nunca acessa nenhuma outra pasta do seu Drive.
+          Seu cliente pede um documento pelo WhatsApp e o assistente envia o arquivo certo, direto da sua pasta do Google Drive,
+          depois de confirmar quem ele é. O assistente só enxerga a pasta que você compartilhar aqui, nada mais do seu Drive.
         </p>
 
         {!data?.driveConfigured ? (
           <p className="text-sm rounded-lg bg-amber-50 border border-amber-200 p-3 text-amber-800">
-            A conta de serviço do Google Drive ainda não foi configurada no servidor (variável GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON). Peça ao suporte da NuClick.
+            Este recurso ainda não está disponível para a sua conta. Fale com o suporte.
           </p>
         ) : (
-          <div className="rounded-lg bg-blue-50 border border-blue-100 p-3 text-sm text-gray-700 space-y-1">
-            <p><strong>Passo 1.</strong> No Google Drive, crie uma pasta (ex.: "Documentos dos clientes") com uma subpasta por contrato, como <em>Contrato 1234</em>.</p>
-            <p><strong>Passo 2.</strong> Compartilhe a pasta como <strong>Leitor</strong> com este e-mail:</p>
-            <p className="font-mono text-xs bg-white rounded px-2 py-1 border border-blue-100 break-all select-all">{data.serviceAccountEmail}</p>
-            <p><strong>Passo 3.</strong> Cole abaixo o link da pasta e salve.</p>
-          </div>
+          <ol className="space-y-3 text-sm text-gray-700 list-decimal pl-5">
+            <li>
+              <strong>Crie uma pasta no seu Google Drive</strong> para os documentos dos clientes (ex.: "Documentos dos clientes").
+            </li>
+            <li>
+              <strong>Dentro dela, crie uma pasta para cada contrato</strong> com o número no nome (ex.: "Contrato 1234") e coloque os arquivos do cliente dentro.
+            </li>
+            <li>
+              <strong>Compartilhe a pasta principal</strong> como <em>Leitor</em> com este e-mail:
+              <div className="mt-1.5 flex items-center gap-2">
+                <code className="flex-1 rounded border border-blue-100 bg-white px-2 py-1 text-xs break-all select-all">{data.serviceAccountEmail}</code>
+                <Button type="button" variant="outline" size="sm" onClick={copyEmail} className="shrink-0">
+                  {copied ? <Check className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}{copied ? 'Copiado' : 'Copiar'}
+                </Button>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">No Drive: clique com o botão direito na pasta &gt; Compartilhar &gt; cole o e-mail &gt; escolha "Leitor" &gt; desmarque "Notificar pessoas" &gt; Enviar.</p>
+            </li>
+            <li>
+              <strong>Copie o link da pasta principal</strong> (Compartilhar &gt; Copiar link) e cole abaixo.
+              <a href="https://drive.google.com" target="_blank" rel="noopener noreferrer" className="ml-2 inline-flex items-center gap-1 text-xs text-[#1565C0] hover:underline"><ExternalLink className="w-3 h-3" />Abrir Google Drive</a>
+            </li>
+          </ol>
         )}
 
         {data?.rootFolderName && (
-          <p className="text-sm text-gray-700">Pasta atual: <strong>{data.rootFolderName}</strong></p>
+          <p className="text-sm text-gray-700">Pasta conectada: <strong>{data.rootFolderName}</strong></p>
         )}
 
+        <div className="space-y-1">
+          <Label>Link da pasta principal</Label>
+          <Input name="sf-docs-folder" autoComplete="off" placeholder="https://drive.google.com/drive/folders/..." value={folder} onChange={e => setFolder(e.target.value)} />
+        </div>
+
         <label className="flex items-center gap-2 text-sm font-medium">
-          <input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} /> Entrega de documentos ativa
+          <input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} /> Envio de documentos ativo
         </label>
 
-        <div className="space-y-1">
-          <Label>Link da pasta compartilhada</Label>
-          <Input placeholder="https://drive.google.com/drive/folders/..." value={folder} onChange={e => setFolder(e.target.value)} />
-        </div>
-
-        <div className="space-y-1">
-          <Label>Sistema que confirma o contrato (opcional)</Label>
-          <Input type="url" name="sf-verify-url" autoComplete="off" placeholder="https://… (URL de verificação do SyncroLex / GestorBIM / GestorAMA)" value={verifyUrl} onChange={e => setVerifyUrl(e.target.value)} />
-          <Input type="password" name="sf-verify-token" autoComplete="new-password" placeholder={data?.hasVerifyToken ? 'Token salvo — deixe vazio para manter' : 'Token de acesso'} value={verifyToken} onChange={e => setVerifyToken(e.target.value)} />
-          <p className="text-xs text-gray-500">
-            Sem isso, o contrato só é aceito se estiver cadastrado no contato (campo <em>contrato</em> nas variáveis). Com o sistema ligado,
-            ele responde se o contrato pertence àquele telefone.
-          </p>
-        </div>
+        {data?.isPlatformAdmin && (
+          <div className="space-y-1 rounded-lg border border-dashed border-gray-300 p-3">
+            <Label>Interno NuClick: sistema que confirma o contrato</Label>
+            <Input type="url" name="sf-verify-url" autoComplete="off" placeholder="https://… URL de verificação" value={verifyUrl} onChange={e => setVerifyUrl(e.target.value)} />
+            <Input type="password" name="sf-verify-token" autoComplete="new-password" placeholder={data?.hasVerifyToken ? 'Token salvo — deixe vazio para manter' : 'Token de acesso'} value={verifyToken} onChange={e => setVerifyToken(e.target.value)} />
+          </div>
+        )}
 
         <div className="flex gap-2">
-          <Button onClick={() => save.mutate()} disabled={save.isPending} className="bg-[#1565C0] hover:bg-[#0D47A1]">
+          <Button onClick={() => save.mutate()} disabled={save.isPending || !data?.driveConfigured} className="bg-[#1565C0] hover:bg-[#0D47A1]">
             {save.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />} Salvar
           </Button>
-          {data?.rootFolderName && (
+          {data?.hasFolder && (
             <Button variant="outline" onClick={() => test.mutate()} disabled={test.isPending}>
               {test.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />} Testar acesso
             </Button>
@@ -1677,8 +1703,8 @@ function DocumentsTab() {
 
         {testResult && (
           <div className="text-sm rounded-lg bg-green-50 border border-green-100 p-3">
-            <p className="font-medium text-green-800">Acesso OK. Pastas encontradas ({testResult.folders.length}):</p>
-            <p className="text-xs text-gray-600 mt-1">{testResult.folders.length ? testResult.folders.join(' · ') : 'nenhuma subpasta ainda'}</p>
+            <p className="font-medium text-green-800">Tudo certo! Encontrei {testResult.folders.length} pasta(s) de contrato:</p>
+            <p className="text-xs text-gray-600 mt-1">{testResult.folders.length ? testResult.folders.join(' · ') : 'nenhuma ainda. Crie as pastas de contrato dentro da pasta principal.'}</p>
           </div>
         )}
       </CardContent>
