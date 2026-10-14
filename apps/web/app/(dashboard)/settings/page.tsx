@@ -1588,6 +1588,12 @@ function DocumentsTab() {
     queryKey: ['documents-config'],
     queryFn: () => api.get('/documents/config').then(r => r.data),
   })
+  const { data: health, isLoading: checking } = useQuery({
+    queryKey: ['documents-health', data?.hasFolder, data?.enabled],
+    queryFn: () => api.get('/documents/test').then(r => ({ ok: true, folders: r.data.folders as string[] })).catch(() => ({ ok: false, folders: [] as string[] })),
+    enabled: !!data?.hasFolder,
+    retry: false,
+  })
   const [enabled, setEnabled] = useState(true)
   const [folder, setFolder] = useState('')
   const [verifyUrl, setVerifyUrl] = useState('')
@@ -1635,6 +1641,35 @@ function DocumentsTab() {
     <Card>
       <CardHeader><CardTitle>Envio de documentos aos seus clientes</CardTitle></CardHeader>
       <CardContent className="space-y-5">
+        {data?.hasFolder && (
+          checking ? (
+            <div className="flex items-center gap-2 rounded-lg bg-gray-50 border border-gray-200 p-3 text-sm text-gray-600">
+              <Loader2 className="w-4 h-4 animate-spin" /> Verificando a conexão…
+            </div>
+          ) : health?.ok && data.enabled ? (
+            <div className="flex items-start gap-2 rounded-lg bg-green-50 border border-green-200 p-3 text-sm text-green-800">
+              <Check className="w-5 h-5 shrink-0 text-green-600" />
+              <div>
+                <p className="font-semibold">Tudo pronto e funcionando</p>
+                <p className="text-xs text-green-700">
+                  Pasta "{data.rootFolderName}" conectada, {health.folders.length} pasta(s) de contrato encontrada(s). O assistente já pode enviar documentos.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
+              <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600" />
+              <div>
+                <p className="font-semibold">{health?.ok ? 'Envio de documentos desativado' : 'Atenção: não consegui acessar a pasta'}</p>
+                <p className="text-xs">
+                  {health?.ok
+                    ? 'Marque "Envio de documentos ativo" e clique em Salvar.'
+                    : 'Confira se a pasta continua compartilhada com o e-mail indicado, como Leitor.'}
+                </p>
+              </div>
+            </div>
+          )
+        )}
         <p className="text-sm text-gray-600">
           Seu cliente pede um documento pelo WhatsApp e o assistente envia o arquivo certo, direto da sua pasta do Google Drive,
           depois de confirmar quem ele é. O assistente só enxerga a pasta que você compartilhar aqui, nada mais do seu Drive.
