@@ -26,7 +26,7 @@ const CRM_PLATFORMS = [
   { id: 'pipedrive',name: 'Pipedrive',     description: 'CRM focado em pipeline de vendas',     logo: '🟢', color: '#00C04B', auth: 'oauth' },
   { id: 'rdcrm',    name: 'RD Station CRM',description: 'CRM brasileiro da RD Station',         logo: '🔵', color: '#0056D2', auth: 'oauth' },
   { id: 'syncrolex',name: 'SyncroLex',     description: 'CRM jurídico — leads e agendamentos automáticos', logo: '⚖️', color: '#1D4ED8', auth: 'webhook',
-    urlLabel: 'URL do Webhook', urlPlaceholder: 'https://www.syncrolex.com.br/api/webhooks/syncroflow',
+    urlLabel: 'URL do Webhook', urlPlaceholder: 'https://syncrolex.com.br/api/webhooks/syncroflow',
     keyLabel: 'Token', keyPlaceholder: 'whk_...' },
 ]
 
