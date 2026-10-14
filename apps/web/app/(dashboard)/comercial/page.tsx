@@ -1,17 +1,18 @@
 'use client'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
-import { Loader2, Plus, X, Edit2, Calendar, TrendingUp, Users, Clock, AlertTriangle, Download } from 'lucide-react'
+import { Loader2, Plus, X, Edit2, Calendar, TrendingUp, Users, Clock, AlertTriangle, Download, MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 type Stage = { id: string; name: string; color: string; order: number; _count: { leads: number } }
-type Lead = { id: string; name: string; phone?: string; email?: string; source?: string; notes?: string; value?: number; stageId?: string; stage?: Stage; followUps?: any[]; createdAt: string }
+type Lead = { id: string; contactId?: string | null; name: string; phone?: string; email?: string; source?: string; notes?: string; value?: number; stageId?: string; stage?: Stage; followUps?: any[]; createdAt: string }
 type FollowUp = { id: string; leadId?: string; title: string; notes?: string; scheduledAt: string; status: 'PENDING' | 'DONE' | 'CANCELLED'; lead?: Lead }
 
 const STAGE_COLORS = ['#1565C0', '#2E7D32', '#E65100', '#6A1B9A', '#00838F', '#AD1457', '#F9A825', '#546E7A']
@@ -120,7 +121,7 @@ function FollowUpModal({ open, onClose, leads, leadId }: { open: boolean; onClos
   )
 }
 
-function LeadCard({ lead, onEdit, onDelete, onFollowUp }: { lead: Lead; onEdit: () => void; onDelete: () => void; onFollowUp: () => void }) {
+function LeadCard({ lead, onEdit, onDelete, onFollowUp, onChat }: { lead: Lead; onEdit: () => void; onDelete: () => void; onFollowUp: () => void; onChat?: () => void }) {
   const nextFollowUp = lead.followUps?.[0]
   const isOverdue = nextFollowUp && new Date(nextFollowUp.scheduledAt) < new Date()
 
@@ -134,6 +135,9 @@ function LeadCard({ lead, onEdit, onDelete, onFollowUp }: { lead: Lead; onEdit: 
           {lead.source && <div className="text-xs text-gray-400 mt-0.5 bg-gray-50 px-1.5 py-0.5 rounded inline-block">{lead.source}</div>}
         </div>
         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          {onChat && lead.contactId && (
+            <button onClick={onChat} className="p-1 hover:bg-green-50 rounded text-gray-400 hover:text-green-600" title="Abrir conversa"><MessageSquare className="w-3.5 h-3.5" /></button>
+          )}
           <button onClick={onFollowUp} className="p-1 hover:bg-blue-50 rounded text-gray-400 hover:text-[#1565C0]" title="Agendar follow-up"><Calendar className="w-3.5 h-3.5" /></button>
           <button onClick={onEdit} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600" title="Editar"><Edit2 className="w-3.5 h-3.5" /></button>
           <button onClick={onDelete} className="p-1 hover:bg-red-50 rounded text-gray-400 hover:text-red-500" title="Remover"><X className="w-3.5 h-3.5" /></button>
@@ -154,6 +158,7 @@ type Tab = typeof TABS[number]
 
 export default function ComercialPage() {
   const qc = useQueryClient()
+  const router = useRouter()
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<Tab>('Pipeline')
   const [showLeadModal, setShowLeadModal] = useState(false)
@@ -166,6 +171,23 @@ export default function ComercialPage() {
   const { data: stages = [] } = useQuery<Stage[]>({ queryKey: ['stages'], queryFn: () => api.get('/comercial/stages').then(r => r.data) })
   const { data: leads = [] } = useQuery<Lead[]>({ queryKey: ['leads'], queryFn: () => api.get('/comercial/leads').then(r => r.data) })
   const { data: followUps = [], isLoading: loadingFollowUps } = useQuery<FollowUp[]>({ queryKey: ['followups'], queryFn: () => api.get('/comercial/followups').then(r => r.data) })
+
+  const { data: crmConnections = [] } = useQuery<any[]>({ queryKey: ['crm-connections'], queryFn: () => api.get('/crm/connections').then(r => r.data) })
+  const syncrolex = crmConnections.find(c => c.platform === 'syncrolex' && c.status === 'active')
+
+  const addDefaultStages = useMutation({
+    mutationFn: () => api.post('/comercial/stages/defaults'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['stages'] }); toast({ title: 'Etapas padrão adicionadas' }) },
+    onError: () => toast({ title: 'Não foi possível adicionar as etapas', variant: 'destructive' }),
+  })
+
+  // Abre (ou reaproveita) a conversa com o contato do lead e vai para o chat.
+  const openChatMutation = useMutation({
+    mutationFn: (contactId: string) => api.post('/conversations/start', { contactId }).then(r => r.data),
+    onSuccess: (conv) => router.push(`/chat?conversationId=${conv.id}`),
+    onError: (err: any) => toast({ title: 'Não foi possível abrir a conversa', description: err?.response?.data?.error || 'Tente novamente.', variant: 'destructive' }),
+  })
+  function openChat(lead: Lead) { if (lead.contactId) openChatMutation.mutate(lead.contactId) }
 
   const createStage = useMutation({
     mutationFn: (name: string) => api.post('/comercial/stages', { name, color: STAGE_COLORS[stages.length % STAGE_COLORS.length] }),
@@ -262,6 +284,22 @@ export default function ComercialPage() {
         </div>
       </div>
 
+      {activeTab === 'Pipeline' && syncrolex && (
+        <p className="text-xs text-gray-500 mb-3">
+          Os leads novos também são enviados ao SyncroLex
+          {syncrolex.lastDispatch
+            ? (syncrolex.lastDispatch.ok ? ' (último envio com sucesso).' : ' (atenção: o último envio falhou, veja em Integrações).')
+            : '.'}
+        </p>
+      )}
+      {activeTab === 'Pipeline' && stages.length < 3 && (
+        <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+          <span>Seu funil tem poucas etapas. Quer usar o modelo padrão (Novo lead, Em contato, Proposta, Fechado, Perdido)? Suas etapas atuais não mudam.</span>
+          <Button size="sm" variant="outline" disabled={addDefaultStages.isPending} onClick={() => addDefaultStages.mutate()} className="shrink-0 bg-white">
+            {addDefaultStages.isPending && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}Adicionar etapas padrão
+          </Button>
+        </div>
+      )}
       {activeTab === 'Pipeline' && (
         <div className="overflow-x-auto pb-4">
           <div className="flex gap-4 min-w-max">
@@ -280,6 +318,7 @@ export default function ComercialPage() {
                       onEdit={() => { setEditingLead(lead); setShowLeadModal(true) }}
                       onDelete={() => { if (confirm(`Remover ${lead.name}?`)) deleteLead.mutate(lead.id) }}
                       onFollowUp={() => { setFollowUpLeadId(lead.id); setShowFollowUpModal(true) }}
+                      onChat={() => openChat(lead)}
                     />
                   ))}
                 </div>
@@ -310,6 +349,7 @@ export default function ComercialPage() {
                           onEdit={() => { setEditingLead(lead); setShowLeadModal(true) }}
                           onDelete={() => { if (confirm(`Remover ${lead.name}?`)) deleteLead.mutate(lead.id) }}
                           onFollowUp={() => { setFollowUpLeadId(lead.id); setShowFollowUpModal(true) }}
+                      onChat={() => openChat(lead)}
                         />
                       </div>
                     ))}

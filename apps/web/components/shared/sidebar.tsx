@@ -12,7 +12,7 @@ import { useTutorial } from './tutorial-context'
 const navItems = [
   { section: 'VISÃO GERAL', items: [{ href: '/dashboard', label: 'Dashboards', icon: LayoutDashboard }] },
   { section: 'CADASTROS', items: [{ href: '/agents', label: 'Agentes', icon: Bot }, { href: '/team', label: 'Equipe', icon: Users }] },
-  { section: 'COMUNICAÇÃO', items: [{ href: '/chat', label: 'Chat', icon: MessageSquare }, { href: '/contacts', label: 'Contatos', icon: Contact }, { href: '/campaigns', label: 'Campanhas', icon: Megaphone }] },
+  { section: 'COMUNICAÇÃO', items: [{ href: '/chat', label: 'Chat', icon: MessageSquare }, { href: '/contacts', label: 'Contatos', icon: Contact }, { href: '/comercial', label: 'Comercial', icon: TrendingUp }, { href: '/campaigns', label: 'Campanhas', icon: Megaphone }] },
   { section: 'AGENDA', items: [{ href: '/agenda', label: 'Agenda', icon: CalendarDays }] },
   { section: 'INTEGRAÇÕES', items: [{ href: '/integrations', label: 'Integrações', icon: Plug }, { href: '/templates', label: 'Templates', icon: LayoutTemplate }] },
   { section: 'SISTEMA', items: [{ href: '/settings', label: 'Configurações', icon: Settings }] },

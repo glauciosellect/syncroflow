@@ -5,6 +5,25 @@ import { getWorkspaceId } from '../../lib/workspace'
 import { notifySyncrolex } from '../../lib/syncrolex-webhook'
 
 
+// Funil padrão. Workspace sem nenhuma etapa recebe estas; quem já tem etapas só ganha as que faltam (por nome).
+const DEFAULT_STAGES = [
+  { name: 'Novo lead', color: '#1565C0' },
+  { name: 'Em contato', color: '#00838F' },
+  { name: 'Proposta', color: '#E65100' },
+  { name: 'Fechado', color: '#2E7D32' },
+  { name: 'Perdido', color: '#546E7A' },
+]
+
+async function addMissingDefaultStages(workspaceId: string) {
+  const existing = await prisma.pipelineStage.findMany({ where: { workspaceId }, select: { name: true } })
+  const have = new Set(existing.map((e) => e.name.trim().toLowerCase()))
+  let order = existing.length
+  for (const d of DEFAULT_STAGES) {
+    if (have.has(d.name.toLowerCase())) continue
+    await prisma.pipelineStage.create({ data: { workspaceId, name: d.name, color: d.color, order: order++ } })
+  }
+}
+
 // "" (campo em branco) deve valer como vazio, não como valor inválido
 const blankToNull = (v: unknown) => (typeof v === 'string' && v.trim() === '' ? null : v)
 
@@ -44,12 +63,22 @@ export async function comercialRoutes(app: FastifyInstance) {
   app.get('/comercial/stages', async (req, reply) => {
     const { sub, wid } = req.user as { sub: string; wid?: string }
     const workspaceId = await getWorkspaceId(sub, wid)
+    // Workspace novo (sem nenhuma etapa) já nasce com o funil padrão.
+    if ((await prisma.pipelineStage.count({ where: { workspaceId } })) === 0) await addMissingDefaultStages(workspaceId)
     const stages = await prisma.pipelineStage.findMany({
       where: { workspaceId },
       orderBy: { order: 'asc' },
       include: { _count: { select: { leads: true } } },
     })
     return reply.send(stages)
+  })
+
+  // Adiciona as etapas padrão que faltam, sem mexer nas que já existem.
+  app.post('/comercial/stages/defaults', async (req, reply) => {
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
+    await addMissingDefaultStages(workspaceId)
+    return reply.send({ ok: true })
   })
 
   app.post('/comercial/stages', async (req, reply) => {
