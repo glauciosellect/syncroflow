@@ -1577,6 +1577,106 @@ function UrgencyTab() {
   )
 }
 
+// ─── ABA: DOCUMENTOS (GOOGLE DRIVE) ──────────────────────────────────────────
+function DocumentsTab() {
+  const { toast } = useToast()
+  const qc = useQueryClient()
+  const { data, isLoading } = useQuery({
+    queryKey: ['documents-config'],
+    queryFn: () => api.get('/documents/config').then(r => r.data),
+  })
+  const [enabled, setEnabled] = useState(true)
+  const [folder, setFolder] = useState('')
+  const [verifyUrl, setVerifyUrl] = useState('')
+  const [verifyToken, setVerifyToken] = useState('')
+  const [testResult, setTestResult] = useState<{ folders: string[]; filesAtRoot: number } | null>(null)
+
+  useEffect(() => {
+    if (!data) return
+    setEnabled(data.enabled !== false)
+    setVerifyUrl(data.verifyUrl || '')
+  }, [data])
+
+  const save = useMutation({
+    mutationFn: () => api.put('/documents/config', { enabled, folder: folder || undefined, verifyUrl: verifyUrl || '', verifyToken: verifyToken || undefined }),
+    onSuccess: () => { setFolder(''); setVerifyToken(''); qc.invalidateQueries({ queryKey: ['documents-config'] }); toast({ title: 'Configuração de documentos salva' }) },
+    onError: (err: any) => toast({ title: 'Não foi possível salvar', description: err?.response?.data?.error || 'Confira os dados.', variant: 'destructive' }),
+  })
+  const test = useMutation({
+    mutationFn: () => api.get('/documents/test').then(r => r.data),
+    onSuccess: (d) => setTestResult(d),
+    onError: (err: any) => toast({ title: 'Teste falhou', description: err?.response?.data?.error || 'Não consegui acessar a pasta.', variant: 'destructive' }),
+  })
+
+  if (isLoading) return <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+
+  return (
+    <Card>
+      <CardHeader><CardTitle>Entrega de documentos (Google Drive)</CardTitle></CardHeader>
+      <CardContent className="space-y-5">
+        <p className="text-sm text-gray-600">
+          O cliente pede um documento pelo WhatsApp. O agente confere o telefone e o número do contrato, busca o arquivo
+          <strong> somente na pasta que você compartilhar aqui</strong> e envia. O SyncroFlow nunca acessa nenhuma outra pasta do seu Drive.
+        </p>
+
+        {!data?.driveConfigured ? (
+          <p className="text-sm rounded-lg bg-amber-50 border border-amber-200 p-3 text-amber-800">
+            A conta de serviço do Google Drive ainda não foi configurada no servidor (variável GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON). Peça ao suporte da NuClick.
+          </p>
+        ) : (
+          <div className="rounded-lg bg-blue-50 border border-blue-100 p-3 text-sm text-gray-700 space-y-1">
+            <p><strong>Passo 1.</strong> No Google Drive, crie uma pasta (ex.: "Documentos dos clientes") com uma subpasta por contrato, como <em>Contrato 1234</em>.</p>
+            <p><strong>Passo 2.</strong> Compartilhe a pasta como <strong>Leitor</strong> com este e-mail:</p>
+            <p className="font-mono text-xs bg-white rounded px-2 py-1 border border-blue-100 break-all select-all">{data.serviceAccountEmail}</p>
+            <p><strong>Passo 3.</strong> Cole abaixo o link da pasta e salve.</p>
+          </div>
+        )}
+
+        {data?.rootFolderName && (
+          <p className="text-sm text-gray-700">Pasta atual: <strong>{data.rootFolderName}</strong></p>
+        )}
+
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} /> Entrega de documentos ativa
+        </label>
+
+        <div className="space-y-1">
+          <Label>Link da pasta compartilhada</Label>
+          <Input placeholder="https://drive.google.com/drive/folders/..." value={folder} onChange={e => setFolder(e.target.value)} />
+        </div>
+
+        <div className="space-y-1">
+          <Label>Sistema que confirma o contrato (opcional)</Label>
+          <Input placeholder="URL de verificação do SyncroLex / GestorBIM / GestorAMA" value={verifyUrl} onChange={e => setVerifyUrl(e.target.value)} />
+          <Input type="password" placeholder={data?.hasVerifyToken ? 'Token salvo — deixe vazio para manter' : 'Token de acesso'} value={verifyToken} onChange={e => setVerifyToken(e.target.value)} />
+          <p className="text-xs text-gray-500">
+            Sem isso, o contrato só é aceito se estiver cadastrado no contato (campo <em>contrato</em> nas variáveis). Com o sistema ligado,
+            ele responde se o contrato pertence àquele telefone.
+          </p>
+        </div>
+
+        <div className="flex gap-2">
+          <Button onClick={() => save.mutate()} disabled={save.isPending} className="bg-[#1565C0] hover:bg-[#0D47A1]">
+            {save.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />} Salvar
+          </Button>
+          {data?.rootFolderName && (
+            <Button variant="outline" onClick={() => test.mutate()} disabled={test.isPending}>
+              {test.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />} Testar acesso
+            </Button>
+          )}
+        </div>
+
+        {testResult && (
+          <div className="text-sm rounded-lg bg-green-50 border border-green-100 p-3">
+            <p className="font-medium text-green-800">Acesso OK. Pastas encontradas ({testResult.folders.length}):</p>
+            <p className="text-xs text-gray-600 mt-1">{testResult.folders.length ? testResult.folders.join(' · ') : 'nenhuma subpasta ainda'}</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 // ─── PÁGINA PRINCIPAL ─────────────────────────────────────────────────────────
 const tabs = [
   { key: 'profile',      label: 'Perfil',            icon: User      },
@@ -1584,6 +1684,7 @@ const tabs = [
   { key: 'channels',     label: 'Canais',             icon: Radio     },
   { key: 'apikeys',      label: 'Chaves de API',      icon: KeyRound  },
   { key: 'urgency',      label: 'Urgência',           icon: AlertTriangle },
+  { key: 'documents',    label: 'Documentos',         icon: Plug },
 ]
 
 function SettingsContent() {
@@ -1621,6 +1722,7 @@ function SettingsContent() {
         {active === 'channels'     && <ChannelsTab />}
         {active === 'apikeys'      && <ApiKeysTab />}
         {active === 'urgency'      && <UrgencyTab />}
+        {active === 'documents'    && <DocumentsTab />}
       </div>
     </div>
   )

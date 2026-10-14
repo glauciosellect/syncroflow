@@ -10,6 +10,7 @@ import { getValidGmailToken, sendReply } from '../../lib/gmail'
 import { uploadAttachment } from '../../lib/storage'
 import { normalizeBrazilianNumber } from '../channels/whatsapp/providers/meta-cloud.provider'
 import { detectUrgency, sendUrgencyAlert, shouldSendUrgencyAlert, buildUrgencyReply } from '../urgency/urgency.service'
+import { handleDocumentTurn } from '../documents/document-flow'
 import axios from 'axios'
 
 const AUDIO_FORCED_KEY = 'audioForced' // modo forçado por #audio/#texto, dentro de contact.variables
@@ -512,6 +513,53 @@ export function startMessageWorker() {
         return
       }
 
+      // ── Entrega de documentos (Google Drive) ────────────────────────────────
+      // Só atua quando o workspace tem a pasta do Drive configurada. Verifica telefone + contrato,
+      // busca apenas dentro da pasta compartilhada e envia o arquivo; se nada for achado, o agente
+      // responde normalmente seguindo as próprias orientações (docAiNote).
+      let docAiNote = ''
+      if (channelType === 'WHATSAPP') {
+        const docResult = await handleDocumentTurn({
+          workspaceId: channel.workspaceId,
+          contact: contact as any,
+          conversationId: conversation.id,
+          text,
+          history: history.map((m) => ({ role: m.role, content: m.content })),
+        })
+        if (docResult.kind === 'ai') {
+          docAiNote = `\n\n[CONTEXTO INTERNO: ${docResult.note}]`
+        } else if (docResult.kind !== 'none') {
+          const provider = getWhatsAppProvider()
+          try {
+            if (docResult.kind === 'file') {
+              await provider.sendMedia(channelId, from, docResult.fileUrl, docResult.text, docResult.filename)
+            } else {
+              await provider.sendText(channelId, from, docResult.text)
+            }
+          } catch (err: any) {
+            console.error('[WORKER] Falha ao enviar resposta do fluxo de documentos:', err?.message)
+          }
+          const docMsg = await prisma.message.create({
+            data: {
+              conversationId: conversation.id,
+              role: 'ASSISTANT',
+              content: docResult.text,
+              ...(docResult.kind === 'file' ? { mediaUrl: docResult.fileUrl, mediaType: docResult.mediaType } : {}),
+              creditsUsed: 0,
+            },
+          })
+          try { emitNewMessage(channel.workspaceId, conversation.id, docMsg) } catch {}
+          if (docResult.kind === 'transfer') {
+            const conv = await prisma.conversation.update({
+              where: { id: conversation.id },
+              data: { status: 'WAITING_HUMAN', transferSummary: 'Verificação de contrato para envio de documento não passou' },
+            })
+            try { emitConversationUpdated(channel.workspaceId, conv) } catch {}
+          }
+          return
+        }
+      }
+
       // ── Formato da resposta (áudio x texto) ─────────────────────────────────
       // Regra: espelha a ÚLTIMA mensagem do cliente. Áudio → áudio. Texto → texto.
       // Exceções, nesta ordem: pedido explícito de "por escrito" na própria mensagem,
@@ -787,7 +835,7 @@ export function startMessageWorker() {
         const aiRes = await processAgentResponse({
           agent: agent as any,
           conversationHistory,
-          userMessage: text + contactContext + flowContext + privacyContext + agendaContext,
+          userMessage: text + contactContext + flowContext + privacyContext + agendaContext + docAiNote,
           agentId: agent.id,
         })
         responseText = aiRes.content
