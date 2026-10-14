@@ -24,12 +24,21 @@ function LeadModal({ open, onClose, stages, lead }: { open: boolean; onClose: ()
   const mutation = useMutation({
     mutationFn: (data: any) => lead ? api.patch(`/comercial/leads/${lead.id}`, data) : api.post('/comercial/leads', data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['leads'] }); qc.invalidateQueries({ queryKey: ['comercial-stats'] }); toast({ title: lead ? 'Lead atualizado!' : 'Lead criado!' }); onClose() },
-    onError: () => toast({ title: 'Erro ao salvar lead', variant: 'destructive' }),
+    onError: (err: any) => toast({ title: 'Erro ao salvar lead', description: err?.response?.data?.error === 'Dados inválidos' ? 'Confira o e-mail e o valor informados.' : (err?.response?.data?.error || 'Tente novamente.'), variant: 'destructive' }),
   })
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
-    mutation.mutate({ ...form, value: form.value ? parseFloat(form.value) : null, stageId: form.stageId || null })
+    mutation.mutate({
+      ...form,
+      // campo em branco vai como null: o servidor recusava e-mail vazio como "inválido"
+      phone: form.phone.trim() || null,
+      email: form.email.trim() || null,
+      source: form.source.trim() || null,
+      notes: form.notes.trim() || null,
+      value: form.value ? parseFloat(form.value) : null,
+      stageId: form.stageId || null,
+    })
   }
 
   return (

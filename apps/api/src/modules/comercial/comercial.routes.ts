@@ -5,12 +5,15 @@ import { getWorkspaceId } from '../../lib/workspace'
 import { notifySyncrolex } from '../../lib/syncrolex-webhook'
 
 
+// "" (campo em branco) deve valer como vazio, não como valor inválido
+const blankToNull = (v: unknown) => (typeof v === 'string' && v.trim() === '' ? null : v)
+
 const leadSchema = z.object({
   name: z.string().min(1).max(200),
-  phone: z.string().optional().nullable(),
-  email: z.string().email().optional().nullable(),
-  source: z.string().optional().nullable(),
-  notes: z.string().optional().nullable(),
+  phone: z.preprocess(blankToNull, z.string().optional().nullable()),
+  email: z.preprocess(blankToNull, z.string().email().optional().nullable()),
+  source: z.preprocess(blankToNull, z.string().optional().nullable()),
+  notes: z.preprocess(blankToNull, z.string().optional().nullable()),
   tags: z.array(z.string()).optional(),
   stageId: z.string().optional().nullable(),
   contactId: z.string().optional().nullable(),
