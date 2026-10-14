@@ -3,6 +3,7 @@ import { logger } from '../../lib/logger'
 import { decrypt, encrypt } from '../../lib/crypto'
 import { normalizeBrazilianNumber } from '../channels/whatsapp/providers/meta-cloud.provider'
 import { DriveFile, listChildren, listFilesRecursive, isFolder } from './drive.client'
+import { getSyncrolexConnection, verifySyncrolexCpf } from '../../lib/syncrolex-webhook'
 
 export const DOCS_PLATFORM = 'gdrive'
 export const MAX_VERIFY_TRIES = 3
@@ -79,6 +80,28 @@ export function normalizeContract(raw: string): string {
   return strip(raw).replace(/[^a-z0-9]+/g, ' ').trim()
 }
 
+// Que dado o cliente informa para se identificar: CPF (escritórios com SyncroLex conectado) ou nº do contrato.
+export type IdentifierKind = 'cpf' | 'contract'
+
+export async function getIdentifierKind(workspaceId: string): Promise<IdentifierKind> {
+  const cfg = await getDocumentsConfig(workspaceId)
+  if (cfg.verifyUrl) return 'contract'
+  return (await getSyncrolexConnection(workspaceId)) ? 'cpf' : 'contract'
+}
+
+export function digitsOnly(s: string) {
+  return (s || '').replace(/\D/g, '')
+}
+
+export function extractCpf(text: string): string | null {
+  const m = text.match(/\d{3}\.?\d{3}\.?\d{3}-?\d{2}/)
+  return m ? digitsOnly(m[0]) : null
+}
+
+export function extractIdentifier(text: string, kind: IdentifierKind): string | null {
+  return kind === 'cpf' ? extractCpf(text) : extractContractCandidate(text)
+}
+
 export function extractContractCandidate(text: string): string | null {
   // Pega o primeiro trecho com algum dígito, ex.: "1234", "CT-2026/045", "contrato 1234".
   const m = text.match(/(?:[A-Za-z]{1,5}[-\/])?\d[\dA-Za-z\-\/\.]{0,20}/)
@@ -105,6 +128,15 @@ export async function verifyContract(opts: {
 }): Promise<VerifyResult> {
   const cfg = await getDocumentsConfig(opts.workspaceId)
   const phone = normalizeBrazilianNumber(opts.phone)
+
+  // Escritório com SyncroLex conectado: quem confere é o SyncroLex (CPF do cliente + telefone cadastrado).
+  if (!cfg.verifyUrl && (await getSyncrolexConnection(opts.workspaceId))) {
+    const cpf = digitsOnly(opts.contract)
+    if (cpf.length !== 11) return { valid: false, reason: 'not_found' }
+    const r = await verifySyncrolexCpf(opts.workspaceId, phone, cpf)
+    if (r.unavailable) return { valid: false, reason: 'unavailable' }
+    return r.valid ? { valid: true } : { valid: false, reason: 'not_found' }
+  }
 
   if (cfg.verifyUrl) {
     const row = await prisma.integration.findUnique({ where: { workspaceId_platform: { workspaceId: opts.workspaceId, platform: DOCS_PLATFORM } } })
@@ -135,10 +167,12 @@ export async function verifyContract(opts: {
 
 // ─── Busca no Drive ──────────────────────────────────────────────────────────
 
-export async function findContractFolder(rootFolderId: string, contract: string): Promise<DriveFile | null> {
+export async function findContractFolder(rootFolderId: string, contract: string, kind: IdentifierKind = 'contract'): Promise<DriveFile | null> {
   const want = tokens(contract)
   const children = (await listChildren(rootFolderId)).filter(isFolder)
-  const matches = children.filter((f) => containsSequence(tokens(f.name), want))
+  const cpf = kind === 'cpf' ? digitsOnly(contract) : ''
+  // CPF: a pasta pode estar como "123.456.789-00 Maria" ou "12345678900 - Maria"; compara só os dígitos.
+  const matches = children.filter((f) => (cpf ? digitsOnly(f.name).includes(cpf) : containsSequence(tokens(f.name), want)))
   if (matches.length > 1) logger.warn('Drive: mais de uma pasta casa com o contrato; usando a mais recente', { contract })
   return matches.sort((a, b) => b.modifiedTime.localeCompare(a.modifiedTime))[0] ?? null
 }

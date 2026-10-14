@@ -25,6 +25,7 @@ export const trainingQueue = new Queue('training', { connection })
 export const welcomeQueue = new Queue('welcome', { connection })
 export const integrationQueue = new Queue('integration-events', { connection })
 export const reminderQueue = new Queue('reminders', { connection })
+export const syncrolexQueue = new Queue('syncrolex-events', { connection })
 export const campaignQueue = new Queue('campaigns', { connection })
 export const emailPollQueue = new Queue('email-poll', { connection })
 

@@ -5,7 +5,8 @@ import { auditLog } from '../../lib/rbac'
 import { uploadAttachment } from '../../lib/storage'
 import { isDriveConfigured, downloadFile, assertInsideRoot } from './drive.client'
 import {
-  getDocumentsConfig, verifyContract, extractContractCandidate, findContractFolder,
+  getDocumentsConfig, verifyContract, extractIdentifier, getIdentifierKind, findContractFolder,
+   type IdentifierKind,
   listContractFiles, pickFile, MAX_VERIFY_TRIES,
 } from './documents.service'
 
@@ -58,6 +59,10 @@ async function classify(text: string, history: { role: string; content: string }
   }
 }
 
+function mask(contract: string, kind: IdentifierKind) {
+  return kind === 'cpf' ? `***${contract.replace(/\D/g, '').slice(-3)}` : contract
+}
+
 async function saveVars(contactId: string, patch: Record<string, any>) {
   const c = await prisma.contact.findUnique({ where: { id: contactId }, select: { variables: true } })
   const vars = { ...((c?.variables as Record<string, any>) || {}), ...patch }
@@ -67,19 +72,19 @@ async function saveVars(contactId: string, patch: Record<string, any>) {
 
 async function execute(opts: {
   workspaceId: string; contactId: string; conversationId: string; contract: string; mode: 'send' | 'list'; query: string
-  rootFolderId: string
+  rootFolderId: string; kind: IdentifierKind
 }): Promise<DocFlowResult> {
-  const { workspaceId, contactId, contract, mode, query, rootFolderId } = opts
-  const folder = await findContractFolder(rootFolderId, contract)
+  const { workspaceId, contactId, contract, mode, query, rootFolderId, kind } = opts
+  const folder = await findContractFolder(rootFolderId, contract, kind)
   if (!folder) {
-    return { kind: 'ai', note: `A verificação do cliente passou, mas não existe pasta para o contrato ${contract} no Drive. Responda conforme suas orientações (ex.: ainda não há documentos disponíveis) e não invente arquivos.` }
+    return { kind: 'ai', note: `A verificação do cliente passou, mas não existe pasta dele no Drive. Responda conforme suas orientações (ex.: ainda não há documentos disponíveis) e não invente arquivos.` }
   }
   await assertInsideRoot(folder.id, rootFolderId)
   const files = await listContractFiles(folder.id)
 
   await auditLog({
     workspaceId, action: mode === 'list' ? 'documents.listed' : 'documents.requested', resourceType: 'contact', resourceId: contactId,
-    metadata: { contract, query, filesFound: files.length },
+    metadata: { contract: mask(contract, kind), query, filesFound: files.length },
   })
 
   if (mode === 'list') {
@@ -97,7 +102,7 @@ async function execute(opts: {
   const { publicUrl } = await uploadAttachment(workspaceId, dl.buffer, dl.mimetype, dl.filename)
   await auditLog({
     workspaceId, action: 'documents.sent', resourceType: 'contact', resourceId: contactId,
-    metadata: { contract, driveFileId: file.id, filename: dl.filename },
+    metadata: { contract: mask(contract, kind), driveFileId: file.id, filename: dl.filename },
   })
   return {
     kind: 'file',
@@ -123,6 +128,8 @@ export async function handleDocumentTurn(opts: {
     const vars = (contact.variables as Record<string, any>) || {}
     const phone = contact.phone || contact.externalId || ''
     const flow = vars.docFlow as Flow | undefined
+    const kind = await getIdentifierKind(workspaceId)
+    const label = kind === 'cpf' ? 'CPF' : 'número do contrato'
     const verified = vars.docVerified as { contract: string; until: string } | undefined
     const verifiedActive = !!verified && new Date(verified.until).getTime() > Date.now()
 
@@ -132,7 +139,7 @@ export async function handleDocumentTurn(opts: {
         await saveVars(contact.id, { docFlow: undefined })
         return { kind: 'none' }
       }
-      const candidate = extractContractCandidate(text)
+      const candidate = extractIdentifier(text, kind)
       const tries = flow.tries + 1
       const result = candidate
         ? await verifyContract({ workspaceId, contactId: contact.id, phone, contract: candidate })
@@ -143,8 +150,8 @@ export async function handleDocumentTurn(opts: {
           docFlow: undefined,
           docVerified: { contract: candidate, until: new Date(Date.now() + VERIFIED_TTL_MS).toISOString() },
         })
-        await auditLog({ workspaceId, action: 'documents.verified', resourceType: 'contact', resourceId: contact.id, metadata: { contract: candidate } })
-        return execute({ workspaceId, contactId: contact.id, conversationId, contract: candidate, mode: flow.mode, query: flow.query, rootFolderId: cfg.rootFolderId })
+        await auditLog({ workspaceId, action: 'documents.verified', resourceType: 'contact', resourceId: contact.id, metadata: { contract: mask(candidate, kind) } })
+        return execute({ workspaceId, contactId: contact.id, conversationId, contract: candidate, mode: flow.mode, query: flow.query, rootFolderId: cfg.rootFolderId, kind })
       }
 
       await auditLog({ workspaceId, action: 'documents.verify_failed', resourceType: 'contact', resourceId: contact.id, metadata: { tries, reason: result.reason ?? 'not_found' } })
@@ -154,10 +161,10 @@ export async function handleDocumentTurn(opts: {
       }
       if (tries >= MAX_VERIFY_TRIES) {
         await saveVars(contact.id, { docFlow: undefined })
-        return { kind: 'transfer', text: 'Não consegui confirmar o número do contrato com o seu cadastro. Por segurança, vou passar seu atendimento para uma pessoa da equipe. 🙏' }
+        return { kind: 'transfer', text: `Não consegui confirmar o seu ${label} com o cadastro. Por segurança, vou passar seu atendimento para uma pessoa da equipe. 🙏` }
       }
       await saveVars(contact.id, { docFlow: { ...flow, tries } })
-      return { kind: 'reply', text: 'Não consegui confirmar esse número de contrato com o seu cadastro. Pode conferir e me enviar de novo, por favor?' }
+      return { kind: 'reply', text: `Não consegui confirmar esse ${label} com o seu cadastro. Pode conferir e me enviar de novo, por favor?` }
     }
 
     // 2) Mensagem normal: será que é um pedido de documento?
@@ -166,11 +173,11 @@ export async function handleDocumentTurn(opts: {
     if (intent.intent === 'none') return { kind: 'none' }
 
     if (verifiedActive) {
-      return execute({ workspaceId, contactId: contact.id, conversationId, contract: verified!.contract, mode: intent.intent, query: intent.query, rootFolderId: cfg.rootFolderId })
+      return execute({ workspaceId, contactId: contact.id, conversationId, contract: verified!.contract, mode: intent.intent, query: intent.query, rootFolderId: cfg.rootFolderId, kind })
     }
 
     await saveVars(contact.id, { docFlow: { step: 'await_contract', mode: intent.intent, query: intent.query, tries: 0 } satisfies Flow })
-    return { kind: 'reply', text: 'Posso verificar isso para você. Por segurança, me informe o número do seu contrato, por favor.' }
+    return { kind: 'reply', text: `Posso verificar isso para você. Por segurança, me informe o seu ${label}, por favor.` }
   } catch (err: any) {
     logger.error('Document flow: erro', { err: err?.message })
     return { kind: 'ai', note: 'Houve uma falha técnica ao consultar os documentos. Peça desculpas e diga que um atendente vai ajudar, sem inventar arquivos.' }

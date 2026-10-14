@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma'
+import { notifySyncrolex } from '../../lib/syncrolex-webhook'
 import {
   getValidToken,
   createCalendarEvent,
@@ -121,6 +122,18 @@ export async function scheduleAppointment(opts: {
 
   if (!eventId) {
     return { success: false, message: 'Erro ao criar o evento na agenda. Tente novamente.' }
+  }
+
+  // Avisa o SyncroLex. google_event_id evita que ele crie um segundo evento igual no mesmo Google Calendar.
+  if (contactPhone) {
+    notifySyncrolex(workspaceId, 'appointment.created', {
+      lead_nome: contactName,
+      lead_telefone: contactPhone,
+      assunto: event.summary || `Consulta — ${contactName}`,
+      data_hora_inicio: startDate.toISOString(),
+      observacoes: extracted.description || undefined,
+      google_event_id: eventId,
+    })
   }
 
   // Agenda o lembrete automático (mensagem ativa) se tivermos contato/canal identificados

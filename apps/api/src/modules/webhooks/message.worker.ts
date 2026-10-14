@@ -11,6 +11,7 @@ import { uploadAttachment } from '../../lib/storage'
 import { normalizeBrazilianNumber } from '../channels/whatsapp/providers/meta-cloud.provider'
 import { detectUrgency, sendUrgencyAlert, shouldSendUrgencyAlert, buildUrgencyReply } from '../urgency/urgency.service'
 import { handleDocumentTurn } from '../documents/document-flow'
+import { notifySyncrolex } from '../../lib/syncrolex-webhook'
 import axios from 'axios'
 
 const AUDIO_FORCED_KEY = 'audioForced' // modo forçado por #audio/#texto, dentro de contact.variables
@@ -354,6 +355,14 @@ export function startMessageWorker() {
             },
           })
           console.log(`[WORKER] Lead criado automaticamente: ${name || from} → stage ${autoStageId}`)
+          // Avisa o SyncroLex (se o workspace tiver a conexão). Em fila, com nova tentativa se ele estiver fora do ar.
+          if (channelType === 'WHATSAPP' && from) {
+            notifySyncrolex(channel.workspaceId, 'lead.created', {
+              name: name || from,
+              phone: from,
+              resumo_conversa: `Novo contato pelo WhatsApp. Primeira mensagem: "${(text || '').slice(0, 300)}"`,
+            })
+          }
         } catch (err: any) {
           console.error('[WORKER] Erro ao criar lead automático:', err?.message)
         }

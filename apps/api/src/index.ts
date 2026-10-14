@@ -20,6 +20,7 @@ import { agendaRoutes } from './modules/calendar/agenda.routes'
 import { campaignRoutes } from './modules/campaigns/campaigns.routes'
 import { documentsRoutes } from './modules/documents/documents.routes'
 import { startCampaignWorker } from './modules/campaigns/campaign.worker'
+import { startSyncrolexWorker } from './lib/syncrolex-webhook'
 import { agentRoutes } from './modules/agents/agents.routes'
 import { trainingRoutes } from './modules/training/training.routes'
 import { intentionRoutes } from './modules/intentions/intentions.routes'
@@ -218,6 +219,7 @@ async function bootstrap() {
   startWelcomeWorker()
   startReminderWorker()
   startCampaignWorker()
+  startSyncrolexWorker()
   startEmailPollingWorker()
   integrationWorker
 
