@@ -15,6 +15,7 @@ import { authRoutes } from './modules/auth/auth.routes'
 import { googleRoutes } from './modules/auth/google.routes'
 import { workspaceRoutes } from './modules/workspaces/workspaces.routes'
 import { urgencyRoutes } from './modules/urgency/urgency.routes'
+import { agendaRoutes } from './modules/calendar/agenda.routes'
 import { agentRoutes } from './modules/agents/agents.routes'
 import { trainingRoutes } from './modules/training/training.routes'
 import { intentionRoutes } from './modules/intentions/intentions.routes'
@@ -151,6 +152,7 @@ async function bootstrap() {
   await app.register(googleRoutes)
   await app.register(workspaceRoutes)
   await app.register(urgencyRoutes)
+  await app.register(agendaRoutes)
   await app.register(agentRoutes)
   await app.register(trainingRoutes)
   await app.register(intentionRoutes)

@@ -212,3 +212,21 @@ export async function deleteCalendarEvent(
     { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } }
   )
 }
+
+export async function updateCalendarEvent(
+  accessToken: string,
+  calendarId: string,
+  eventId: string,
+  event: Record<string, any>
+): Promise<boolean> {
+  const res = await fetch(
+    `${CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+    {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(event),
+    }
+  )
+  if (!res.ok) console.error('[Google Calendar] Erro ao atualizar evento:', res.status, await res.text())
+  return res.ok
+}

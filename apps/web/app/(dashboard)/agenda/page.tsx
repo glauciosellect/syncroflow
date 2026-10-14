@@ -1,38 +1,28 @@
 'use client'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import api from '@/lib/api'
-import { CalendarDays, ExternalLink, AlertTriangle, Grid3X3, List, CalendarRange, LayoutList } from 'lucide-react'
+import { CalendarDays, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
-import { cn } from '@/lib/utils'
-
-type ViewMode = 'week' | 'month' | 'day' | 'agenda'
-
-const views: { value: ViewMode; label: string; icon: any; gcMode: string }[] = [
-  { value: 'week',   label: 'Semana',  icon: CalendarRange, gcMode: 'WEEK' },
-  { value: 'month',  label: 'Mês',     icon: Grid3X3,       gcMode: 'MONTH' },
-  { value: 'day',    label: 'Dia',     icon: CalendarDays,  gcMode: 'DAY' },
-  { value: 'agenda', label: 'Lista',   icon: LayoutList,    gcMode: 'AGENDA' },
-]
+import { GCalAgenda, type CalEvent } from '@/components/agenda/GCalAgenda'
+import { EventModal } from '@/components/agenda/EventModal'
 
 export default function AgendaPage() {
-  const [view, setView] = useState<ViewMode>('week')
+  const router = useRouter()
+  const [modalOpen, setModalOpen] = useState(false)
+  const [defaultDate, setDefaultDate] = useState<Date | undefined>()
+  const [editing, setEditing] = useState<CalEvent | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   const { data: googleStatus, isLoading } = useQuery({
     queryKey: ['google-integration'],
     queryFn: () => api.get('/integrations/google').then(r => r.data),
-    staleTime: 10 * 60 * 1000,
+    staleTime: 60 * 1000,
   })
 
   const connected = googleStatus?.connected && !googleStatus?.tokenExpired
   const tokenExpired = googleStatus?.tokenExpired
-  const email = googleStatus?.email
-
-  const currentView = views.find(v => v.value === view)!
-
-  const calendarSrc = email
-    ? `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(email)}&ctz=America%2FSao_Paulo&showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=0&showCalendars=0&showTz=0&mode=${currentView.gcMode}&hl=pt_BR&wkst=1`
-    : null
 
   if (isLoading) {
     return (
@@ -77,64 +67,23 @@ export default function AgendaPage() {
   }
 
   return (
-    <div className="h-full flex flex-col gap-3" style={{ minHeight: 'calc(100vh - 120px)' }}>
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          <CalendarDays className="w-5 h-5 text-[#1565C0]" />
-          <h1 className="text-lg font-semibold text-gray-900">Agenda</h1>
-          {email && (
-            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full hidden sm:inline">
-              {email}
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Seletor de visualização */}
-          <div className="flex items-center bg-gray-100 rounded-lg p-0.5 gap-0.5">
-            {views.map(v => (
-              <button
-                key={v.value}
-                onClick={() => setView(v.value)}
-                className={cn(
-                  'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all',
-                  view === v.value
-                    ? 'bg-white text-[#1565C0] shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                )}
-              >
-                <v.icon className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{v.label}</span>
-              </button>
-            ))}
-          </div>
-
-          <a
-            href="https://calendar.google.com/calendar/r"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-xs text-[#1565C0] hover:underline font-medium px-2 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Abrir no Google</span>
-          </a>
-        </div>
-      </div>
-
-      {/* Iframe do Google Calendar */}
-      {calendarSrc && (
-        <div className="flex-1 rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-white">
-          <iframe
-            key={view}
-            src={calendarSrc}
-            className="w-full h-full"
-            style={{ minHeight: 'calc(100vh - 180px)', border: 0 }}
-            title="Google Calendar"
-            loading="lazy"
-          />
-        </div>
-      )}
+    <div className="rounded-xl overflow-hidden border border-gray-200 bg-background" style={{ height: 'calc(100vh - 120px)' }}>
+      <GCalAgenda
+        agendamentos={[]}
+        googleConnected
+        refreshKey={refreshKey}
+        onRefresh={() => setRefreshKey(k => k + 1)}
+        onOpenSettings={() => router.push('/integrations')}
+        onAgendamentoCreate={(d) => { setEditing(null); setDefaultDate(d); setModalOpen(true) }}
+        onGoogleEventEdit={(ev) => { setEditing(ev); setModalOpen(true) }}
+      />
+      <EventModal
+        open={modalOpen}
+        defaultDate={defaultDate}
+        event={editing}
+        onClose={() => { setModalOpen(false); setEditing(null) }}
+        onSaved={() => setRefreshKey(k => k + 1)}
+      />
     </div>
   )
 }
