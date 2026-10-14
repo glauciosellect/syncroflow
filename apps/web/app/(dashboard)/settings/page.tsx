@@ -1499,12 +1499,91 @@ function IntegrationsTab() {
   )
 }
 
+// ─── ABA: URGÊNCIA ───────────────────────────────────────────────────────────
+function UrgencyTab() {
+  const { toast } = useToast()
+  const qc = useQueryClient()
+  const { data, isLoading } = useQuery({
+    queryKey: ['urgency-config'],
+    queryFn: () => api.get('/urgency').then(r => r.data),
+  })
+  const [enabled, setEnabled] = useState(true)
+  const [contacts, setContacts] = useState<{ name: string; phone: string }[]>([])
+  const [email, setEmail] = useState('')
+  const [templateName, setTemplateName] = useState('')
+
+  useEffect(() => {
+    if (!data) return
+    setEnabled(data.enabled !== false)
+    setContacts(data.contacts?.length ? data.contacts : [{ name: '', phone: '' }])
+    setEmail((data.emails || []).join(', '))
+    setTemplateName(data.templateName || '')
+  }, [data])
+
+  const save = useMutation({
+    mutationFn: () => api.put('/urgency', {
+      enabled,
+      contacts: contacts.filter(c => c.name.trim() && c.phone.trim()),
+      emails: email.split(',').map(e => e.trim()).filter(Boolean),
+      templateName: templateName.trim() || null,
+    }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['urgency-config'] }); toast({ title: 'Contatos de urgência salvos' }) },
+    onError: () => toast({ title: 'Não foi possível salvar', description: 'Confira os telefones e e-mails.', variant: 'destructive' }),
+  })
+
+  if (isLoading) return <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+
+  return (
+    <Card>
+      <CardHeader><CardTitle className="flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-red-500" /> Chamado de urgência</CardTitle></CardHeader>
+      <CardContent className="space-y-5">
+        <p className="text-sm text-gray-600">
+          Quando o agente detecta risco de vida, violência, prisão, saúde grave ou outra emergência, ele pausa a IA e
+          avisa estas pessoas na hora, no WhatsApp pessoal. Quem receber abre o chat, clica em <strong>Assumir</strong> e atende o cliente.
+        </p>
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} /> Alertas de urgência ativos
+        </label>
+        <div className="space-y-2">
+          <Label>Quem deve ser avisado (até 5, em ordem)</Label>
+          {contacts.map((c, i) => (
+            <div key={i} className="flex gap-2">
+              <Input placeholder="Nome" value={c.name} onChange={e => setContacts(cs => cs.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />
+              <Input placeholder="WhatsApp com DDD (ex: 32999998888)" value={c.phone} onChange={e => setContacts(cs => cs.map((x, j) => j === i ? { ...x, phone: e.target.value } : x))} />
+              <Button type="button" variant="outline" onClick={() => setContacts(cs => cs.filter((_, j) => j !== i))}><Trash2 className="w-4 h-4" /></Button>
+            </div>
+          ))}
+          {contacts.length < 5 && (
+            <Button type="button" variant="outline" size="sm" onClick={() => setContacts(cs => [...cs, { name: '', phone: '' }])}><Plus className="w-4 h-4 mr-1" /> Adicionar pessoa</Button>
+          )}
+        </div>
+        <div className="space-y-1">
+          <Label>E-mail de reserva (opcional, separe por vírgula)</Label>
+          <Input placeholder="voce@empresa.com" value={email} onChange={e => setEmail(e.target.value)} />
+        </div>
+        <div className="space-y-1">
+          <Label>Nome do template de alerta aprovado na Meta (opcional)</Label>
+          <Input placeholder="alerta_urgencia" value={templateName} onChange={e => setTemplateName(e.target.value)} />
+          <p className="text-xs text-gray-500">
+            A Meta só entrega mensagem livre se a pessoa falou com este número nas últimas 24h. Um template aprovado
+            (categoria utilidade, 3 variáveis: nome do cliente, telefone, resumo) garante a entrega a qualquer hora.
+          </p>
+        </div>
+        <Button onClick={() => save.mutate()} disabled={save.isPending} className="bg-[#1565C0] hover:bg-[#0D47A1]">
+          {save.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />} Salvar
+        </Button>
+      </CardContent>
+    </Card>
+  )
+}
+
 // ─── PÁGINA PRINCIPAL ─────────────────────────────────────────────────────────
 const tabs = [
   { key: 'profile',      label: 'Perfil',            icon: User      },
   { key: 'billing',      label: 'Planos e Pagamento', icon: CreditCard },
   { key: 'channels',     label: 'Canais',             icon: Radio     },
   { key: 'apikeys',      label: 'Chaves de API',      icon: KeyRound  },
+  { key: 'urgency',      label: 'Urgência',           icon: AlertTriangle },
 ]
 
 function SettingsContent() {
@@ -1541,6 +1620,7 @@ function SettingsContent() {
         {active === 'billing'      && <BillingTab />}
         {active === 'channels'     && <ChannelsTab />}
         {active === 'apikeys'      && <ApiKeysTab />}
+        {active === 'urgency'      && <UrgencyTab />}
       </div>
     </div>
   )

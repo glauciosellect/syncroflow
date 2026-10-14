@@ -9,9 +9,10 @@ import { generateSpeech } from '../tts/tts.service'
 import { getValidGmailToken, sendReply } from '../../lib/gmail'
 import { uploadAttachment } from '../../lib/storage'
 import { normalizeBrazilianNumber } from '../channels/whatsapp/providers/meta-cloud.provider'
+import { detectUrgency, sendUrgencyAlert, shouldSendUrgencyAlert, buildUrgencyReply } from '../urgency/urgency.service'
 import axios from 'axios'
 
-const AUDIO_PREFERENCE_KEY = 'audioPreference' // chave dentro de contact.variables
+const AUDIO_FORCED_KEY = 'audioForced' // modo forçado por #audio/#texto, dentro de contact.variables
 
 // Baixa a mídia recebida (URL temporária/autenticada da Meta) e re-hospeda no
 // Supabase Storage, para que o link salvo em Message.mediaUrl não expire nem
@@ -457,33 +458,62 @@ export function startMessageWorker() {
         return
       }
 
-      // ── Preferência de resposta em áudio ────────────────────────────────────
-      // Regra: espelha o formato do cliente. Texto → texto. Áudio → áudio.
-      // Cliente pode forçar com #audio ou #texto a qualquer momento.
-      const contactVars = (contact.variables as Record<string, any>) || {}
-      let audioPreference: 'audio' | 'text' | undefined = contactVars[AUDIO_PREFERENCE_KEY]
-
-      // Se recebeu áudio → responde em áudio e salva preferência
-      const isAudioMessage = channelType === 'WHATSAPP' && incomingMediaType === 'audio'
-      if (isAudioMessage) {
-        if (audioPreference !== 'audio') {
-          audioPreference = 'audio'
-          await prisma.contact.update({
-            where: { id: contact.id },
-            data: { variables: { ...contactVars, [AUDIO_PREFERENCE_KEY]: 'audio' } },
-          })
+      // ── Urgência (risco de vida, violência, prisão, saúde grave...) ─────────
+      // Vale para qualquer agente, mesmo fora da área de atuação. Avisa um humano de verdade,
+      // pausa a IA e só afirma ao cliente que avisou se o alerta realmente saiu.
+      if (detectUrgency(text)) {
+        const alertResult = (await shouldSendUrgencyAlert(conversation.id))
+          ? await sendUrgencyAlert({
+              workspaceId: channel.workspaceId,
+              conversationId: conversation.id,
+              whatsappChannelId: channelType === 'WHATSAPP' ? channelId : undefined,
+              clientName: contact.name || from,
+              clientPhone: contact.phone || (channelType === 'WHATSAPP' ? from : undefined),
+              lastMessage: text,
+            })
+          : { alerted: true, channelsOk: [] as string[] }
+        const urgentReply = buildUrgencyReply(alertResult.alerted)
+        const urgentConv = await prisma.conversation.update({
+          where: { id: conversation.id },
+          data: { status: 'WAITING_HUMAN', transferSummary: `🚨 URGENTE: ${text.slice(0, 300)}` },
+        })
+        try { emitConversationUpdated(channel.workspaceId, urgentConv) } catch {}
+        try {
+          if (channelType === 'WHATSAPP') {
+            await getWhatsAppProvider().sendText(channelId, from, urgentReply)
+          } else if (channelType === 'TELEGRAM') {
+            await axios.post(`https://api.telegram.org/bot${(channel.config as any).botToken}/sendMessage`, { chat_id: from, text: urgentReply })
+          }
+        } catch (err: any) {
+          console.error('[WORKER] Falha ao enviar resposta de urgência ao cliente:', err?.message)
         }
-      } else if (!audioPreference) {
-        // Recebeu texto e não tem preferência salva → responde em texto
-        audioPreference = 'text'
+        const urgentMsg = await prisma.message.create({
+          data: { conversationId: conversation.id, role: 'ASSISTANT', content: urgentReply, creditsUsed: 0 },
+        })
+        try { emitNewMessage(channel.workspaceId, conversation.id, urgentMsg) } catch {}
+        console.log(`[WORKER] URGÊNCIA detectada na conversa ${conversation.id} — alerta enviado: ${alertResult.alerted}`)
+        return
       }
+
+      // ── Formato da resposta (áudio x texto) ─────────────────────────────────
+      // Regra: espelha a ÚLTIMA mensagem do cliente. Áudio → áudio. Texto → texto.
+      // Exceções, nesta ordem: pedido explícito de "por escrito" na própria mensagem,
+      // e o modo forçado pelos comandos #audio / #texto (guardado em chave própria,
+      // para o formato de uma conversa anterior nunca "grudar" no cliente).
+      const contactVars = (contact.variables as Record<string, any>) || {}
+      const forcedMode: 'audio' | 'text' | undefined = contactVars[AUDIO_FORCED_KEY]
+      const isAudioMessage = channelType === 'WHATSAPP' && incomingMediaType === 'audio'
+      const wantsWritten = /(pors+escrito|escrev[ae]|escrit[oa]|ems+texto|mandas+(ems+)?texto|sems+(os+)?[áa]udio|n[ãa]os+(consigo|posso)s+ouvir)/i.test(text)
+      let audioPreference: 'audio' | 'text' = isAudioMessage ? 'audio' : 'text'
+      if (forcedMode) audioPreference = forcedMode
+      if (wantsWritten) audioPreference = 'text'
 
       // Comando #texto: usuário pode mudar para respostas em texto
       const lowerText = text.trim().toLowerCase()
       if (lowerText === '#texto') {
         await prisma.contact.update({
           where: { id: contact.id },
-          data: { variables: { ...contactVars, [AUDIO_PREFERENCE_KEY]: 'text' } },
+          data: { variables: { ...contactVars, [AUDIO_FORCED_KEY]: 'text' } },
         })
         const confirmMsg = 'Perfeito! Responderei sempre em texto. ✍️'
         if (channelType === 'WHATSAPP') {
@@ -501,7 +531,7 @@ export function startMessageWorker() {
       if (lowerText === '#audio' || lowerText === '#áudio') {
         await prisma.contact.update({
           where: { id: contact.id },
-          data: { variables: { ...contactVars, [AUDIO_PREFERENCE_KEY]: 'audio' } },
+          data: { variables: { ...contactVars, [AUDIO_FORCED_KEY]: 'audio' } },
         })
         const confirmMsg = 'Ótimo! Vou responder em áudio. 🎧'
         if (channelType === 'WHATSAPP') {
