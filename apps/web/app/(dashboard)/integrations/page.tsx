@@ -214,7 +214,15 @@ export default function IntegrationsPage() {
       queryClient.invalidateQueries({ queryKey: ['crm-connections'] })
       toast({ title: r.ok ? 'Conexão funcionando' : 'Conexão com problema', description: r.message, variant: r.ok ? 'default' : 'destructive' })
     },
-    onError: () => toast({ title: 'Não foi possível testar', description: 'Tente novamente.', variant: 'destructive' }),
+    onError: (err: any) => {
+      const status = err?.response?.status
+      const msg = err?.response?.data?.error || err?.response?.data?.message
+      toast({
+        title: 'Não foi possível testar',
+        description: status === 401 ? 'Sua sessão expirou. Saia e entre de novo no SyncroFlow.' : (msg ? `${msg}${status ? ` (erro ${status})` : ''}` : (status ? `Erro ${status} no servidor.` : 'Sem resposta do servidor. Confira sua internet e tente de novo.')),
+        variant: 'destructive',
+      })
+    },
   })
   const disconnectCrmMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/crm/connections/${id}`),
