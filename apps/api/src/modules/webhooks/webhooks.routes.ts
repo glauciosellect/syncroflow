@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import { prisma } from '../../lib/prisma'
 import { messageQueue } from '../../lib/queue'
 import { emitNewMessage } from '../../lib/socket'
+import { handleCallsWebhook } from '../calls/calls.service'
 
 function safeEqual(a: string, b: string): boolean {
   try {
@@ -71,6 +72,14 @@ export async function webhookRoutes(app: FastifyInstance) {
 
     if (!channel) channel = await prisma.channel.findUnique({ where: { id: urlChannelId } })
     if (!channel) return reply.status(404).send()
+
+    // Ligações de voz (campo "calls"): tratadas na hora, pois a Meta dá só ~30–60s para atender
+    const changes: any[] = body?.entry?.flatMap((e: any) => e?.changes ?? []) ?? []
+    const callChanges = changes.filter((c) => c?.field === 'calls')
+    if (callChanges.length > 0) {
+      for (const c of callChanges) await handleCallsWebhook(channel, c.value)
+      return reply.send({ ok: true })
+    }
 
     await messageQueue.add('process', { channelId: channel.id, channelType: 'WHATSAPP', payload: body }, {
       attempts: 3,

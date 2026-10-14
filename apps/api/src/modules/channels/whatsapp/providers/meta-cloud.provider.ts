@@ -259,6 +259,62 @@ export class MetaCloudApiProvider implements WhatsAppProvider {
     }, { headers: { Authorization: `Bearer ${accessToken}` } })
   }
 
+  // ── Calling API (ligações de voz RECEBIDAS) ────────────────────────────────
+  // Todas as ações usam POST /{phone-number-id}/calls. O SDP de resposta (answer)
+  // precisa ser o MESMO no pre_accept e no accept da mesma ligação.
+  private async callAction(channelId: string, callId: string, action: string, sdp?: string) {
+    const { phoneNumberId, accessToken } = await this.getConfig(channelId)
+    const body: Record<string, any> = { messaging_product: 'whatsapp', call_id: callId, action }
+    if (sdp) body.session = { sdp_type: 'answer', sdp }
+    const res = await axios.post(`${GRAPH_URL}/${phoneNumberId}/calls`, body, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    return res.data
+  }
+
+  preAcceptCall(channelId: string, callId: string, sdpAnswer: string) { return this.callAction(channelId, callId, 'pre_accept', sdpAnswer) }
+  acceptCall(channelId: string, callId: string, sdpAnswer: string) { return this.callAction(channelId, callId, 'accept', sdpAnswer) }
+  rejectCall(channelId: string, callId: string) { return this.callAction(channelId, callId, 'reject') }
+  // Obrigatório mesmo se o RTCP BYE foi enviado — a Meta usa para tarifar corretamente.
+  terminateCall(channelId: string, callId: string) { return this.callAction(channelId, callId, 'terminate') }
+
+  async getCallingSettings(channelId: string): Promise<{ status: string | null; restrictions: any[] }> {
+    const { phoneNumberId, accessToken } = await this.getConfig(channelId)
+    const res = await axios.get(`${GRAPH_URL}/${phoneNumberId}/settings`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    const calling = res.data?.calling
+    return { status: calling?.status ?? null, restrictions: calling?.restrictions?.restrictions_list ?? [] }
+  }
+
+  async setCallingEnabled(channelId: string, enabled: boolean) {
+    const { phoneNumberId, accessToken } = await this.getConfig(channelId)
+    await axios.post(`${GRAPH_URL}/${phoneNumberId}/settings`, {
+      calling: { status: enabled ? 'ENABLED' : 'DISABLED' },
+    }, { headers: { Authorization: `Bearer ${accessToken}` } })
+  }
+
+  // Limite diário de conversas iniciadas (messaging_limit_tier), ex: TIER_250, TIER_1K, TIER_10K...
+  async getMessagingLimitTier(channelId: string): Promise<string | null> {
+    const { phoneNumberId, accessToken } = await this.getConfig(channelId)
+    const res = await axios.get(`${GRAPH_URL}/${phoneNumberId}`, {
+      params: { fields: 'messaging_limit_tier' },
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    return res.data?.messaging_limit_tier ?? null
+  }
+
+  // Campos assinados no app para a WABA. Retorna null se a Meta não informar (não dá para afirmar nada).
+  async getSubscribedFields(channelId: string): Promise<string[] | null> {
+    const { wabaId, accessToken } = await this.getConfig(channelId)
+    if (!wabaId) return null
+    const res = await axios.get(`${GRAPH_URL}/${wabaId}/subscribed_apps`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    const fields = res.data?.data?.flatMap((a: any) => a?.subscribed_fields ?? a?.whatsapp_business_api_data?.subscribed_fields ?? [])
+    return Array.isArray(fields) && fields.length > 0 ? fields : null
+  }
+
   parseWebhook(payload: any): WhatsAppMessage | null {
     const value = payload?.entry?.[0]?.changes?.[0]?.value
     const msg = value?.messages?.[0]

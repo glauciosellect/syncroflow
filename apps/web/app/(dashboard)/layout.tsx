@@ -7,6 +7,7 @@ import { Topbar } from '@/components/shared/topbar'
 import { MascoteHelper } from '@/components/shared/mascote-helper'
 import { TutorialProvider } from '@/components/shared/tutorial-context'
 import { useSocketConnect } from '@/hooks/use-socket'
+import { Softphone } from '@/components/shared/softphone'
 import { AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 
@@ -38,6 +39,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <TutorialProvider>
+      <Softphone />
       <div className="flex h-screen h-dvh bg-[hsl(var(--background))]">
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">

@@ -15,7 +15,7 @@ import { formatDate } from '@/lib/utils'
 import {
   Plus, Trash2, Loader2, Eye, EyeOff, KeyRound,
   User, CreditCard, Check, Coins, Zap, AlertTriangle, Plug, ExternalLink,
-  Radio, Save, Copy, ShieldAlert,
+  Radio, Save, Copy, ShieldAlert, Phone,
 } from 'lucide-react'
 import { channelLabel, cn } from '@/lib/utils'
 import { ChannelIcon } from '@/components/channel-icon'
@@ -1677,6 +1677,107 @@ function DocumentsTab() {
   )
 }
 
+// ─── ABA: LIGAÇÕES ───────────────────────────────────────────────────────────
+function CheckRow({ ok, label, hint }: { ok: boolean | null; label: string; hint?: string }) {
+  return (
+    <li className="flex items-start gap-2 text-sm">
+      <span className={cn('mt-0.5 font-bold', ok === true ? 'text-green-600' : ok === false ? 'text-red-500' : 'text-gray-400')}>
+        {ok === true ? '✓' : ok === false ? '✗' : '?'}
+      </span>
+      <span>
+        <span className="text-gray-800">{label}</span>
+        {hint && <span className="block text-xs text-gray-500">{hint}</span>}
+      </span>
+    </li>
+  )
+}
+
+function CallsTab() {
+  const { toast } = useToast()
+  const qc = useQueryClient()
+  const { data, isLoading, refetch, isFetching } = useQuery({
+    queryKey: ['calls-eligibility'],
+    queryFn: () => api.get('/calls/eligibility').then(r => r.data as any[]),
+  })
+
+  const toggle = useMutation({
+    mutationFn: (v: { channelId: string; enabled: boolean }) => api.put('/calls/settings', v),
+    onSuccess: (_r, v) => {
+      qc.invalidateQueries({ queryKey: ['calls-eligibility'] })
+      toast({ title: v.enabled ? 'Ligações habilitadas no número' : 'Ligações desabilitadas no número' })
+    },
+    onError: (e: any) => toast({ title: 'A Meta não aceitou a alteração', description: e?.response?.data?.error, variant: 'destructive' }),
+  })
+
+  if (isLoading) return <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Phone className="w-5 h-5 text-green-600" /> Ligações de voz (WhatsApp)</CardTitle></CardHeader>
+        <CardContent className="space-y-2 text-sm text-gray-600">
+          <p>
+            O cliente toca em ligar no WhatsApp e a chamada toca aqui no painel, em qualquer tela. O atendente atende pelo
+            navegador (microfone e fone) e a ligação fica registrada na conversa. O SyncroFlow <strong>só recebe</strong> ligações — não liga para clientes.
+          </p>
+          <p>Mantenha o painel aberto para ouvir o toque. Ligações recebidas não têm cobrança da Meta para a empresa.</p>
+        </CardContent>
+      </Card>
+
+      {(data ?? []).length === 0 && <p className="text-sm text-gray-500">Nenhum número de WhatsApp Cloud API conectado.</p>}
+
+      {(data ?? []).map((n: any) => (
+        <Card key={n.channelId}>
+          <CardContent className="pt-6 space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="font-semibold">{n.name}</p>
+                <p className="text-sm text-gray-500">{n.displayPhoneNumber || 'WhatsApp Business'}</p>
+              </div>
+              <Badge variant={n.eligible ? 'default' : 'secondary'}>{n.eligible ? 'Elegível' : 'Não elegível'}</Badge>
+            </div>
+
+            <ul className="space-y-2">
+              <CheckRow
+                ok={n.limitOk}
+                label={`Limite diário de mensagens de pelo menos ${n.minLimit.toLocaleString('pt-BR')} destinatários únicos`}
+                hint={n.tier ? `Nível atual do número: ${n.tier}` : 'A Meta não informou o nível atual deste número.'}
+              />
+              <CheckRow
+                ok={n.callsFieldSubscribed}
+                label='Campo "calls" assinado no webhook do app'
+                hint={n.callsFieldSubscribed === false
+                  ? 'No painel Meta for Developers: WhatsApp > Configuração > Webhooks > campo "calls" > Assinar.'
+                  : n.callsFieldSubscribed === null ? 'Não foi possível confirmar pela API — confira no painel Meta for Developers.' : undefined}
+              />
+              <CheckRow ok={n.callingEnabled} label="Chamada habilitada no número" hint={n.callingEnabled ? undefined : 'Use o interruptor abaixo (exige o limite acima).'} />
+            </ul>
+
+            {n.restrictions?.length > 0 && (
+              <p className="text-xs text-red-600">Restrições da Meta: {n.restrictions.map((r: any) => r.reason || r.type).join('; ')}</p>
+            )}
+            {n.errors?.length > 0 && <p className="text-xs text-amber-600">{n.errors.join(' · ')}</p>}
+
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input
+                type="checkbox"
+                checked={n.callingEnabled === true}
+                disabled={toggle.isPending || (n.callingEnabled !== true && n.limitOk === false)}
+                onChange={e => toggle.mutate({ channelId: n.channelId, enabled: e.target.checked })}
+              />
+              Receber ligações neste número
+            </label>
+          </CardContent>
+        </Card>
+      ))}
+
+      <Button type="button" variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+        {isFetching ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null} Verificar novamente
+      </Button>
+    </div>
+  )
+}
+
 // ─── PÁGINA PRINCIPAL ─────────────────────────────────────────────────────────
 const tabs = [
   { key: 'profile',      label: 'Perfil',            icon: User      },
@@ -1684,6 +1785,7 @@ const tabs = [
   { key: 'channels',     label: 'Canais',             icon: Radio     },
   { key: 'apikeys',      label: 'Chaves de API',      icon: KeyRound  },
   { key: 'urgency',      label: 'Urgência',           icon: AlertTriangle },
+  { key: 'calls',        label: 'Ligações',           icon: Phone },
   { key: 'documents',    label: 'Documentos',         icon: Plug },
 ]
 
@@ -1722,6 +1824,7 @@ function SettingsContent() {
         {active === 'channels'     && <ChannelsTab />}
         {active === 'apikeys'      && <ApiKeysTab />}
         {active === 'urgency'      && <UrgencyTab />}
+        {active === 'calls'        && <CallsTab />}
         {active === 'documents'    && <DocumentsTab />}
       </div>
     </div>
