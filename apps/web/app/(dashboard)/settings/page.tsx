@@ -1600,7 +1600,16 @@ function DocumentsTab() {
   const save = useMutation({
     mutationFn: () => api.put('/documents/config', { enabled, folder: folder || undefined, verifyUrl: verifyUrl || '', verifyToken: verifyToken || undefined }),
     onSuccess: () => { setFolder(''); setVerifyToken(''); qc.invalidateQueries({ queryKey: ['documents-config'] }); toast({ title: 'Configuração de documentos salva' }) },
-    onError: (err: any) => toast({ title: 'Não foi possível salvar', description: err?.response?.data?.error || 'Confira os dados.', variant: 'destructive' }),
+    onError: (err: any) => {
+      const d = err?.response?.data
+      const issue = Array.isArray(d?.details) ? d.details[0] : null
+      const campo = issue?.path?.[0] === 'verifyUrl' ? 'URL de verificação' : issue?.path?.[0] === 'folder' ? 'link da pasta' : issue?.path?.[0]
+      toast({
+        title: 'Não foi possível salvar',
+        description: issue ? `Campo "${campo}": ${issue.message}` : (d?.error || 'Confira os dados.'),
+        variant: 'destructive',
+      })
+    },
   })
   const test = useMutation({
     mutationFn: () => api.get('/documents/test').then(r => r.data),
@@ -1647,8 +1656,8 @@ function DocumentsTab() {
 
         <div className="space-y-1">
           <Label>Sistema que confirma o contrato (opcional)</Label>
-          <Input placeholder="URL de verificação do SyncroLex / GestorBIM / GestorAMA" value={verifyUrl} onChange={e => setVerifyUrl(e.target.value)} />
-          <Input type="password" placeholder={data?.hasVerifyToken ? 'Token salvo — deixe vazio para manter' : 'Token de acesso'} value={verifyToken} onChange={e => setVerifyToken(e.target.value)} />
+          <Input type="url" name="sf-verify-url" autoComplete="off" placeholder="https://… (URL de verificação do SyncroLex / GestorBIM / GestorAMA)" value={verifyUrl} onChange={e => setVerifyUrl(e.target.value)} />
+          <Input type="password" name="sf-verify-token" autoComplete="new-password" placeholder={data?.hasVerifyToken ? 'Token salvo — deixe vazio para manter' : 'Token de acesso'} value={verifyToken} onChange={e => setVerifyToken(e.target.value)} />
           <p className="text-xs text-gray-500">
             Sem isso, o contrato só é aceito se estiver cadastrado no contato (campo <em>contrato</em> nas variáveis). Com o sistema ligado,
             ele responde se o contrato pertence àquele telefone.
