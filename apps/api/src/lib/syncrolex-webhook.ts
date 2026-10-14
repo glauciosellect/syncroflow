@@ -5,6 +5,10 @@ import { createWorker, syncrolexQueue } from './queue'
 
 export type SyncrolexEvent = 'lead.created' | 'appointment.created'
 
+// Sistemas que recebem avisos por webhook (URL + token). Cada um é uma CrmConnection própria.
+export type WebhookPlatform = 'syncrolex' | 'gestorama'
+export const WEBHOOK_PLATFORMS: WebhookPlatform[] = ['syncrolex', 'gestorama']
+
 export interface SyncrolexConnection { id: string; url: string; token: string; metadata: Record<string, any> }
 
 /**
@@ -12,9 +16,9 @@ export interface SyncrolexConnection { id: string; url: string; token: string; m
  * Usada tanto para avisar eventos (lead/agendamento) quanto para perguntar ao SyncroLex
  * (ex.: verificação de CPF antes de enviar documentos).
  */
-export async function getSyncrolexConnection(workspaceId: string): Promise<SyncrolexConnection | null> {
+export async function getSyncrolexConnection(workspaceId: string, platform: WebhookPlatform = 'syncrolex'): Promise<SyncrolexConnection | null> {
   const conn = await prisma.crmConnection.findUnique({
-    where: { workspaceId_platform: { workspaceId, platform: 'syncrolex' } },
+    where: { workspaceId_platform: { workspaceId, platform } },
   })
   if (!conn || conn.status !== 'active' || !conn.accessToken) return null
   const url = (conn.metadata as { webhookUrl?: string } | null)?.webhookUrl
@@ -80,23 +84,24 @@ async function recordDispatch(conn: SyncrolexConnection, ok: boolean, error?: st
  * Testa a conexão sem criar nada no SyncroLex: manda uma verificação de CPF fictícia.
  * 200 = URL e token corretos. Devolve o motivo em português quando falha.
  */
-export async function testSyncrolexConnection(workspaceId: string): Promise<{ ok: boolean; message: string }> {
-  const conn = await getSyncrolexConnection(workspaceId)
-  if (!conn) return { ok: false, message: 'Conexão com o SyncroLex não encontrada. Conecte novamente.' }
+export async function testSyncrolexConnection(workspaceId: string, platform: WebhookPlatform = 'syncrolex'): Promise<{ ok: boolean; message: string }> {
+  const nome = platform === 'gestorama' ? 'GestorAMA' : 'SyncroLex'
+  const conn = await getSyncrolexConnection(workspaceId, platform)
+  if (!conn) return { ok: false, message: `Conexão com o ${nome} não encontrada. Conecte novamente.` }
   try {
-    const { res, finalUrl, redirected } = await postFollowingRedirects(conn.url, conn.token, JSON.stringify({ event: 'contract.verify', phone: '0000000000', contract: '00000000000' }))
+    const { res, finalUrl, redirected } = await postFollowingRedirects(conn.url, conn.token, JSON.stringify(platform === 'gestorama' ? { event: 'ping' } : { event: 'contract.verify', phone: '0000000000', contract: '00000000000' }))
     let result: { ok: boolean; message: string }
     if (res.status >= 300 && res.status < 400) result = { ok: false, message: 'O endereço está redirecionando. Cole a URL exatamente como aparece no SyncroLex (com www).' }
-    else if (res.status === 401) result = { ok: false, message: 'Token inválido ou integração inativa no SyncroLex. Copie o token de novo e reconecte.' }
-    else if (res.status === 404) result = { ok: false, message: 'Endereço não encontrado. Confira a URL copiada do SyncroLex.' }
-    else if (res.status === 400) result = { ok: true, message: 'Conectado. (O SyncroLex ainda não tem a verificação por CPF; leads e agendamentos funcionam.)' }
-    else if (res.ok) result = { ok: true, message: redirected ? 'Conectado! O endereço foi ajustado automaticamente.' : 'Conectado! O SyncroLex aceitou a conexão.' }
-    else result = { ok: false, message: `O SyncroLex respondeu com erro ${res.status}. Tente de novo em instantes.` }
+    else if (res.status === 401) result = { ok: false, message: 'Token inválido ou integração inativa no ' + nome + '. Copie o token de novo e reconecte.' }
+    else if (res.status === 404) result = { ok: false, message: 'Endereço não encontrado. Confira a URL copiada do ' + nome + '.' }
+    else if (res.status === 400) result = { ok: true, message: 'Conectado. (O ' + nome + ' ainda não responde a esta verificação, mas os avisos funcionam.)' }
+    else if (res.ok) result = { ok: true, message: redirected ? 'Conectado! O endereço foi ajustado automaticamente.' : 'Conectado! O ' + nome + ' aceitou a conexão.' }
+    else result = { ok: false, message: `O ${nome} respondeu com erro ${res.status}. Tente de novo em instantes.` }
     if (result.ok) await healUrl(conn, finalUrl, redirected)
     await recordDispatch(conn, result.ok, result.ok ? undefined : result.message)
     return result
   } catch {
-    const result = { ok: false, message: 'Não consegui alcançar o SyncroLex. Confira o endereço da URL.' }
+    const result = { ok: false, message: 'Não consegui alcançar o ' + nome + '. Confira o endereço da URL.' }
     await recordDispatch(conn, false, result.message)
     return result
   }
@@ -115,9 +120,10 @@ export async function testSyncrolexConnection(workspaceId: string): Promise<{ ok
 export async function dispatchSyncrolexWebhook(
   workspaceId: string,
   event: SyncrolexEvent,
-  payload: Record<string, any>
+  payload: Record<string, any>,
+  platform: WebhookPlatform = 'syncrolex'
 ): Promise<{ ok: boolean; error?: string; retryable?: boolean }> {
-  const conn = await getSyncrolexConnection(workspaceId)
+  const conn = await getSyncrolexConnection(workspaceId, platform)
   if (!conn) return { ok: false, error: 'Conexão SyncroLex não encontrada ou inativa', retryable: false }
 
   try {
@@ -164,8 +170,9 @@ export async function verifySyncrolexCpf(
 }
 
 /**
- * Notifica com nova tentativa automática: o evento entra numa fila (BullMQ) e, se o SyncroLex
- * estiver fora do ar, é reenviado com espera crescente (até ~5 tentativas) em vez de se perder.
+ * Notifica os sistemas conectados (SyncroLex e/ou GestorAMA) com nova tentativa automática: cada
+ * envio entra numa fila (BullMQ) e, se o destino estiver fora do ar, é reenviado com espera crescente
+ * (até 5 tentativas) em vez de se perder. Quem não tem conexão ativa não gera nada.
  * Nunca lança — é efeito colateral que não pode atrapalhar a resposta ao cliente.
  */
 export async function notifySyncrolex(
@@ -174,23 +181,34 @@ export async function notifySyncrolex(
   payload: Record<string, any>
 ): Promise<void> {
   try {
-    await syncrolexQueue.add(
-      'send',
-      { workspaceId, event, payload },
-      { attempts: 5, backoff: { type: 'exponential', delay: 15_000 }, removeOnComplete: 500, removeOnFail: 500 }
-    )
+    const conns = await prisma.crmConnection.findMany({
+      where: { workspaceId, platform: { in: WEBHOOK_PLATFORMS }, status: 'active' },
+      select: { platform: true },
+    })
+    for (const c of conns) {
+      const platform = c.platform as WebhookPlatform
+      try {
+        await syncrolexQueue.add(
+          'send',
+          { workspaceId, event, payload, platform },
+          { attempts: 5, backoff: { type: 'exponential', delay: 15_000 }, removeOnComplete: 500, removeOnFail: 500 }
+        )
+      } catch (err: any) {
+        logger.error('Falha ao enfileirar evento; enviando direto', { platform, err: err?.message })
+        await dispatchSyncrolexWebhook(workspaceId, event, payload, platform)
+      }
+    }
   } catch (err: any) {
-    logger.error('Falha ao enfileirar evento SyncroLex; enviando direto', { err: err?.message })
-    await dispatchSyncrolexWebhook(workspaceId, event, payload)
+    logger.error('Falha ao notificar sistemas conectados', { err: err?.message })
   }
 }
 
 export function startSyncrolexWorker() {
-  return createWorker<{ workspaceId: string; event: SyncrolexEvent; payload: Record<string, any> }>(
+  return createWorker<{ workspaceId: string; event: SyncrolexEvent; payload: Record<string, any>; platform?: WebhookPlatform }>(
     'syncrolex-events',
     async (job) => {
-      const { workspaceId, event, payload } = job.data
-      const r = await dispatchSyncrolexWebhook(workspaceId, event, payload)
+      const { workspaceId, event, payload, platform } = job.data
+      const r = await dispatchSyncrolexWebhook(workspaceId, event, payload, platform ?? 'syncrolex')
       // Lançar faz o BullMQ tentar de novo; erro permanente (sem conexão / 4xx) é descartado sem repetir.
       if (!r.ok && r.retryable) throw new Error(r.error || 'Falha ao enviar para o SyncroLex')
     },

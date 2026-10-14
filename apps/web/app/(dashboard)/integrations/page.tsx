@@ -28,6 +28,9 @@ const CRM_PLATFORMS = [
   { id: 'syncrolex',name: 'SyncroLex',     description: 'CRM jurídico — leads e agendamentos automáticos', logo: '⚖️', color: '#1D4ED8', auth: 'webhook',
     urlLabel: 'URL do Webhook', urlPlaceholder: 'https://syncrolex.com.br/api/webhooks/syncroflow',
     keyLabel: 'Token', keyPlaceholder: 'whk_...' },
+  { id: 'gestorama', name: 'GestorAMA', description: 'Gestão de doações — contatos do WhatsApp viram apoiadores', logo: '🤝', color: '#F59E0B', auth: 'webhook',
+    urlLabel: 'URL do Webhook', urlPlaceholder: 'https://.../integracoes/syncroflow/webhook',
+    keyLabel: 'Token', keyPlaceholder: 'token do GestorAMA' },
 ]
 
 const FINANCE_PLATFORMS = [
@@ -195,18 +198,18 @@ export default function IntegrationsPage() {
   })
 
   const connectCrmWebhookMutation = useMutation({
-    mutationFn: ({ webhookUrl, webhookToken }: { webhookUrl: string; webhookToken: string }) =>
-      api.post('/crm/syncrolex/connect', { webhookUrl, webhookToken }),
-    onSuccess: () => {
+    mutationFn: ({ platform, webhookUrl, webhookToken }: { platform: string; webhookUrl: string; webhookToken: string }) =>
+      api.post(`/crm/webhook/${platform}/connect`, { webhookUrl, webhookToken }).then(() => platform),
+    onSuccess: (platform) => {
       queryClient.invalidateQueries({ queryKey: ['crm-connections'] })
-      setApiKeyForm(p => ({ ...p, syncrolex: { key: '', url: '' } }))
-      toast({ title: 'SyncroLex conectado!' })
+      setApiKeyForm(p => ({ ...p, [platform]: { key: '', url: '' } }))
+      toast({ title: `${platform === 'gestorama' ? 'GestorAMA' : 'SyncroLex'} conectado!` })
     },
     onError: (err: any) => toast({ title: err?.response?.data?.error ?? 'Erro ao conectar', variant: 'destructive' }),
   })
 
   const testSyncrolexMutation = useMutation({
-    mutationFn: () => api.post('/crm/syncrolex/test').then(r => r.data as { ok: boolean; message: string }),
+    mutationFn: (platform: string) => api.post(`/crm/webhook/${platform}/test`).then(r => r.data as { ok: boolean; message: string }),
     onSuccess: (r) => {
       queryClient.invalidateQueries({ queryKey: ['crm-connections'] })
       toast({ title: r.ok ? 'Conexão funcionando' : 'Conexão com problema', description: r.message, variant: r.ok ? 'default' : 'destructive' })
@@ -534,7 +537,7 @@ export default function IntegrationsPage() {
                               <CheckCircle className="w-3 h-3" /> Ativo
                             </span>
                           </div>
-                          {conn.platform === 'syncrolex' && (
+                          {(conn.platform === 'syncrolex' || conn.platform === 'gestorama') && (
                             <div className="space-y-2">
                               <p className={cn('text-xs', conn.lastDispatch ? (conn.lastDispatch.ok ? 'text-green-700' : 'text-red-600') : 'text-muted-foreground')}>
                                 {conn.lastDispatch
@@ -543,7 +546,7 @@ export default function IntegrationsPage() {
                                     : `Último envio falhou em ${new Date(conn.lastDispatch.at).toLocaleString('pt-BR')}: ${conn.lastDispatch.error ?? 'erro'}`)
                                   : 'Nenhum envio ainda. Clique em Testar conexão.'}
                               </p>
-                              <Button variant="outline" size="sm" className="w-full text-xs" onClick={() => testSyncrolexMutation.mutate()} disabled={testSyncrolexMutation.isPending}>
+                              <Button variant="outline" size="sm" className="w-full text-xs" onClick={() => testSyncrolexMutation.mutate(conn.platform)} disabled={testSyncrolexMutation.isPending}>
                                 {testSyncrolexMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Zap className="w-3 h-3 mr-1" />} Testar conexão
                               </Button>
                             </div>
@@ -595,7 +598,7 @@ export default function IntegrationsPage() {
                               onChange={e => setFormVal(platform.id, 'key', e.target.value)} />
                             <Button size="sm" className="w-full text-xs"
                               disabled={!urlVal || !keyVal || connectCrmWebhookMutation.isPending}
-                              onClick={() => connectCrmWebhookMutation.mutate({ webhookUrl: urlVal, webhookToken: keyVal })}>
+                              onClick={() => connectCrmWebhookMutation.mutate({ platform: platform.id, webhookUrl: urlVal, webhookToken: keyVal })}>
                               {connectCrmWebhookMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Plug className="w-3 h-3 mr-1" />}
                               Conectar
                             </Button>

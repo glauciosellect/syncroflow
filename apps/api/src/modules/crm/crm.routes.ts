@@ -5,7 +5,7 @@ import { prisma } from '../../lib/prisma'
 import { encrypt, decrypt } from '../../lib/crypto'
 import { getWorkspaceId } from '../../lib/workspace'
 import { logger } from '../../lib/logger'
-import { dispatchSyncrolexWebhook, testSyncrolexConnection, type SyncrolexEvent } from '../../lib/syncrolex-webhook'
+import { dispatchSyncrolexWebhook, testSyncrolexConnection, WEBHOOK_PLATFORMS, type SyncrolexEvent, type WebhookPlatform } from '../../lib/syncrolex-webhook'
 
 // ─── Webhook Receiver CRM ─────────────────────────────────────────────────────
 
@@ -245,6 +245,29 @@ export async function crmRoutes(app: FastifyInstance) {
     const workspaceId = await getWorkspaceId(sub, wid)
     await prisma.crmConnection.deleteMany({ where: { id: req.params.id, workspaceId } })
     return reply.send({ ok: true })
+  })
+
+  // Conexões por webhook (SyncroLex, GestorAMA): conectar e testar, com a mesma tela.
+  app.post<{ Params: { platform: string } }>('/crm/webhook/:platform/connect', async (req, reply) => {
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
+    const platform = req.params.platform as WebhookPlatform
+    if (!WEBHOOK_PLATFORMS.includes(platform)) return reply.status(400).send({ error: 'Plataforma não suportada' })
+    const { webhookUrl, webhookToken } = z.object({ webhookUrl: z.string().url(), webhookToken: z.string().min(1) }).parse(req.body)
+    await prisma.crmConnection.upsert({
+      where: { workspaceId_platform: { workspaceId, platform } },
+      create: { workspaceId, platform, status: 'active', accessToken: encrypt(webhookToken), metadata: { webhookUrl } },
+      update: { accessToken: encrypt(webhookToken), metadata: { webhookUrl }, status: 'active' },
+    })
+    return reply.send({ ok: true })
+  })
+
+  app.post<{ Params: { platform: string } }>('/crm/webhook/:platform/test', async (req, reply) => {
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
+    const platform = req.params.platform as WebhookPlatform
+    if (!WEBHOOK_PLATFORMS.includes(platform)) return reply.status(400).send({ error: 'Plataforma não suportada' })
+    return reply.send(await testSyncrolexConnection(workspaceId, platform))
   })
 
   // Testa a conexão com o SyncroLex e diz, em português, o que está errado se falhar.
