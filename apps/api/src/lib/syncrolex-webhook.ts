@@ -22,6 +22,51 @@ export async function getSyncrolexConnection(workspaceId: string): Promise<Syncr
   return { id: conn.id, url, token: decrypt(conn.accessToken), metadata: (conn.metadata as Record<string, any>) || {} }
 }
 
+function rootHost(host: string) {
+  return host.toLowerCase().replace(/^www\./, '')
+}
+
+/**
+ * POST que segue redirecionamentos (301/302/307/308) mantendo POST, corpo e Authorization.
+ * Só segue se o destino for o MESMO site (ex.: syncrolex.com.br <-> www.syncrolex.com.br):
+ * nunca manda o token para outro domínio. Devolve também o endereço final.
+ */
+async function postFollowingRedirects(url: string, token: string, body: string): Promise<{ res: Response; finalUrl: string; redirected: boolean }> {
+  let current = url
+  let redirected = false
+  for (let i = 0; i < 3; i++) {
+    const res = await fetch(current, {
+      method: 'POST',
+      redirect: 'manual',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body,
+    })
+    if (res.status >= 300 && res.status < 400) {
+      const loc = res.headers.get('location')
+      if (!loc) return { res, finalUrl: current, redirected }
+      const next = new URL(loc, current)
+      if (rootHost(next.hostname) !== rootHost(new URL(current).hostname) || next.protocol !== 'https:') {
+        return { res, finalUrl: current, redirected }
+      }
+      current = next.toString()
+      redirected = true
+      continue
+    }
+    return { res, finalUrl: current, redirected }
+  }
+  throw new Error('Redirecionamentos demais')
+}
+
+// Se o endereço mudou por redirecionamento, guarda o novo para não depender dele nas próximas vezes.
+async function healUrl(conn: SyncrolexConnection, finalUrl: string, redirected: boolean) {
+  if (!redirected || finalUrl === conn.url) return
+  try {
+    await prisma.crmConnection.update({ where: { id: conn.id }, data: { metadata: { ...conn.metadata, webhookUrl: finalUrl } as any } })
+    conn.url = finalUrl
+    conn.metadata = { ...conn.metadata, webhookUrl: finalUrl }
+  } catch { /* melhor esforço */ }
+}
+
 async function recordDispatch(conn: SyncrolexConnection, ok: boolean, error?: string) {
   try {
     await prisma.crmConnection.update({
@@ -39,19 +84,15 @@ export async function testSyncrolexConnection(workspaceId: string): Promise<{ ok
   const conn = await getSyncrolexConnection(workspaceId)
   if (!conn) return { ok: false, message: 'Conexão com o SyncroLex não encontrada. Conecte novamente.' }
   try {
-    const res = await fetch(conn.url, {
-      method: 'POST',
-      redirect: 'manual',
-      headers: { Authorization: `Bearer ${conn.token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event: 'contract.verify', phone: '0000000000', contract: '00000000000' }),
-    })
+    const { res, finalUrl, redirected } = await postFollowingRedirects(conn.url, conn.token, JSON.stringify({ event: 'contract.verify', phone: '0000000000', contract: '00000000000' }))
     let result: { ok: boolean; message: string }
     if (res.status >= 300 && res.status < 400) result = { ok: false, message: 'O endereço está redirecionando. Cole a URL exatamente como aparece no SyncroLex (com www).' }
     else if (res.status === 401) result = { ok: false, message: 'Token inválido ou integração inativa no SyncroLex. Copie o token de novo e reconecte.' }
     else if (res.status === 404) result = { ok: false, message: 'Endereço não encontrado. Confira a URL copiada do SyncroLex.' }
     else if (res.status === 400) result = { ok: true, message: 'Conectado. (O SyncroLex ainda não tem a verificação por CPF; leads e agendamentos funcionam.)' }
-    else if (res.ok) result = { ok: true, message: 'Conectado! O SyncroLex aceitou a conexão.' }
+    else if (res.ok) result = { ok: true, message: redirected ? 'Conectado! O endereço foi ajustado automaticamente.' : 'Conectado! O SyncroLex aceitou a conexão.' }
     else result = { ok: false, message: `O SyncroLex respondeu com erro ${res.status}. Tente de novo em instantes.` }
+    if (result.ok) await healUrl(conn, finalUrl, redirected)
     await recordDispatch(conn, result.ok, result.ok ? undefined : result.message)
     return result
   } catch {
@@ -80,11 +121,8 @@ export async function dispatchSyncrolexWebhook(
   if (!conn) return { ok: false, error: 'Conexão SyncroLex não encontrada ou inativa', retryable: false }
 
   try {
-    const res = await fetch(conn.url, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${conn.token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event, ...payload }),
-    })
+    const { res, finalUrl, redirected } = await postFollowingRedirects(conn.url, conn.token, JSON.stringify({ event, ...payload }))
+    if (res.ok) await healUrl(conn, finalUrl, redirected)
     if (!res.ok) {
       const body = await res.text().catch(() => '')
       logger.error('SyncroLex webhook retornou erro', { workspaceId, event, status: res.status, body })
@@ -112,11 +150,7 @@ export async function verifySyncrolexCpf(
   const conn = await getSyncrolexConnection(workspaceId)
   if (!conn) return { valid: false, unavailable: true }
   try {
-    const res = await fetch(conn.url, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${conn.token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event: 'contract.verify', phone, contract: cpf }),
-    })
+    const { res } = await postFollowingRedirects(conn.url, conn.token, JSON.stringify({ event: 'contract.verify', phone, contract: cpf }))
     if (!res.ok) {
       logger.error('SyncroLex contract.verify retornou erro', { workspaceId, status: res.status })
       return { valid: false, unavailable: true }
