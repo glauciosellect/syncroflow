@@ -76,6 +76,7 @@ model Workspace {
   marketingConnections  MarketingConnection[]
   auditLogs             AuditLog[]
   agentLearnings        AgentLearning[]
+  campaigns             Campaign[]
 }
 
 model WorkspaceMember {
@@ -347,11 +348,13 @@ model Contact {
   tags          String[]       @default([])
   notes         String?
   humanOnly     Boolean        @default(false)
+  optedOutAt    DateTime?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @default(now()) @updatedAt
   workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   conversations Conversation[]
   appointments  Appointment[]
+  campaignRecipients CampaignRecipient[]
 
   @@unique([workspaceId, channelId, externalId])
 }
@@ -828,4 +831,47 @@ model PublicTemplate {
   tags               String[] @default([])
   createdAt          DateTime @default(now())
   updatedAt          DateTime @default(now()) @updatedAt
+}
+
+// ─── Campanhas (envio em massa controlado) ───────────────────────────────────
+// WhatsApp: sempre por template aprovado pela Meta (fora da janela de 24h só isso é
+// aceito). E-mail: assunto + texto. Contatos com optedOutAt nunca recebem.
+model Campaign {
+  id               String              @id @default(cuid())
+  workspaceId      String
+  name             String
+  channelType      String              // WHATSAPP | EMAIL
+  channelId        String?
+  templateName     String?
+  templateLanguage String?
+  templateParams   Json?               // valores das variáveis; {{nome}} vira o nome do contato
+  previewText      String?
+  emailSubject     String?
+  emailBody        String?
+  tag              String?             // filtro: só contatos com esta tag
+  status           String              @default("QUEUED") // QUEUED | SENDING | COMPLETED | COMPLETED_WITH_ERRORS | CANCELLED
+  totalTargets     Int                 @default(0)
+  sentCount        Int                 @default(0)
+  failedCount      Int                 @default(0)
+  createdById      String
+  createdAt        DateTime            @default(now())
+  completedAt      DateTime?
+  workspace        Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  recipients       CampaignRecipient[]
+
+  @@index([workspaceId, createdAt])
+}
+
+model CampaignRecipient {
+  id         String    @id @default(cuid())
+  campaignId String
+  contactId  String
+  status     String    @default("PENDING") // PENDING | SENT | FAILED | SKIPPED
+  error      String?
+  sentAt     DateTime?
+  campaign   Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contact    Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, contactId])
+  @@index([contactId])
 }

@@ -1,13 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
-import { prisma } from '../../lib/prisma'
+import { getWorkspaceId } from '../../lib/workspace'
 import { getUrgencyConfig, saveUrgencyConfig } from './urgency.service'
-
-async function getWorkspaceId(userId: string) {
-  const member = await prisma.workspaceMember.findFirst({ where: { userId }, orderBy: { createdAt: 'asc' } })
-  if (!member) throw new Error('Workspace não encontrado')
-  return member.workspaceId
-}
 
 const bodySchema = z.object({
   enabled: z.boolean(),
@@ -21,14 +15,14 @@ export async function urgencyRoutes(app: FastifyInstance) {
   app.addHook('onRequest', app.authenticate)
 
   app.get('/urgency', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
-    return reply.send(await getUrgencyConfig(await getWorkspaceId(sub)))
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    return reply.send(await getUrgencyConfig(await getWorkspaceId(sub, wid)))
   })
 
   app.put('/urgency', async (req, reply) => {
-    const { sub } = req.user as { sub: string }
+    const { sub, wid } = req.user as { sub: string; wid?: string }
     const body = bodySchema.parse(req.body)
-    const workspaceId = await getWorkspaceId(sub)
+    const workspaceId = await getWorkspaceId(sub, wid)
     await saveUrgencyConfig(workspaceId, {
       enabled: body.enabled,
       contacts: body.contacts.map((c) => ({ name: c.name.trim(), phone: c.phone.replace(/\D/g, '') })),

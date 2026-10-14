@@ -17,6 +17,7 @@ import { useSocketConnect, useSocketEvent } from '@/hooks/use-socket'
 import { ChannelIcon } from '@/components/channel-icon'
 import { MessageComposer } from '@/components/shared/message-composer'
 import { TemplateSelector } from '@/components/shared/template-selector'
+import { NewConversationDialog } from '@/components/shared/new-conversation-dialog'
 import { useAuthStore } from '@/store/auth.store'
 
 // Toca um beep suave ao chegar mensagem nova
@@ -348,6 +349,7 @@ function ChatPageContent() {
   const [selected, setSelected] = useState<any>(null)
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
+  const [showNewConversation, setShowNewConversation] = useState(false)
   const [channelFilter, setChannelFilter] = useState('all')
   const [showProfile, setShowProfile] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -531,13 +533,28 @@ function ChatPageContent() {
 
   return (
     <div className="h-full flex -m-4 md:-m-6 bg-white rounded-lg overflow-hidden border border-gray-200">
+      <NewConversationDialog
+        open={showNewConversation}
+        onClose={() => setShowNewConversation(false)}
+        onStarted={(conv) => { setSelected(conv); qc.invalidateQueries({ queryKey: ['conversations'] }) }}
+      />
 
       {/* Coluna 1 — Lista (oculta no mobile quando conversa selecionada) */}
       <div className={cn('border-r border-gray-100 flex flex-col shrink-0 w-full md:w-72', selected ? 'hidden md:flex' : 'flex')}>
         <div className="p-3 border-b border-gray-100">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input placeholder="Buscar conversa..." className="pl-9 h-8 text-sm" value={search} onChange={e => setSearch(e.target.value)} />
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input placeholder="Buscar conversa..." className="pl-9 h-8 text-sm" value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+            <button
+              onClick={() => setShowNewConversation(true)}
+              className="h-8 w-8 shrink-0 rounded-lg bg-[#1565C0] text-white flex items-center justify-center hover:bg-[#0D47A1]"
+              title="Nova conversa"
+              aria-label="Nova conversa"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
           </div>
           {(channels?.length || 0) > 1 && (
             <select

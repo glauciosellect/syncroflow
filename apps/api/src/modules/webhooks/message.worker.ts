@@ -458,6 +458,23 @@ export function startMessageWorker() {
         return
       }
 
+      // ── Descadastro de campanhas ────────────────────────────────────────────
+      // Resposta exata PARAR/SAIR/STOP/DESCADASTRAR tira o contato das próximas campanhas.
+      if (/^(parar|sair|stop|descadastrar|cancelar\s+inscri[cç][aã]o)[\s.!]*$/i.test(text.trim())) {
+        await prisma.contact.update({ where: { id: contact.id }, data: { optedOutAt: new Date() } })
+        const optOutReply = 'Pronto, você não receberá mais mensagens de campanha. Se precisar de algo, é só escrever aqui. 🙂'
+        try {
+          if (channelType === 'WHATSAPP') await getWhatsAppProvider().sendText(channelId, from, optOutReply)
+        } catch (err: any) {
+          console.error('[WORKER] Falha ao confirmar descadastro:', err?.message)
+        }
+        const optOutMsg = await prisma.message.create({
+          data: { conversationId: conversation.id, role: 'ASSISTANT', content: optOutReply, creditsUsed: 0 },
+        })
+        try { emitNewMessage(channel.workspaceId, conversation.id, optOutMsg) } catch {}
+        return
+      }
+
       // ── Urgência (risco de vida, violência, prisão, saúde grave...) ─────────
       // Vale para qualquer agente, mesmo fora da área de atuação. Avisa um humano de verdade,
       // pausa a IA e só afirma ao cliente que avisou se o alerta realmente saiu.

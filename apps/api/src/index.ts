@@ -16,6 +16,8 @@ import { googleRoutes } from './modules/auth/google.routes'
 import { workspaceRoutes } from './modules/workspaces/workspaces.routes'
 import { urgencyRoutes } from './modules/urgency/urgency.routes'
 import { agendaRoutes } from './modules/calendar/agenda.routes'
+import { campaignRoutes } from './modules/campaigns/campaigns.routes'
+import { startCampaignWorker } from './modules/campaigns/campaign.worker'
 import { agentRoutes } from './modules/agents/agents.routes'
 import { trainingRoutes } from './modules/training/training.routes'
 import { intentionRoutes } from './modules/intentions/intentions.routes'
@@ -153,6 +155,7 @@ async function bootstrap() {
   await app.register(workspaceRoutes)
   await app.register(urgencyRoutes)
   await app.register(agendaRoutes)
+  await app.register(campaignRoutes)
   await app.register(agentRoutes)
   await app.register(trainingRoutes)
   await app.register(intentionRoutes)
@@ -210,6 +213,7 @@ async function bootstrap() {
   startMessageWorker()
   startWelcomeWorker()
   startReminderWorker()
+  startCampaignWorker()
   startEmailPollingWorker()
   integrationWorker
 

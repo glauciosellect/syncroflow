@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Bot, Users, MessageSquare, Contact, Settings, TrendingUp, CalendarDays, X, Menu, Plug, LayoutTemplate, GraduationCap } from 'lucide-react'
+import { LayoutDashboard, Bot, Users, MessageSquare, Contact, Settings, TrendingUp, CalendarDays, X, Menu, Plug, LayoutTemplate, GraduationCap, Megaphone } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth.store'
 import { planLabel } from '@/lib/utils'
@@ -12,7 +12,7 @@ import { useTutorial } from './tutorial-context'
 const navItems = [
   { section: 'VISÃO GERAL', items: [{ href: '/dashboard', label: 'Dashboards', icon: LayoutDashboard }] },
   { section: 'CADASTROS', items: [{ href: '/agents', label: 'Agentes', icon: Bot }, { href: '/team', label: 'Equipe', icon: Users }] },
-  { section: 'COMUNICAÇÃO', items: [{ href: '/chat', label: 'Chat', icon: MessageSquare }, { href: '/contacts', label: 'Contatos', icon: Contact }] },
+  { section: 'COMUNICAÇÃO', items: [{ href: '/chat', label: 'Chat', icon: MessageSquare }, { href: '/contacts', label: 'Contatos', icon: Contact }, { href: '/campaigns', label: 'Campanhas', icon: Megaphone }] },
   { section: 'AGENDA', items: [{ href: '/agenda', label: 'Agenda', icon: CalendarDays }] },
   { section: 'INTEGRAÇÕES', items: [{ href: '/integrations', label: 'Integrações', icon: Plug }, { href: '/templates', label: 'Templates', icon: LayoutTemplate }] },
   { section: 'SISTEMA', items: [{ href: '/settings', label: 'Configurações', icon: Settings }] },
