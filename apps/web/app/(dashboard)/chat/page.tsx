@@ -633,8 +633,8 @@ function ChatPageContent() {
                 </Button>
               )}
               {selected.status === 'AI_ACTIVE' && (
-                <Button size="sm" variant="outline" onClick={() => transferMutation.mutate({ id: selected.id, to: 'human' })} disabled={transferMutation.isPending} className="h-7 text-xs">
-                  <UserCheck className="w-3 h-3 mr-1" />Para humano
+                <Button size="sm" onClick={() => assumeMutation.mutate(selected.id)} disabled={assumeMutation.isPending} className="bg-green-600 hover:bg-green-700 text-white h-7 text-xs">
+                  <UserCheck className="w-3 h-3 mr-1" />Assumir
                 </Button>
               )}
               {selected.status === 'HUMAN_ACTIVE' && (
@@ -733,6 +733,19 @@ function ChatPageContent() {
             })}
             <div ref={messagesEndRef} />
           </div>
+
+          {(selected.status === 'AI_ACTIVE' || selected.status === 'WAITING_HUMAN') && (
+            <div className="px-4 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between gap-3">
+              <p className="text-xs text-gray-500">
+                {selected.status === 'AI_ACTIVE'
+                  ? 'A IA está atendendo esta conversa. Para escrever você mesmo, assuma o atendimento.'
+                  : 'Este cliente aguarda um atendente. Assuma para responder.'}
+              </p>
+              <Button size="sm" onClick={() => assumeMutation.mutate(selected.id)} disabled={assumeMutation.isPending} className="bg-green-600 hover:bg-green-700 text-white h-8 text-xs shrink-0">
+                <UserCheck className="w-3.5 h-3.5 mr-1" />Assumir e responder
+              </Button>
+            </div>
+          )}
 
           {selected.status === 'HUMAN_ACTIVE' && (
             precisaTemplate ? (

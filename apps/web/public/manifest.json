@@ -2,7 +2,7 @@
   "name": "SyncroFlow",
   "short_name": "SyncroFlow",
   "description": "Atendimento Omnichannel com IA",
-  "start_url": "/dashboard",
+  "start_url": "/chat",
   "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",

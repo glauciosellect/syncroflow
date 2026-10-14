@@ -59,7 +59,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           )}
 
-          <MascoteHelper />
+          {!pathname.startsWith("/chat") && <MascoteHelper />}
           <main className="flex-1 overflow-auto p-4 md:p-6">
             {/* Bloqueia conteúdo quando trial expirado (exceto página de billing) */}
             {isTrialExpired && !isBillingPage ? (
