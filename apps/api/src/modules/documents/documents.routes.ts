@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
+import { prisma } from '../../lib/prisma'
 import { getWorkspaceId } from '../../lib/workspace'
 import { auditLogFromRequest } from '../../lib/rbac'
 import { extractFolderId, getFile, isDriveConfigured, getServiceAccountEmail, listChildren } from './drive.client'
@@ -39,6 +40,12 @@ export async function documentsRoutes(app: FastifyInstance) {
         return reply.status(400).send({ error: `Não consegui acessar essa pasta. Compartilhe-a com ${getServiceAccountEmail()} (permissão de leitor) e tente de novo.` })
       }
       if (folder.mimeType !== 'application/vnd.google-apps.folder') return reply.status(400).send({ error: 'O link precisa ser de uma pasta, não de um arquivo.' })
+      // Uma mesma pasta não pode servir a duas contas: impede que alguém cole o link da pasta de outro cliente.
+      const inUse = await prisma.integration.findFirst({
+        where: { platform: 'gdrive', NOT: { workspaceId }, metadata: { path: ['rootFolderId'], equals: folder.id } },
+        select: { id: true },
+      })
+      if (inUse) return reply.status(400).send({ error: 'Esta pasta já está em uso por outra conta. Use uma pasta própria.' })
       rootFolderId = folder.id
       rootFolderName = folder.name
     }
