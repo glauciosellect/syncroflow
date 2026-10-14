@@ -44,7 +44,12 @@ function AddContactModal({ onClose }: { onClose: () => void }) {
       toast({ title: 'Contato adicionado!' })
       onClose()
     },
-    onError: (err: any) => toast({ title: 'Erro ao adicionar', description: err?.response?.data?.error || 'Tente novamente', variant: 'destructive' }),
+    onError: (err: any) => {
+      const msg = err?.response?.data?.error || 'Tente novamente'
+      // 409 = contato já cadastrado: é um aviso, não uma falha
+      if (err?.response?.status === 409) toast({ title: 'Contato já cadastrado', description: msg })
+      else toast({ title: 'Erro ao adicionar', description: msg, variant: 'destructive' })
+    },
   })
 
   return (
