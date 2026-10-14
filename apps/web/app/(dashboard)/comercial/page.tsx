@@ -418,8 +418,8 @@ export default function ComercialPage() {
         </div>
       )}
 
-      <LeadModal open={showLeadModal} onClose={() => { setShowLeadModal(false); setEditingLead(null) }} stages={stages} lead={editingLead} />
-      <FollowUpModal open={showFollowUpModal} onClose={() => setShowFollowUpModal(false)} leads={leads} leadId={followUpLeadId} />
+      <LeadModal key={`${editingLead?.id ?? "new"}-${showLeadModal}`} open={showLeadModal} onClose={() => { setShowLeadModal(false); setEditingLead(null) }} stages={stages} lead={editingLead} />
+      <FollowUpModal key={`${followUpLeadId ?? "none"}-${showFollowUpModal}`} open={showFollowUpModal} onClose={() => setShowFollowUpModal(false)} leads={leads} leadId={followUpLeadId} />
     </div>
   )
 }
