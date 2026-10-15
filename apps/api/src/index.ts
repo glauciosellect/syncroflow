@@ -36,6 +36,7 @@ import { stripeRoutes } from './modules/billing/stripe.routes'
 import { mcpRoutes } from './modules/mcp/mcp.routes'
 import { integrationRoutes } from './modules/integrations/integrations.routes'
 import { metaIntegrationRoutes } from './modules/integrations/meta.routes'
+import { tiktokRoutes } from './modules/integrations/tiktok.routes'
 import { metaWhatsAppSignupRoutes } from './modules/integrations/meta-whatsapp-signup.routes'
 import { salvyRoutes } from './modules/integrations/salvy.routes'
 import { apiKeyRoutes } from './modules/auth/apikeys.routes'
@@ -177,6 +178,7 @@ async function bootstrap() {
   await app.register(mcpRoutes)
   await app.register(integrationRoutes)
   await app.register(metaIntegrationRoutes)
+  await app.register(tiktokRoutes)
   await app.register(metaWhatsAppSignupRoutes)
   await app.register(salvyRoutes)
   await app.register(apiKeyRoutes)

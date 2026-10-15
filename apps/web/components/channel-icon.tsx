@@ -40,6 +40,14 @@ export function ChannelIcon({ type, className = 'w-9 h-9' }: { type: string; cla
       <path d="M10 13h3v10h-3V13zm1.5-4.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM15 13h3v1.4c.4-.8 1.4-1.6 2.9-1.6 3.1 0 3.6 2 3.6 4.7V23h-3v-4.8c0-1.1 0-2.6-1.6-2.6-1.6 0-1.9 1.2-1.9 2.5V23h-3V13z" fill="white"/>
     </svg>
   )
+  if (type === 'TIKTOK') return (
+    <svg viewBox="0 0 32 32" className={className} fill="none">
+      <rect width="32" height="32" rx="8" fill="#010101"/>
+      <path d="M17.5 8h2.6c.2 1.9 1.4 3.2 3.4 3.4v2.7c-1.2 0-2.4-.4-3.4-1.1v5.3c0 3-2.3 5.2-5.1 5.2a5 5 0 01-.7-9.9v2.8a2.3 2.3 0 102 2.3V8z" fill="#25F4EE" transform="translate(-.8 -.6)"/>
+      <path d="M17.5 8h2.6c.2 1.9 1.4 3.2 3.4 3.4v2.7c-1.2 0-2.4-.4-3.4-1.1v5.3c0 3-2.3 5.2-5.1 5.2a5 5 0 01-.7-9.9v2.8a2.3 2.3 0 102 2.3V8z" fill="#FE2C55" transform="translate(.8 .6)"/>
+      <path d="M17.5 8h2.6c.2 1.9 1.4 3.2 3.4 3.4v2.7c-1.2 0-2.4-.4-3.4-1.1v5.3c0 3-2.3 5.2-5.1 5.2a5 5 0 01-.7-9.9v2.8a2.3 2.3 0 102 2.3V8z" fill="white"/>
+    </svg>
+  )
   if (type === 'WIDGET') return (
     <svg viewBox="0 0 32 32" className={className} fill="none">
       <rect width="32" height="32" rx="8" fill="#6366F1"/>

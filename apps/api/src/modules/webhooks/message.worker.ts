@@ -12,6 +12,7 @@ import { normalizeBrazilianNumber } from '../channels/whatsapp/providers/meta-cl
 import { detectUrgency, sendUrgencyAlert, shouldSendUrgencyAlert, buildUrgencyReply } from '../urgency/urgency.service'
 import { handleDocumentTurn } from '../documents/document-flow'
 import { notifySyncrolex } from '../../lib/syncrolex-webhook'
+import { fetchComment, replyToComment, type TikTokConfig } from '../../lib/tiktok'
 import axios from 'axios'
 
 const AUDIO_FORCED_KEY = 'audioForced' // modo forçado por #audio/#texto, dentro de contact.variables
@@ -101,6 +102,7 @@ export function startMessageWorker() {
       let incomingMediaType: string | undefined
       let incomingMediaUrl: string | undefined
       let emailMetadata: { threadId: string; messageId: string; references?: string; subject: string } | undefined
+      let tiktokMeta: { tiktokCommentId: string; tiktokVideoId: string } | undefined
       let suppressReply = false
 
       if (channelType === 'WHATSAPP') {
@@ -217,6 +219,17 @@ export function startMessageWorker() {
         name = 'Usuário'
         text = messaging.message?.text
         if (!text) return
+      } else if (channelType === 'TIKTOK') {
+        // payload enxuto do webhook ({ commentId, videoId }) — o autor e o status vêm da API
+        const tt = channel.config as unknown as TikTokConfig
+        if (tt.needsReconnect) { console.log('[TIKTOK] canal precisa reconectar — descartado'); return }
+        const comment = await fetchComment(channelId, tt, payload.videoId, payload.commentId)
+        if (!comment || !comment.isPublic || comment.isOwner) return
+        from = comment.userId
+        name = comment.username
+        text = comment.text || payload.text
+        if (!text) return
+        tiktokMeta = { tiktokCommentId: comment.commentId, tiktokVideoId: comment.videoId }
       } else if (channelType === 'EMAIL') {
         // payload já vem parseado pelo email-poll.worker.ts (GmailMessage)
         from = payload.from
@@ -434,7 +447,7 @@ export function startMessageWorker() {
           take: 20,
         }),
         prisma.message.create({
-          data: { conversationId: conversation.id, role: 'USER', content: text, mediaUrl: incomingMediaUrl, mediaType: incomingMediaType, metadata: emailMetadata as any },
+          data: { conversationId: conversation.id, role: 'USER', content: text, mediaUrl: incomingMediaUrl, mediaType: incomingMediaType, metadata: (emailMetadata ?? tiktokMeta) as any },
         }),
       ])
       // userMsg é gravada em paralelo: tira ela do histórico (já vai como userMessage) e põe em ordem cronológica
@@ -936,6 +949,12 @@ export function startMessageWorker() {
               messaging_type: 'RESPONSE',
             }, { params: { access_token: pageToken } })
           }
+        } else if (channelType === 'TIKTOK' && tiktokMeta) {
+          // Resposta pública ao comentário (limite do TikTok: ~150 caracteres)
+          const short = responseText.length > 150
+            ? (responseText.slice(0, 150).replace(/s+S*$/, '').trimEnd() + '…')
+            : responseText
+          await replyToComment(channelId, channel.config as unknown as TikTokConfig, tiktokMeta.tiktokVideoId, tiktokMeta.tiktokCommentId, short)
         } else if (channelType === 'EMAIL' && emailMetadata) {
           const accessToken = await getValidGmailToken(channelId)
           if (accessToken) {

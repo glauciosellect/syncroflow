@@ -686,6 +686,11 @@ function ChannelsTab() {
     window.location.href = url
   }
 
+  const connectTikTok = () => {
+    const token = localStorage.getItem('sf_token') || authToken || localStorage.getItem('sf_refresh') || authRefreshToken || ''
+    window.location.href = `${API_URL}/integrations/tiktok/connect?token=${encodeURIComponent(token)}`
+  }
+
   // Durante o Embedded Signup, a Meta envia wabaId/phoneNumberId via postMessage
   // (em paralelo ao callback de FB.login, que só devolve o `code`)
   const embeddedSignupDataRef = useRef<{ wabaId?: string; phoneNumberId?: string }>({})
@@ -765,6 +770,10 @@ function ChannelsTab() {
           <Button variant="outline" size="sm" onClick={() => connectMeta('facebook')}
             className="border-blue-200 text-blue-700 hover:bg-blue-50">
             <Plus className="w-3 h-3 mr-1" />Facebook
+          </Button>
+          <Button variant="outline" size="sm" onClick={connectTikTok}
+            className="border-slate-300 text-slate-800 hover:bg-slate-50">
+            <Plus className="w-3 h-3 mr-1" />TikTok
           </Button>
           <Button variant="outline" size="sm" onClick={() => setShowTelegramForm(true)}
             className="border-sky-200 text-sky-700 hover:bg-sky-50">

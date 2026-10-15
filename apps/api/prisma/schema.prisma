@@ -636,6 +636,7 @@ enum ChannelType {
   EMAIL
   SMS
   LINKEDIN
+  TIKTOK
 }
 
 enum ConversationStatus {
