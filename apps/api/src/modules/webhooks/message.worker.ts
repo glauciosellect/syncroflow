@@ -12,7 +12,7 @@ import { normalizeBrazilianNumber } from '../channels/whatsapp/providers/meta-cl
 import { detectUrgency, sendUrgencyAlert, shouldSendUrgencyAlert, buildUrgencyReply } from '../urgency/urgency.service'
 import { handleDocumentTurn } from '../documents/document-flow'
 import { notifySyncrolex } from '../../lib/syncrolex-webhook'
-import { fetchComment, replyToComment, type TikTokConfig } from '../../lib/tiktok'
+import { fetchComment, replyToComment, shortenForTikTok, type TikTokConfig } from '../../lib/tiktok'
 import axios from 'axios'
 
 const AUDIO_FORCED_KEY = 'audioForced' // modo forçado por #audio/#texto, dentro de contact.variables
@@ -728,6 +728,7 @@ export function startMessageWorker() {
             conversationHistory,
             userMessage: text + transferContext,
             agentId: targetAgentId,
+            channelType,
           })
           responseText = aiRes.content
           creditsUsed = aiRes.creditsUsed
@@ -797,6 +798,7 @@ export function startMessageWorker() {
               conversationHistory: conversationHistoryForWebhook,
               userMessage: `O usuário solicitou: "${text}". A API retornou: ${JSON.stringify(webhookRes.data)}. Responda naturalmente ao usuário.`,
               agentId: agent.id,
+              channelType,
             })
             responseText = aiRes.content
             creditsUsed = aiRes.creditsUsed
@@ -859,6 +861,7 @@ export function startMessageWorker() {
           conversationHistory,
           userMessage: text + contactContext + flowContext + privacyContext + agendaContext + docAiNote,
           agentId: agent.id,
+          channelType,
         })
         responseText = aiRes.content
         creditsUsed = aiRes.creditsUsed
@@ -951,9 +954,7 @@ export function startMessageWorker() {
           }
         } else if (channelType === 'TIKTOK' && tiktokMeta) {
           // Resposta pública ao comentário (limite do TikTok: ~150 caracteres)
-          const short = responseText.length > 150
-            ? (responseText.slice(0, 150).replace(/s+S*$/, '').trimEnd() + '…')
-            : responseText
+          const short = shortenForTikTok(responseText)
           await replyToComment(channelId, channel.config as unknown as TikTokConfig, tiktokMeta.tiktokVideoId, tiktokMeta.tiktokCommentId, short)
         } else if (channelType === 'EMAIL' && emailMetadata) {
           const accessToken = await getValidGmailToken(channelId)

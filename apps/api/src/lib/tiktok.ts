@@ -6,7 +6,18 @@ import { prisma } from './prisma'
 // ATENÇÃO: caminhos/campos abaixo seguem a doc pública (business-api.tiktok.com/portal/docs)
 // e ainda NÃO foram testados contra a API real (depende da aprovação do app "TikTok Accounts").
 // Se algo divergir no primeiro teste, o ajuste é só neste arquivo.
-const BASE = 'https://business-api.tiktok.com/open_api/v1.3'
+const BASE = process.env.TIKTOK_API_BASE || 'https://business-api.tiktok.com/open_api/v1.3'
+
+// Limite do comentário no TikTok: ~150 caracteres. Corta no fim de frase/palavra, nunca no meio.
+export const TIKTOK_MAX_REPLY = 150
+export function shortenForTikTok(text: string): string {
+  const clean = text.replace(/\s+/g, ' ').trim()
+  if (clean.length <= TIKTOK_MAX_REPLY) return clean
+  const cut = clean.slice(0, TIKTOK_MAX_REPLY - 1)
+  const sentenceEnd = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? '))
+  if (sentenceEnd >= 60) return cut.slice(0, sentenceEnd + 1)
+  return cut.replace(/\s+\S*$/, '').trimEnd() + '…'
+}
 
 export const TIKTOK_SCOPES = 'user.info.basic,user.info.username,video.list,comment.list,comment.list.manage'
 

@@ -167,19 +167,34 @@ export async function detectIntention(message: string, intentions: Intention[]):
   return intentions.find((i) => i.id === intentionId) || null
 }
 
+// Instruções extras de formato por canal (anexadas ao system prompt).
+export function channelStyleHint(channelType?: string): string {
+  if (channelType === 'TIKTOK') {
+    return `
+
+CANAL: você está respondendo a um COMENTÁRIO PÚBLICO em um vídeo do TikTok, não a uma conversa privada.
+- Responda em NO MÁXIMO 140 caracteres, em uma ou duas frases curtas, tom leve e humano.
+- Não use listas, markdown, links longos nem textos explicativos.
+- Qualquer pessoa vai ler: nunca peça nem repita telefone, e-mail, CPF ou dados pessoais. Se precisar de dados, convide a pessoa a chamar no direct ou no WhatsApp.
+- Pode usar no máximo um emoji.`
+  }
+  return ''
+}
+
 export async function processAgentResponse(opts: {
   agent: Agent & { config: AgentConfig | null }
   conversationHistory: { role: 'user' | 'assistant'; content: string }[]
   userMessage: string
   agentId: string
+  channelType?: string
 }): Promise<{ content: string; creditsUsed: number }> {
-  const { agent, conversationHistory, userMessage, agentId } = opts
+  const { agent, conversationHistory, userMessage, agentId, channelType } = opts
 
   const [knowledgeContext, learnings] = await Promise.all([
     retrieveContext(userMessage, agentId),
     getActiveLearnings(agentId),
   ])
-  const systemPrompt = buildSystemPrompt(agent, agent.config, knowledgeContext, learnings)
+  const systemPrompt = buildSystemPrompt(agent, agent.config, knowledgeContext, learnings) + channelStyleHint(channelType)
   console.log('[AI] systemPrompt (primeiros 300 chars):', systemPrompt.slice(0, 300))
 
   const messages = [...conversationHistory, { role: 'user' as const, content: userMessage }]
