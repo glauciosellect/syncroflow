@@ -253,11 +253,18 @@ export async function crmRoutes(app: FastifyInstance) {
     const workspaceId = await getWorkspaceId(sub, wid)
     const platform = req.params.platform as WebhookPlatform
     if (!WEBHOOK_PLATFORMS.includes(platform)) return reply.status(400).send({ error: 'Plataforma não suportada' })
-    const { webhookUrl, webhookToken } = z.object({ webhookUrl: z.string().url(), webhookToken: z.string().min(1) }).parse(req.body)
+    const { webhookUrl, webhookToken, escritorioId } = z.object({
+      webhookUrl: z.string().url(),
+      webhookToken: z.string().min(1),
+      escritorioId: z.string().uuid().optional(),
+    }).parse(req.body)
+    // O GestorBIM atende vários escritórios: sem o ID do escritório ele recusa o aviso.
+    if (platform === 'gestorbim' && !escritorioId) return reply.status(400).send({ error: 'Informe o ID do escritório (aparece no GestorBIM).' })
+    const metadata = { webhookUrl, ...(escritorioId ? { escritorioId } : {}) }
     await prisma.crmConnection.upsert({
       where: { workspaceId_platform: { workspaceId, platform } },
-      create: { workspaceId, platform, status: 'active', accessToken: encrypt(webhookToken), metadata: { webhookUrl } },
-      update: { accessToken: encrypt(webhookToken), metadata: { webhookUrl }, status: 'active' },
+      create: { workspaceId, platform, status: 'active', accessToken: encrypt(webhookToken), metadata },
+      update: { accessToken: encrypt(webhookToken), metadata, status: 'active' },
     })
     return reply.send({ ok: true })
   })

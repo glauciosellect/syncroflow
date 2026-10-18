@@ -31,6 +31,10 @@ const CRM_PLATFORMS = [
   { id: 'gestorama', name: 'GestorAMA', description: 'Gestão de doações — contatos do WhatsApp viram apoiadores', logo: '🤝', color: '#F59E0B', auth: 'webhook',
     urlLabel: 'URL do Webhook', urlPlaceholder: 'https://.../integracoes/syncroflow/webhook',
     keyLabel: 'Token', keyPlaceholder: 'token do GestorAMA' },
+  { id: 'gestorbim', name: 'GestorBIM', description: 'Gestão de projetos — contatos do WhatsApp viram leads do escritório', logo: '🏗️', color: '#0F766E', auth: 'webhook',
+    urlLabel: 'URL do Webhook', urlPlaceholder: 'https://.../syncroflow/webhook/atendimento',
+    keyLabel: 'Token do escritório', keyPlaceholder: 'token de assinatura (aparece no GestorBIM)',
+    extraLabel: 'ID do escritório', extraPlaceholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' },
 ]
 
 const FINANCE_PLATFORMS = [
@@ -82,7 +86,7 @@ export default function IntegrationsPage() {
   const [shopifyPrompt, setShopifyPrompt] = useState(false)
 
   // CRM/Finance/Marketing state — apikey forms
-  const [apiKeyForm, setApiKeyForm] = useState<Record<string, { key: string; url: string }>>({})
+  const [apiKeyForm, setApiKeyForm] = useState<Record<string, { key: string; url: string; extra?: string }>>({})
 
   // ElevenLabs state
   const [elApiKey, setElApiKey] = useState('')
@@ -198,12 +202,12 @@ export default function IntegrationsPage() {
   })
 
   const connectCrmWebhookMutation = useMutation({
-    mutationFn: ({ platform, webhookUrl, webhookToken }: { platform: string; webhookUrl: string; webhookToken: string }) =>
-      api.post(`/crm/webhook/${platform}/connect`, { webhookUrl, webhookToken }).then(() => platform),
+    mutationFn: ({ platform, webhookUrl, webhookToken, escritorioId }: { platform: string; webhookUrl: string; webhookToken: string; escritorioId?: string }) =>
+      api.post(`/crm/webhook/${platform}/connect`, { webhookUrl, webhookToken, ...(escritorioId ? { escritorioId } : {}) }).then(() => platform),
     onSuccess: (platform) => {
       queryClient.invalidateQueries({ queryKey: ['crm-connections'] })
-      setApiKeyForm(p => ({ ...p, [platform]: { key: '', url: '' } }))
-      toast({ title: `${platform === 'gestorama' ? 'GestorAMA' : 'SyncroLex'} conectado!` })
+      setApiKeyForm(p => ({ ...p, [platform]: { key: '', url: '', extra: '' } }))
+      toast({ title: `${platform === 'gestorama' ? 'GestorAMA' : platform === 'gestorbim' ? 'GestorBIM' : 'SyncroLex'} conectado!` })
     },
     onError: (err: any) => toast({ title: err?.response?.data?.error ?? 'Erro ao conectar', variant: 'destructive' }),
   })
@@ -310,8 +314,8 @@ export default function IntegrationsPage() {
   const marketingMap = new Map(marketingConnections.map(c => [c.platform, c]))
   const triggerOptions = selectedIntegration ? (ECOMMERCE_TRIGGERS[selectedIntegration.platform] ?? []) : []
 
-  const getFormVal = (platform: string, field: 'key' | 'url') => apiKeyForm[platform]?.[field] ?? ''
-  const setFormVal = (platform: string, field: 'key' | 'url', value: string) =>
+  const getFormVal = (platform: string, field: 'key' | 'url' | 'extra') => apiKeyForm[platform]?.[field] ?? ''
+  const setFormVal = (platform: string, field: 'key' | 'url' | 'extra', value: string) =>
     setApiKeyForm(p => ({ ...p, [platform]: { ...p[platform], [field]: value } }))
 
   // ─── Render ──────────────────────────────────────────────────────────────────
@@ -545,7 +549,7 @@ export default function IntegrationsPage() {
                               <CheckCircle className="w-3 h-3" /> Ativo
                             </span>
                           </div>
-                          {(conn.platform === 'syncrolex' || conn.platform === 'gestorama') && (
+                          {(conn.platform === 'syncrolex' || conn.platform === 'gestorama' || conn.platform === 'gestorbim') && (
                             <div className="space-y-2">
                               <p className={cn('text-xs', conn.lastDispatch ? (conn.lastDispatch.ok ? 'text-green-700' : 'text-red-600') : 'text-muted-foreground')}>
                                 {conn.lastDispatch
@@ -580,6 +584,7 @@ export default function IntegrationsPage() {
                     if (platform.auth === 'webhook') {
                       const urlVal = getFormVal(platform.id, 'url')
                       const keyVal = getFormVal(platform.id, 'key')
+                      const extraVal = getFormVal(platform.id, 'extra')
                       return (
                         <div key={platform.id} className="p-4 border rounded-xl bg-card space-y-3">
                           <div className="flex items-center gap-2">
@@ -604,9 +609,20 @@ export default function IntegrationsPage() {
                             <input className="w-full px-3 py-2 text-sm border rounded-lg bg-background font-mono"
                               placeholder={platform.keyPlaceholder} value={keyVal}
                               onChange={e => setFormVal(platform.id, 'key', e.target.value)} />
+                            {'extraLabel' in platform && (
+                              <>
+                                <div className="flex items-center gap-1.5">
+                                  <Key className="w-3 h-3 text-muted-foreground" />
+                                  <label className="text-xs font-medium">{(platform as any).extraLabel}</label>
+                                </div>
+                                <input className="w-full px-3 py-2 text-sm border rounded-lg bg-background font-mono"
+                                  placeholder={(platform as any).extraPlaceholder} value={extraVal}
+                                  onChange={e => setFormVal(platform.id, 'extra', e.target.value)} />
+                              </>
+                            )}
                             <Button size="sm" className="w-full text-xs"
-                              disabled={!urlVal || !keyVal || connectCrmWebhookMutation.isPending}
-                              onClick={() => connectCrmWebhookMutation.mutate({ platform: platform.id, webhookUrl: urlVal, webhookToken: keyVal })}>
+                              disabled={!urlVal || !keyVal || ('extraLabel' in platform && !extraVal) || connectCrmWebhookMutation.isPending}
+                              onClick={() => connectCrmWebhookMutation.mutate({ platform: platform.id, webhookUrl: urlVal, webhookToken: keyVal, escritorioId: extraVal || undefined })}>
                               {connectCrmWebhookMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Plug className="w-3 h-3 mr-1" />}
                               Conectar
                             </Button>

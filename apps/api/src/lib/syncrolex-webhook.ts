@@ -6,8 +6,42 @@ import { createWorker, syncrolexQueue } from './queue'
 export type SyncrolexEvent = 'lead.created' | 'appointment.created'
 
 // Sistemas que recebem avisos por webhook (URL + token). Cada um é uma CrmConnection própria.
-export type WebhookPlatform = 'syncrolex' | 'gestorama'
-export const WEBHOOK_PLATFORMS: WebhookPlatform[] = ['syncrolex', 'gestorama']
+export type WebhookPlatform = 'syncrolex' | 'gestorama' | 'gestorbim'
+export const WEBHOOK_PLATFORMS: WebhookPlatform[] = ['syncrolex', 'gestorama', 'gestorbim']
+
+const PLATFORM_NAMES: Record<WebhookPlatform, string> = { syncrolex: 'SyncroLex', gestorama: 'GestorAMA', gestorbim: 'GestorBIM' }
+
+/**
+ * Monta cabeçalhos e corpo do pedido de cada sistema (cada um tem seu protocolo):
+ * - SyncroLex e GestorAMA: "Authorization: Bearer <token>" e { event, ...payload }.
+ * - GestorBIM: "X-SyncroFlow-Signature: <token>" e { escritorioId, telefone, tipo, dados } em
+ *   /syncroflow/webhook/atendimento. Só lead.created vira "novo_lead"; o resto não tem equivalente lá.
+ * Devolve null quando o evento não se aplica àquele sistema.
+ */
+function buildRequest(
+  platform: WebhookPlatform,
+  conn: { token: string; metadata: Record<string, any> },
+  event: string,
+  payload: Record<string, any>
+): { headers: Record<string, string>; body: string } | null {
+  if (platform === 'gestorbim') {
+    if (event !== 'lead.created') return null
+    return {
+      headers: { 'X-SyncroFlow-Signature': conn.token },
+      body: JSON.stringify({
+        escritorioId: conn.metadata.escritorioId,
+        telefone: String(payload.phone ?? ''),
+        tipo: 'novo_lead',
+        dados: {
+          nome: String(payload.name ?? payload.phone ?? 'Contato WhatsApp').padEnd(2, ' '),
+          observacoes: payload.resumo_conversa ? String(payload.resumo_conversa).slice(0, 500) : undefined,
+          origem: 'WhatsApp (SyncroFlow)',
+        },
+      }),
+    }
+  }
+  return { headers: { Authorization: `Bearer ${conn.token}` }, body: JSON.stringify({ event, ...payload }) }
+}
 
 export interface SyncrolexConnection { id: string; url: string; token: string; metadata: Record<string, any> }
 
@@ -35,14 +69,14 @@ function rootHost(host: string) {
  * Só segue se o destino for o MESMO site (ex.: syncrolex.com.br <-> www.syncrolex.com.br):
  * nunca manda o token para outro domínio. Devolve também o endereço final.
  */
-async function postFollowingRedirects(url: string, token: string, body: string): Promise<{ res: Response; finalUrl: string; redirected: boolean }> {
+async function postFollowingRedirects(url: string, headers: Record<string, string>, body: string): Promise<{ res: Response; finalUrl: string; redirected: boolean }> {
   let current = url
   let redirected = false
   for (let i = 0; i < 3; i++) {
     const res = await fetch(current, {
       method: 'POST',
       redirect: 'manual',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      headers: { ...headers, 'Content-Type': 'application/json' },
       body,
     })
     if (res.status >= 300 && res.status < 400) {
@@ -85,16 +119,23 @@ async function recordDispatch(conn: SyncrolexConnection, ok: boolean, error?: st
  * 200 = URL e token corretos. Devolve o motivo em português quando falha.
  */
 export async function testSyncrolexConnection(workspaceId: string, platform: WebhookPlatform = 'syncrolex'): Promise<{ ok: boolean; message: string }> {
-  const nome = platform === 'gestorama' ? 'GestorAMA' : 'SyncroLex'
+  const nome = PLATFORM_NAMES[platform]
   const conn = await getSyncrolexConnection(workspaceId, platform)
   if (!conn) return { ok: false, message: `Conexão com o ${nome} não encontrada. Conecte novamente.` }
   try {
-    const { res, finalUrl, redirected } = await postFollowingRedirects(conn.url, conn.token, JSON.stringify(platform === 'gestorama' ? { event: 'ping' } : { event: 'contract.verify', phone: '0000000000', contract: '00000000000' }))
+    // Cada sistema responde diferente a um pedido "vazio": o objetivo é só provar URL + token (+ escritório, no GestorBIM).
+    const probe: { headers: Record<string, string>; body: string } =
+      platform === 'gestorama'
+        ? { headers: { Authorization: `Bearer ${conn.token}` }, body: JSON.stringify({ event: 'ping' }) }
+        : platform === 'gestorbim'
+          ? { headers: { 'X-SyncroFlow-Signature': conn.token }, body: JSON.stringify({ escritorioId: conn.metadata.escritorioId, telefone: '0000000000', tipo: 'teste' }) }
+          : { headers: { Authorization: `Bearer ${conn.token}` }, body: JSON.stringify({ event: 'contract.verify', phone: '0000000000', contract: '00000000000' }) }
+    const { res, finalUrl, redirected } = await postFollowingRedirects(conn.url, probe.headers, probe.body)
     let result: { ok: boolean; message: string }
     if (res.status >= 300 && res.status < 400) result = { ok: false, message: 'O endereço está redirecionando. Cole a URL exatamente como aparece no SyncroLex (com www).' }
-    else if (res.status === 401) result = { ok: false, message: 'Token inválido ou integração inativa no ' + nome + '. Copie o token de novo e reconecte.' }
+    else if (res.status === 401) result = { ok: false, message: 'Token ou ID do escritório inválidos, ou integração inativa no ' + nome + '. Copie os dados de novo e reconecte.' }
     else if (res.status === 404) result = { ok: false, message: 'Endereço não encontrado. Confira a URL copiada do ' + nome + '.' }
-    else if (res.status === 400) result = { ok: true, message: 'Conectado. (O ' + nome + ' ainda não responde a esta verificação, mas os avisos funcionam.)' }
+    else if (res.status === 400) result = { ok: true, message: platform === 'gestorbim' ? 'Conectado! O GestorBIM aceitou o token e o escritório.' : 'Conectado. (O ' + nome + ' ainda não responde a esta verificação, mas os avisos funcionam.)' }
     else if (res.ok) result = { ok: true, message: redirected ? 'Conectado! O endereço foi ajustado automaticamente.' : 'Conectado! O ' + nome + ' aceitou a conexão.' }
     else result = { ok: false, message: `O ${nome} respondeu com erro ${res.status}. Tente de novo em instantes.` }
     if (result.ok) await healUrl(conn, finalUrl, redirected)
@@ -124,10 +165,13 @@ export async function dispatchSyncrolexWebhook(
   platform: WebhookPlatform = 'syncrolex'
 ): Promise<{ ok: boolean; error?: string; retryable?: boolean }> {
   const conn = await getSyncrolexConnection(workspaceId, platform)
-  if (!conn) return { ok: false, error: 'Conexão SyncroLex não encontrada ou inativa', retryable: false }
+  if (!conn) return { ok: false, error: 'Conexão não encontrada ou inativa', retryable: false }
+
+  const request = buildRequest(platform, conn, event, payload)
+  if (!request) return { ok: true } // evento sem equivalente nesse sistema
 
   try {
-    const { res, finalUrl, redirected } = await postFollowingRedirects(conn.url, conn.token, JSON.stringify({ event, ...payload }))
+    const { res, finalUrl, redirected } = await postFollowingRedirects(conn.url, request.headers, request.body)
     if (res.ok) await healUrl(conn, finalUrl, redirected)
     if (!res.ok) {
       const body = await res.text().catch(() => '')
@@ -156,7 +200,7 @@ export async function verifySyncrolexCpf(
   const conn = await getSyncrolexConnection(workspaceId)
   if (!conn) return { valid: false, unavailable: true }
   try {
-    const { res } = await postFollowingRedirects(conn.url, conn.token, JSON.stringify({ event: 'contract.verify', phone, contract: cpf }))
+    const { res } = await postFollowingRedirects(conn.url, { Authorization: `Bearer ${conn.token}` }, JSON.stringify({ event: 'contract.verify', phone, contract: cpf }))
     if (!res.ok) {
       logger.error('SyncroLex contract.verify retornou erro', { workspaceId, status: res.status })
       return { valid: false, unavailable: true }
@@ -170,7 +214,7 @@ export async function verifySyncrolexCpf(
 }
 
 /**
- * Notifica os sistemas conectados (SyncroLex e/ou GestorAMA) com nova tentativa automática: cada
+ * Notifica os sistemas conectados (SyncroLex, GestorAMA e/ou GestorBIM) com nova tentativa automática: cada
  * envio entra numa fila (BullMQ) e, se o destino estiver fora do ar, é reenviado com espera crescente
  * (até 5 tentativas) em vez de se perder. Quem não tem conexão ativa não gera nada.
  * Nunca lança — é efeito colateral que não pode atrapalhar a resposta ao cliente.
