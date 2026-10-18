@@ -22,6 +22,10 @@ import { ChannelIcon } from '@/components/channel-icon'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
+// TikTok pausado: o TikTok não oferece permissão para ler/responder comentários neste tipo de app.
+// O código fica guardado; para religar, defina NEXT_PUBLIC_TIKTOK_ENABLED=true no site (Vercel).
+const TIKTOK_ENABLED = process.env.NEXT_PUBLIC_TIKTOK_ENABLED === 'true'
+
 // Foto de perfil do número no WhatsApp (logo da empresa ou foto de um atendente) —
 // é o que o cliente vê ao abrir o contato; sem ela aparece só a silhueta cinza.
 function WhatsAppProfilePhoto({ channel }: { channel: any }) {
@@ -771,10 +775,12 @@ function ChannelsTab() {
             className="border-blue-200 text-blue-700 hover:bg-blue-50">
             <Plus className="w-3 h-3 mr-1" />Facebook
           </Button>
-          <Button variant="outline" size="sm" onClick={connectTikTok}
-            className="border-slate-300 text-slate-800 hover:bg-slate-50">
-            <Plus className="w-3 h-3 mr-1" />TikTok
-          </Button>
+          {TIKTOK_ENABLED && (
+            <Button variant="outline" size="sm" onClick={connectTikTok}
+              className="border-slate-300 text-slate-800 hover:bg-slate-50">
+              <Plus className="w-3 h-3 mr-1" />TikTok
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => setShowTelegramForm(true)}
             className="border-sky-200 text-sky-700 hover:bg-sky-50">
             <Plus className="w-3 h-3 mr-1" />Telegram
