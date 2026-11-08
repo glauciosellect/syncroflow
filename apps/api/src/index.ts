@@ -21,6 +21,7 @@ import { campaignRoutes } from './modules/campaigns/campaigns.routes'
 import { documentsRoutes } from './modules/documents/documents.routes'
 import { startCampaignWorker } from './modules/campaigns/campaign.worker'
 import { startSyncrolexWorker } from './lib/syncrolex-webhook'
+import { startCrmTestadoresSync } from './lib/crm-testadores'
 import { agentRoutes } from './modules/agents/agents.routes'
 import { trainingRoutes } from './modules/training/training.routes'
 import { intentionRoutes } from './modules/intentions/intentions.routes'
@@ -233,6 +234,7 @@ async function bootstrap() {
   startCampaignWorker()
   startSyncrolexWorker()
   startEmailPollingWorker()
+  startCrmTestadoresSync()
   integrationWorker
 
   // Seed de templates iniciais (só roda se o banco estiver vazio)
