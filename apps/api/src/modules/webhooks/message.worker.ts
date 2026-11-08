@@ -242,6 +242,12 @@ export function startMessageWorker() {
           subject: payload.subject,
         }
         if (!text) return
+      } else if (channelType === 'WIDGET') {
+        // Widget de site: visitorId aleatório gerado no navegador; a resposta é lida por polling
+        from = String(payload?.visitorId || '')
+        name = String(payload?.name || 'Visitante do site').slice(0, 80)
+        text = typeof payload?.text === 'string' ? payload.text.trim().slice(0, 2000) : ''
+        if (!from || !text) return
       } else {
         return
       }

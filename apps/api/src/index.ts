@@ -42,6 +42,7 @@ import { salvyRoutes } from './modules/integrations/salvy.routes'
 import { apiKeyRoutes } from './modules/auth/apikeys.routes'
 import { envVariableRoutes } from './modules/auth/env-variables.routes'
 import { webhookRoutes } from './modules/webhooks/webhooks.routes'
+import { widgetRoutes } from './modules/widget/widget.routes'
 import { emailChannelRoutes } from './modules/channels/email/email.routes'
 import { comercialRoutes } from './modules/comercial/comercial.routes'
 import { ecommerceWebhookRoutes, ecommerceIntegrationRoutes, ecommerceOAuthCallbackRoutes } from './modules/integrations/ecommerce.routes'
@@ -79,10 +80,18 @@ declare module 'fastify' {
 async function bootstrap() {
   await redis.connect().catch(() => {})
 
-  await app.register(cors, {
-    origin: ['http://localhost:3000', 'http://127.0.0.1:3000', process.env.FRONTEND_URL || ''].filter(Boolean),
-    credentials: true,
-  })
+  // Rotas públicas do widget de site aceitam qualquer origem (o domínio é validado
+  // contra allowedDomains do canal dentro da própria rota); o resto segue restrito.
+  await app.register(cors, (() => (req: { url: string }, cb: (err: Error | null, opts: any) => void) => {
+    if (req.url.startsWith('/widget/') || req.url.startsWith('/widget.js')) {
+      cb(null, { origin: true, credentials: false })
+      return
+    }
+    cb(null, {
+      origin: ['http://localhost:3000', 'http://127.0.0.1:3000', process.env.FRONTEND_URL || ''].filter(Boolean),
+      credentials: true,
+    })
+  }) as any)
 
   await app.register(helmet, {
     contentSecurityPolicy: false,
@@ -184,6 +193,7 @@ async function bootstrap() {
   await app.register(apiKeyRoutes)
   await app.register(envVariableRoutes)
   await app.register(webhookRoutes)
+  await app.register(widgetRoutes)
   await app.register(comercialRoutes)
   await app.register(ecommerceWebhookRoutes)
   await app.register(ecommerceOAuthCallbackRoutes)
