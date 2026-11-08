@@ -567,6 +567,11 @@ function ChannelsTab() {
   const qc = useQueryClient()
   const [showTelegramForm, setShowTelegramForm] = useState(false)
   const [showLinkedInForm, setShowLinkedInForm] = useState(false)
+  const [showWidgetForm, setShowWidgetForm] = useState(false)
+  const [widgetName, setWidgetName] = useState('')
+  const [widgetDomains, setWidgetDomains] = useState('')
+  const [widgetColor, setWidgetColor] = useState('#6366f1')
+  const [widgetWelcome, setWidgetWelcome] = useState('')
   const [telegramName, setTelegramName] = useState('')
   const [telegramToken, setTelegramToken] = useState('')
   const [linkedinName, setLinkedinName] = useState('')
@@ -662,6 +667,21 @@ function ChannelsTab() {
       toast({ title: '✅ Telegram conectado!', description: `Webhook: ${webhookUrl}` })
     },
     onError: (err: any) => toast({ title: 'Erro', description: err.response?.data?.error || 'Erro ao conectar Telegram', variant: 'destructive' }),
+  })
+
+  const createWidgetMutation = useMutation({
+    mutationFn: () => api.post('/channels/widget', {
+      name: widgetName,
+      color: widgetColor,
+      welcomeMessage: widgetWelcome.trim() || undefined,
+      allowedDomains: widgetDomains.split(/[\n,]/).map(d => d.trim()).filter(Boolean),
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['channels'] })
+      setShowWidgetForm(false); setWidgetName(''); setWidgetDomains(''); setWidgetWelcome('')
+      toast({ title: '✅ Widget criado!', description: 'Vincule um agente e copie o código de instalação no card do canal.' })
+    },
+    onError: (err: any) => toast({ title: 'Erro', description: err.response?.data?.error || 'Erro ao criar widget', variant: 'destructive' }),
   })
 
   const createLinkedInMutation = useMutation({
@@ -784,6 +804,10 @@ function ChannelsTab() {
           <Button variant="outline" size="sm" onClick={() => setShowTelegramForm(true)}
             className="border-sky-200 text-sky-700 hover:bg-sky-50">
             <Plus className="w-3 h-3 mr-1" />Telegram
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowWidgetForm(true)}
+            className="border-violet-200 text-violet-700 hover:bg-violet-50">
+            <Plus className="w-3 h-3 mr-1" />Widget (site)
           </Button>
           <Button variant="outline" size="sm" onClick={() => setShowLinkedInForm(true)}
             className="border-blue-300 text-blue-800 hover:bg-blue-50">
@@ -951,6 +975,40 @@ function ChannelsTab() {
         </Card>
       )}
 
+      {showWidgetForm && (
+        <Card>
+          <CardHeader><CardTitle className="text-base">💬 Chat para o seu site</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>Nome do canal</Label>
+              <Input placeholder="Ex: Site NuClick" value={widgetName} onChange={e => setWidgetName(e.target.value)} className="mt-1" />
+            </div>
+            <div>
+              <Label>Domínios permitidos (um por linha ou separados por vírgula)</Label>
+              <textarea className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 mt-1 font-mono" rows={2}
+                placeholder="nuclick.com.br" value={widgetDomains} onChange={e => setWidgetDomains(e.target.value)} />
+              <p className="text-xs text-gray-500 mt-1">Só esses sites poderão usar o chat. Vazio libera qualquer site (não recomendado).</p>
+            </div>
+            <div>
+              <Label>Mensagem de boas-vindas (opcional)</Label>
+              <Input placeholder="Olá! Como posso ajudar?" value={widgetWelcome} onChange={e => setWidgetWelcome(e.target.value)} className="mt-1" />
+            </div>
+            <div>
+              <Label>Cor</Label>
+              <input type="color" value={widgetColor} onChange={e => setWidgetColor(e.target.value)} className="block mt-1 h-9 w-16 rounded border border-gray-200" />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={() => createWidgetMutation.mutate()} className="bg-violet-600 hover:bg-violet-700 text-white"
+                disabled={createWidgetMutation.isPending || !widgetName.trim()}>
+                {createWidgetMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Criar widget
+              </Button>
+              <Button variant="ghost" onClick={() => setShowWidgetForm(false)}>Cancelar</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {showLinkedInForm && (
         <Card>
           <CardHeader><CardTitle className="text-base">💼 Conectar LinkedIn</CardTitle></CardHeader>
@@ -1028,6 +1086,17 @@ function ChannelsTab() {
                         · Token expira {new Date(channel.config.tokenExpiresAt).toLocaleDateString('pt-BR')}
                       </span>
                     )}
+                  </div>
+                )}
+
+                {channel.type === 'WIDGET' && (
+                  <div className="mt-2 space-y-1">
+                    <div className="text-xs text-gray-500">Domínios: {(channel.config?.allowedDomains || []).join(', ') || 'qualquer site'}</div>
+                    <Label className="text-xs text-gray-500">Código de instalação (cole antes de &lt;/body&gt; no site)</Label>
+                    <textarea readOnly rows={3} onClick={e => (e.target as HTMLTextAreaElement).select()}
+                      className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 font-mono bg-gray-50"
+                      value={`<script src="${API_URL}/widget.js" data-channel="${channel.id}" async></script>`} />
+                    <div className="text-xs text-gray-500">ID do canal: <span className="font-mono">{channel.id}</span></div>
                   </div>
                 )}
 
