@@ -42,18 +42,27 @@ export const WIDGET_SCRIPT = String.raw`(function () {
       '.m.bot{background:#fff;color:#18181b;align-self:flex-start}' +
       '.m.me{background:' + color + ';color:#fff;align-self:flex-end}' +
       '.ft{display:flex;gap:8px;padding:10px;border-top:1px solid #e4e4e7;background:#fff}' +
-      '.ft input{flex:1;border:1px solid #d4d4d8;border-radius:20px;padding:10px 14px;font-size:14px;outline:none}' +
+      '.ft input{flex:1;min-width:0;border:1px solid #d4d4d8;border-radius:20px;padding:10px 14px;font-size:16px;outline:none}' +
       '.ft button{border:0;border-radius:20px;padding:0 16px;background:' + color + ';color:#fff;font-size:14px;cursor:pointer}' +
+      '.btn{position:relative;padding:0;overflow:visible;display:flex;align-items:center;justify-content:center}' +
+      '.btn img{width:100%;height:100%;border-radius:50%;object-fit:cover;border:3px solid ' + color + ';background:#fff}' +
+      '.btn i{position:absolute;right:2px;bottom:2px;width:14px;height:14px;border-radius:50%;background:#22c55e;border:2px solid #fff}' +
+      '@media (max-width:520px){.box{position:fixed;left:0;right:0;top:0;bottom:0;width:auto;max-width:none;height:100vh;height:100dvh;max-height:none;border-radius:0}.hd{padding-top:max(14px,env(safe-area-inset-top))}.ft{padding-bottom:max(10px,env(safe-area-inset-bottom))}.box.on+.btn{display:none}}' +
       '</style>' +
       '<div class="box"><div class="hd">' + (cfg.avatarUrl ? '<img alt="" src="">' : '') +
       '<div><b></b><small>Online agora</small></div><button class="x" aria-label="Fechar">×</button></div>' +
       '<div class="ms"></div><form class="ft"><input maxlength="2000" placeholder="Digite sua mensagem..." autocomplete="off"><button type="submit">Enviar</button></form></div>' +
-      '<button class="btn" aria-label="Abrir chat">💬</button>';
+      '<button class="btn" aria-label="Abrir chat">' +
+      (cfg.avatarUrl
+        ? '<img alt="" src=""><i></i>'
+        : '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>') +
+      '</button>';
     document.body.appendChild(host);
 
     var box = root.querySelector('.box'), ms = root.querySelector('.ms'), form = root.querySelector('form'), input = root.querySelector('input');
     root.querySelector('.hd b').textContent = cfg.name || 'Atendimento';
     var img = root.querySelector('.hd img'); if (img) img.src = cfg.avatarUrl;
+    var bimg = root.querySelector('.btn img'); if (bimg) bimg.src = cfg.avatarUrl;
 
     function add(text, me, id) {
       if (id) { if (state.seen[id]) return; state.seen[id] = 1; }
