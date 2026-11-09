@@ -772,13 +772,21 @@ function ChatPageContent() {
 
           {selected.status === 'HUMAN_ACTIVE' && (
             precisaTemplate ? (
-              <TemplateSelector
-                channelId={selected.channelId}
-                conversationId={selected.id}
-                contactName={selected.contact?.name}
-                agentName={channels?.find((c: any) => c.id === selected.channelId)?.agentChannels?.[0]?.agent?.name}
-                workspaceName={workspace?.name}
-              />
+              <>
+                <div className="flex items-start gap-2 px-4 py-2.5 bg-amber-50 border-t border-amber-200 text-xs text-amber-800">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Janela de 24h do WhatsApp fechada.</strong> Este cliente não escreve há mais de 24h, então o WhatsApp só entrega um template aprovado. Quando ele responder, você volta a conversar livremente.
+                  </span>
+                </div>
+                <TemplateSelector
+                  channelId={selected.channelId}
+                  conversationId={selected.id}
+                  contactName={selected.contact?.name}
+                  agentName={channels?.find((c: any) => c.id === selected.channelId)?.agentChannels?.[0]?.agent?.name}
+                  workspaceName={workspace?.name}
+                />
+              </>
             ) : (
               <MessageComposer
                 conversationId={selected.id}
