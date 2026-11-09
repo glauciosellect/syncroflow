@@ -468,7 +468,13 @@ function ChatPageContent() {
   const precisaTemplate = useMemo(() => {
     if (!selected || selected.channel?.type !== 'WHATSAPP') return false
     if (!msgs?.data) return false
-    return !msgs.data.some((m: any) => m.role === 'USER')
+    // Também vale quando a janela de 24h da Meta fechou: a última mensagem do
+    // cliente tem mais de 24h e texto livre seria recusado (erro 131047).
+    const ultimaDoCliente = msgs.data
+      .filter((m: any) => m.role === 'USER')
+      .reduce((max: number, m: any) => Math.max(max, new Date(m.createdAt).getTime()), 0)
+    if (!ultimaDoCliente) return true
+    return Date.now() - ultimaDoCliente > 24 * 60 * 60 * 1000
   }, [selected, msgs])
 
   useEffect(() => {

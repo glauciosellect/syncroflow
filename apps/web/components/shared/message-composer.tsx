@@ -115,7 +115,10 @@ export function MessageComposer({ conversationId, onSent }: MessageComposerProps
         filename = res.data.filename
       }
 
-      await api.post(`/conversations/${conversationId}/messages`, { content: message, mediaUrl, mediaType, filename })
+      const sent = await api.post(`/conversations/${conversationId}/messages`, { content: message, mediaUrl, mediaType, filename })
+      if (sent.data?.metadata?.sendError) {
+        alert(`A mensagem NÃO chegou ao cliente: ${sent.data.metadata.sendError}\n\nSe passaram mais de 24h desde a última mensagem dele, o WhatsApp exige um template aprovado.`)
+      }
       setMessage('')
       clearPending()
       onSent()
