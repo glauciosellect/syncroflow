@@ -451,11 +451,17 @@ function ChatPageContent() {
     }).then(r => r.data),
   })
 
+  // Quantas mensagens recentes carregar (o botão "Ver anteriores" aumenta)
+  const [msgLimit, setMsgLimit] = useState(100)
+  useEffect(() => { setMsgLimit(100) }, [selected?.id])
   const { data: msgs } = useQuery({
+    // sem o limite na chave: os handlers de tempo real usam ['messages', id]
     queryKey: ['messages', selected?.id],
-    queryFn: () => api.get(`/conversations/${selected.id}/messages`).then(r => r.data),
+    queryFn: () => api.get(`/conversations/${selected.id}/messages?limit=${msgLimit}`).then(r => r.data),
     enabled: !!selected,
   })
+  const { refetch: refetchMsgs } = { refetch: () => qc.invalidateQueries({ queryKey: ['messages', selected?.id] }) }
+  useEffect(() => { if (msgLimit > 100) refetchMsgs() }, [msgLimit]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Mesma regra do backend (POST /conversations/start): no WhatsApp, texto
   // livre só é entregue depois que o CLIENTE escreveu primeiro. Recalculada
@@ -470,9 +476,8 @@ function ChatPageContent() {
     if (!msgs?.data) return false
     // Também vale quando a janela de 24h da Meta fechou: a última mensagem do
     // cliente tem mais de 24h e texto livre seria recusado (erro 131047).
-    const ultimaDoCliente = msgs.data
-      .filter((m: any) => m.role === 'USER')
-      .reduce((max: number, m: any) => Math.max(max, new Date(m.createdAt).getTime()), 0)
+    // vem do servidor (não depende de quantas mensagens estão carregadas)
+    const ultimaDoCliente = msgs.lastUserMessageAt ? new Date(msgs.lastUserMessageAt).getTime() : 0
     if (!ultimaDoCliente) return true
     return Date.now() - ultimaDoCliente > 24 * 60 * 60 * 1000
   }, [selected, msgs])
@@ -688,6 +693,13 @@ function ChatPageContent() {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {msgs && msgs.total > (msgs.data?.length ?? 0) && (
+              <div className="text-center py-2">
+                <button className="text-xs text-blue-600 hover:underline" onClick={() => setMsgLimit(l => l + 200)}>
+                  Ver mensagens anteriores ({msgs.total - msgs.data.length})
+                </button>
+              </div>
+            )}
             {(msgs?.data || []).map((msg: any, i: number, all: any[]) => {
               const showDaySeparator = i === 0 || new Date(msg.createdAt).toDateString() !== new Date(all[i - 1].createdAt).toDateString()
               return (

@@ -178,22 +178,31 @@ export async function conversationRoutes(app: FastifyInstance) {
     const { sub, wid } = req.user as { sub: string; wid?: string }
     const workspaceId = await getWorkspaceId(sub, wid)
     const { id } = req.params as { id: string }
-    const { page = '1', limit = '50' } = req.query as Record<string, string>
-    const skip = (Number(page) - 1) * Number(limit)
+    const { page = '1', limit = '100' } = req.query as Record<string, string>
+    const take = Math.min(Math.max(Number(limit) || 100, 1), 1000)
+    const skip = (Math.max(Number(page) || 1, 1) - 1) * take
 
     const conv = await prisma.conversation.findFirst({ where: { id, workspaceId } })
     if (!conv) return reply.status(404).send({ error: 'Conversa não encontrada' })
 
-    const [messages, total] = await prisma.$transaction([
+    // Devolve as mensagens MAIS RECENTES (em ordem cronológica). Antes vinham
+    // as 50 mais antigas e o resto nunca era carregado: em conversas longas,
+    // as mensagens novas "sumiam" da tela (continuavam salvas no banco).
+    const [recentes, total, ultimaDoCliente] = await prisma.$transaction([
       prisma.message.findMany({
         where: { conversationId: id },
-        orderBy: { createdAt: 'asc' },
+        orderBy: { createdAt: 'desc' },
         skip,
-        take: Number(limit),
+        take,
       }),
       prisma.message.count({ where: { conversationId: id } }),
+      prisma.message.findFirst({
+        where: { conversationId: id, role: 'USER' },
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true },
+      }),
     ])
-    return reply.send({ data: messages, total })
+    return reply.send({ data: recentes.reverse(), total, lastUserMessageAt: ultimaDoCliente?.createdAt ?? null })
   })
 
   // Exporta a conversa inteira em CSV com data/hora completa de cada mensagem
