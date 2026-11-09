@@ -4,11 +4,13 @@
 // Uso (no console da API no Easypanel):
 //   node dist/scripts/criar-template-padrao.js              -> só LISTA os canais (nada é criado)
 //   node dist/scripts/criar-template-padrao.js --executar   -> cria o template em cada canal
+//   --ignorar=98202232   -> pula canais cujo nome/telefone contém esses dígitos (pode repetir)
 import { prisma } from '../lib/prisma'
 import { MetaCloudApiProvider } from '../modules/channels/whatsapp/providers/meta-cloud.provider'
 
 async function main() {
   const executar = process.argv.includes('--executar')
+  const ignorar = process.argv.filter(a => a.startsWith('--ignorar=')).map(a => a.slice(10).replace(/D/g, '')).filter(Boolean)
   const canais = await prisma.channel.findMany({ where: { type: 'WHATSAPP', isActive: true } })
   console.log(`${canais.length} canal(is) WhatsApp ativo(s). Modo: ${executar ? 'EXECUTAR' : 'SIMULAÇÃO (use --executar para criar)'}\n`)
 
@@ -19,6 +21,8 @@ async function main() {
   for (const c of canais) {
     const cfg = c.config as any
     const rotulo = `${c.name} (${c.id})`
+    const digitos = `${c.name} ${cfg?.displayPhoneNumber ?? ''}`.replace(/D/g, '')
+    if (ignorar.some(d => digitos.includes(d))) { console.log(`- ${rotulo}: IGNORADO (--ignorar), nada foi feito`); continue }
     if (!cfg?.wabaId || !cfg?.accessToken) { semConfig++; console.log(`- ${rotulo}: sem wabaId/token, ignorado`); continue }
     if (!executar) { console.log(`- ${rotulo}: receberia o template`); continue }
     try {
