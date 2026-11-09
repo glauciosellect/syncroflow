@@ -81,6 +81,33 @@ export async function webhookRoutes(app: FastifyInstance) {
       return reply.send({ ok: true })
     }
 
+    // Avisos de entrega ("statuses"): a Meta aceita o envio (devolve o wamid) e
+    // só depois avisa aqui se NÃO conseguiu entregar (ex.: fora da janela de
+    // 24h, erro 131047). Sem isso a mensagem fica na tela como enviada.
+    for (const c of changes) {
+      const statuses: any[] = c?.value?.statuses ?? []
+      for (const st of statuses) {
+        if (st?.status !== 'failed' || !st?.id) continue
+        try {
+          const err = st.errors?.[0]
+          const reason = err
+            ? `${err.error_data?.details || err.message || err.title || 'Falha na entrega'} [Meta ${err.code ?? '?'}]`
+            : 'Falha na entrega pela Meta'
+          const msg = await prisma.message.findFirst({ where: { externalId: st.id } })
+          if (!msg) continue
+          const updated = await prisma.message.update({
+            where: { id: msg.id },
+            data: { metadata: { ...((msg.metadata as any) || {}), sendError: reason } },
+          })
+          const conv = await prisma.conversation.findUnique({ where: { id: msg.conversationId }, select: { workspaceId: true } })
+          if (conv) emitNewMessage(conv.workspaceId, msg.conversationId, updated)
+          console.error('[whatsapp] Entrega falhou:', st.id, reason)
+        } catch (e) {
+          console.error('[whatsapp] Erro ao registrar falha de entrega:', e)
+        }
+      }
+    }
+
     await messageQueue.add('process', { channelId: channel.id, channelType: 'WHATSAPP', payload: body }, {
       attempts: 3,
       backoff: { type: 'exponential', delay: 1000 },
