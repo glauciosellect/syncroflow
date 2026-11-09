@@ -20,6 +20,25 @@ const ALLOWED_MIME_TYPES = new Set([
   'audio/mpeg', 'audio/ogg', 'audio/mp4', 'audio/aac', 'audio/amr', 'audio/webm',
 ])
 
+// Texto legível do motivo da falha de envio: erro da Meta (com código), status
+// HTTP, ou erro de rede (AggregateError/ETIMEDOUT têm message vazia).
+function describeSendError(err: any): string {
+  const metaErr = err?.response?.data?.error
+  if (metaErr?.message) {
+    const details = metaErr?.error_data?.details
+    return `${metaErr.message}${details ? ` (${details})` : ''} [Meta ${metaErr.code ?? '?'}]`
+  }
+  const status = err?.response?.status
+  if (status) {
+    const raw = err?.response?.data
+    const body = typeof raw === 'string' ? raw.slice(0, 150) : raw ? JSON.stringify(raw).slice(0, 150) : ''
+    return `Resposta HTTP ${status} ao enviar${body ? `: ${body}` : ''}`
+  }
+  const inner = Array.isArray(err?.errors) ? err.errors.map((e: any) => e?.code || e?.message).filter(Boolean).join(', ') : ''
+  const parts = [err?.message, err?.code, inner].filter(Boolean)
+  return parts.length ? `Erro de conexão com a Meta: ${parts.join(' / ')}` : `Erro sem detalhe (${String(err?.name || typeof err)})`
+}
+
 function mimeToMediaType(mimetype: string): 'image' | 'audio' | 'document' {
   if (mimetype.startsWith('image/')) return 'image'
   if (mimetype.startsWith('audio/')) return 'audio'
@@ -293,7 +312,7 @@ export async function conversationRoutes(app: FastifyInstance) {
       if (wamid) await prisma.message.update({ where: { id: message.id }, data: { externalId: wamid } })
       return reply.status(201).send(message)
     } catch (err: any) {
-      const errorMessage = err?.response?.data?.error?.message || err?.message || 'Falha desconhecida ao enviar template'
+      const errorMessage = describeSendError(err)
       console.error('[chat] Erro ao enviar template:', errorMessage)
       const updated = await prisma.message.update({
         where: { id: message.id },
@@ -407,7 +426,7 @@ export async function conversationRoutes(app: FastifyInstance) {
       // pelo canal falhou — marca isso de forma visível em vez de só logar,
       // senão o operador acha que a mensagem chegou ao cliente quando na
       // verdade nunca saiu do painel.
-      const errorMessage = err?.response?.data?.error?.message || err?.message || 'Falha desconhecida ao enviar'
+      const errorMessage = describeSendError(err)
       console.error('[chat] Erro ao enviar mensagem pelo canal:', errorMessage)
       const updated = await prisma.message.update({
         where: { id: message.id },
