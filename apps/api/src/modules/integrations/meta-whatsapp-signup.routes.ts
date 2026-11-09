@@ -186,6 +186,9 @@ export async function metaWhatsAppSignupRoutes(app: FastifyInstance) {
     }
 
     const provider = new MetaCloudApiProvider()
+    // Todo cliente novo já nasce com o template padrão de reabertura (melhor esforço)
+    provider.createDefaultTemplate(channel.id).catch((e: any) =>
+      console.error('[META-WA-SIGNUP] Template padrão não criado:', e?.response?.data?.error?.message || e?.message))
     let statusFinal: string = 'desconhecido'
     try {
       statusFinal = await provider.getStatus(channel.id)

@@ -1,11 +1,13 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/use-toast'
 import { Loader2, Send, AlertTriangle } from 'lucide-react'
+
+const DEFAULT_TEMPLATE = 'retomar_conversa'
 
 interface WhatsAppTemplate {
   name: string
@@ -58,6 +60,22 @@ export function TemplateSelector({
   const errorDetail = (error as any)?.response?.data?.detail || (error as any)?.response?.data?.error
 
   const selected = templates?.find(t => t.name === selectedName)
+  const temPadrao = !!templates?.some(t => t.name === DEFAULT_TEMPLATE)
+
+  const criarPadrao = useMutation({
+    mutationFn: () => api.post(`/channels/${channelId}/templates/default`),
+    onSuccess: (res) => toast({
+      title: res.data?.result === 'exists' ? 'Template já existe' : 'Template enviado para aprovação da Meta',
+      description: 'Assim que a Meta aprovar (minutos a algumas horas), ele aparece aqui.',
+    }),
+    onError: (err: any) => toast({ title: 'Não foi possível criar o template', description: err?.response?.data?.detail || err?.response?.data?.error || 'Tente novamente', variant: 'destructive' }),
+  })
+
+  // Template padrão aparece já escolhido e preenchido: é só conferir e enviar
+  useEffect(() => {
+    if (!selectedName && templates?.some(t => t.name === DEFAULT_TEMPLATE)) handleSelectTemplate(DEFAULT_TEMPLATE)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templates])
 
   const sendMutation = useMutation({
     mutationFn: () => {
@@ -83,7 +101,8 @@ export function TemplateSelector({
   // usado no template de abertura recomendado — templates com mais
   // variáveis, ou em ordem diferente, ficam em branco a partir da 4ª para
   // o operador preencher manualmente.
-  function valoresSugeridos(quantidade: number): string[] {
+  function valoresSugeridos(quantidade: number, nome?: string): string[] {
+    if (nome === DEFAULT_TEMPLATE) return [contactName ?? '', workspaceName ?? ''].slice(0, quantidade)
     const sugestoes = [contactName ?? '', agentName ?? '', workspaceName ?? '']
     return Array.from({ length: quantidade }, (_, i) => sugestoes[i] ?? '')
   }
@@ -91,7 +110,7 @@ export function TemplateSelector({
   const handleSelectTemplate = (name: string) => {
     setSelectedName(name)
     const tpl = templates?.find(t => t.name === name)
-    setParams(valoresSugeridos(tpl?.variableCount ?? 0))
+    setParams(valoresSugeridos(tpl?.variableCount ?? 0, name))
   }
 
   if (isLoading) {
@@ -130,8 +149,11 @@ export function TemplateSelector({
             <p className="font-medium">Nenhum template aprovado encontrado.</p>
             <p className="text-xs text-amber-700 mt-0.5">
               Esse contato ainda não escreveu para você — o WhatsApp só permite iniciar conversa com uma mensagem de template aprovada pela Meta.
-              Crie um template em business.facebook.com → WhatsApp Manager → Modelos de mensagem.
+              Crie um template em business.facebook.com → WhatsApp Manager → Modelos de mensagem, ou use o padrão do SyncroFlow:
             </p>
+            <Button size="sm" className="mt-2" disabled={criarPadrao.isPending} onClick={() => criarPadrao.mutate()}>
+              {criarPadrao.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />}Criar template padrão
+            </Button>
           </div>
         </div>
       </div>
@@ -144,6 +166,12 @@ export function TemplateSelector({
         <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
         Esse contato ainda não escreveu para você — envie um template aprovado para iniciar a conversa.
       </div>
+
+      {!temPadrao && (
+        <Button size="sm" variant="outline" disabled={criarPadrao.isPending} onClick={() => criarPadrao.mutate()}>
+          {criarPadrao.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />}Criar template padrão "Retomar conversa"
+        </Button>
+      )}
 
       <select
         className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white"

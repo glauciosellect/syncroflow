@@ -44,6 +44,8 @@ function detectMediaType(url: string): 'image' | 'video' | 'document' {
   return 'document'
 }
 
+export const DEFAULT_TEMPLATE_NAME = 'retomar_conversa'
+
 interface MetaCloudConfig {
   provider: 'meta-cloud'
   phoneNumberId: string
@@ -211,6 +213,36 @@ export class MetaCloudApiProvider implements WhatsAppProvider {
         const variableCount = bodyText ? (bodyText.match(/\{\{\d+\}\}/g) || []).length : 0
         return { name: t.name, language: t.language, status: t.status, category: t.category, bodyText, variableCount }
       })
+  }
+
+  // Template padrão do SyncroFlow para reabrir a janela de 24h: texto neutro
+  // (categoria Utilidade) + botão de resposta rápida "Responder". Qualquer
+  // resposta do cliente reabre a janela e libera texto livre.
+  async createDefaultTemplate(channelId: string): Promise<'created' | 'exists'> {
+    const channel = await prisma.channel.findUnique({ where: { id: channelId } })
+    const config = channel?.config as any
+    if (!config?.wabaId || !config?.accessToken) throw new Error('Canal sem wabaId/accessToken')
+    try {
+      await axios.post(`${GRAPH_URL}/${config.wabaId}/message_templates`, {
+        name: DEFAULT_TEMPLATE_NAME,
+        language: 'pt_BR',
+        category: 'UTILITY',
+        components: [
+          {
+            type: 'BODY',
+            text: 'Olá {{1}}, aqui é do {{2}}. Temos uma atualização sobre o seu atendimento. Toque em *Responder* para continuarmos a conversa por aqui.',
+            example: { body_text: [['Maria', 'Escritório Silva']] },
+          },
+          { type: 'BUTTONS', buttons: [{ type: 'QUICK_REPLY', text: 'Responder' }] },
+        ],
+      }, { headers: { Authorization: `Bearer ${config.accessToken}` } })
+      return 'created'
+    } catch (err: any) {
+      const e = err?.response?.data?.error
+      // 2388024 = já existe um template com esse nome/idioma
+      if (e?.error_subcode === 2388024) return 'exists'
+      throw err
+    }
   }
 
   async getBusinessProfile(channelId: string): Promise<WhatsAppBusinessProfile> {

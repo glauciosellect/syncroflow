@@ -4,6 +4,7 @@ import { prisma } from '../../lib/prisma'
 import { getWorkspaceId } from '../../lib/workspace'
 import { getWhatsAppProvider } from './whatsapp/provider.factory'
 import { auditLog } from '../../lib/rbac'
+import { MetaCloudApiProvider } from './whatsapp/providers/meta-cloud.provider'
 
 
 export async function channelRoutes(app: FastifyInstance) {
@@ -158,6 +159,22 @@ export async function channelRoutes(app: FastifyInstance) {
       return reply.send(templates)
     } catch (err: any) {
       return reply.status(502).send({ error: 'Falha ao buscar templates na Meta', detail: err?.response?.data?.error?.message || err?.message })
+    }
+  })
+
+  // Cria na WABA do canal o template padrão "retomar_conversa" (botão
+  // Responder). A Meta ainda precisa aprovar antes de ele aparecer no chat.
+  app.post('/channels/:id/templates/default', async (req, reply) => {
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
+    const { id } = req.params as { id: string }
+    const channel = await prisma.channel.findFirst({ where: { id, workspaceId } })
+    if (!channel || channel.type !== 'WHATSAPP') return reply.status(404).send({ error: 'Canal WhatsApp não encontrado' })
+    try {
+      const result = await new MetaCloudApiProvider().createDefaultTemplate(id)
+      return reply.send({ ok: true, result })
+    } catch (err: any) {
+      return reply.status(502).send({ error: 'A Meta recusou a criação do template', detail: err?.response?.data?.error?.error_user_msg || err?.response?.data?.error?.message || err?.message })
     }
   })
 
