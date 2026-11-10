@@ -477,7 +477,13 @@ function ChatPageContent() {
     // Também vale quando a janela de 24h da Meta fechou: a última mensagem do
     // cliente tem mais de 24h e texto livre seria recusado (erro 131047).
     // vem do servidor (não depende de quantas mensagens estão carregadas)
-    const ultimaDoCliente = msgs.lastUserMessageAt ? new Date(msgs.lastUserMessageAt).getTime() : 0
+    // + as mensagens já carregadas: respostas que chegam em tempo real entram
+    // na lista, mas o campo do servidor só atualiza no próximo carregamento.
+    const doServidor = msgs.lastUserMessageAt ? new Date(msgs.lastUserMessageAt).getTime() : 0
+    const carregadas = (msgs.data ?? [])
+      .filter((m: any) => m.role === 'USER')
+      .reduce((max: number, m: any) => Math.max(max, new Date(m.createdAt).getTime()), 0)
+    const ultimaDoCliente = Math.max(doServidor, carregadas)
     if (!ultimaDoCliente) return true
     return Date.now() - ultimaDoCliente > 24 * 60 * 60 * 1000
   }, [selected, msgs])
