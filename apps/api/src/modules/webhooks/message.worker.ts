@@ -825,10 +825,19 @@ export function startMessageWorker() {
         }
       } else {
         // Fluxo padrão — resposta via IA
-        const conversationHistory = history.map((m) => ({
+        const conversationHistory: { role: 'user' | 'assistant'; content: string }[] = history.map((m) => ({
           role: (m.role === 'USER' ? 'user' : 'assistant') as 'user' | 'assistant',
           content: m.content,
         }))
+
+        // Widget do site: a abertura fixa ("Olá! Sou o ...") é exibida só no navegador e nunca é
+        // gravada. Sem isto a IA não sabe que já cumprimentou e repete a abertura.
+        const widgetWelcome = channelType === 'WIDGET' ? String((channel.config as any)?.welcomeMessage || '').trim() : ''
+        if (widgetWelcome && !history.some((m) => m.role === 'ASSISTANT')) {
+          conversationHistory.unshift({ role: 'assistant', content: widgetWelcome })
+        }
+        // "Visitante do site" é só um rótulo do sistema, não o nome real da pessoa.
+        const nomeReal = channelType === 'WIDGET' && /^visitante/i.test(contact.name || '') ? '' : (contact.name || '')
 
         // Detectar fluxo de atendimento ativo para esta mensagem
         const agentFlows = (agent as any).flows || []
@@ -843,10 +852,10 @@ export function startMessageWorker() {
 
         const contactPhone = contact.phone || (channelType === 'WHATSAPP' ? from : null)
         // Verifica se a IA já se apresentou em alguma mensagem anterior do histórico
-        const alreadyIntroduced = history.some(m => m.role === 'ASSISTANT' && m.content.length > 0)
+        const alreadyIntroduced = !!widgetWelcome || history.some(m => m.role === 'ASSISTANT' && m.content.length > 0)
         const contactContext = (isNewContact && !alreadyIntroduced)
           ? `\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Este é o PRIMEIRO contato desta pessoa e você ainda não se apresentou. Apresente-se pelo seu nome UMA única vez nesta mensagem.${contactPhone ? ` O número de WhatsApp dela já está registrado: ${contactPhone}. NÃO peça o número, você já tem.` : ''}]`
-          : `\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Você já se apresentou anteriormente. O nome desta pessoa é ${contact.name || 'o cliente'}.${contactPhone ? ` O número de WhatsApp já está registrado: ${contactPhone}. NÃO peça o número, você já tem.` : ''} NÃO diga seu nome novamente. NÃO diga "Olá, sou [nome]". Responda diretamente ao que foi perguntado. A conversa já está em andamento.]`
+          : `\n\n[CONTEXTO INTERNO — NÃO MENCIONE AO USUÁRIO: Você já se apresentou anteriormente. ${nomeReal ? `O nome desta pessoa é ${nomeReal}.` : 'Você AINDA NÃO SABE o nome desta pessoa: pergunte de forma leve na sua resposta, sem travar o atendimento.'}${contactPhone ? ` O número de WhatsApp já está registrado: ${contactPhone}. NÃO peça o número, você já tem.` : ''} NÃO diga seu nome novamente. NÃO diga "Olá, sou [nome]". Responda diretamente ao que foi perguntado. A conversa já está em andamento.]`
 
         const flowContext = activeFlow
           ? `\n\n[FLUXO DE ATENDIMENTO ATIVO — "${activeFlow.name}": Siga este roteiro para esta conversa:\n${activeFlow.script}]`
