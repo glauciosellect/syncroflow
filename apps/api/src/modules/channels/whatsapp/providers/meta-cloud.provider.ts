@@ -172,7 +172,7 @@ export class MetaCloudApiProvider implements WhatsAppProvider {
   // Único jeito permitido de a empresa iniciar conversa com alguém que nunca
   // escreveu antes (fora da janela de 24h) — a Meta rejeita/não entrega
   // sendText nesse caso, sem retornar erro na chamada de envio.
-  async sendTemplate(channelId: string, to: string, templateName: string, languageCode: string, params?: string[]) {
+  async sendTemplate(channelId: string, to: string, templateName: string, languageCode: string, params?: string[], opcoes?: { codigoBotao?: string }) {
     const { phoneNumberId, accessToken } = await this.getConfig(channelId)
     const body: Record<string, any> = {
       messaging_product: 'whatsapp',
@@ -183,12 +183,23 @@ export class MetaCloudApiProvider implements WhatsAppProvider {
         language: { code: languageCode },
       },
     }
+    const components: any[] = []
     if (params && params.length > 0) {
-      body.template.components = [{
+      components.push({
         type: 'body',
         parameters: params.map(text => ({ type: 'text', text })),
-      }]
+      })
     }
+    // Template de autenticação: o código também vai no botão "Copiar código" (exigência da Meta)
+    if (opcoes?.codigoBotao) {
+      components.push({
+        type: 'button',
+        sub_type: 'url',
+        index: '0',
+        parameters: [{ type: 'text', text: opcoes.codigoBotao }],
+      })
+    }
+    if (components.length > 0) body.template.components = components
     const res = await axios.post(`${GRAPH_URL}/${phoneNumberId}/messages`, body, {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
