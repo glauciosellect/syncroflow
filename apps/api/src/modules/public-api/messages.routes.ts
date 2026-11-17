@@ -17,12 +17,14 @@ export async function publicMessageRoutes(app: FastifyInstance) {
 
   app.post('/api/messages/send-template', async (req, reply) => {
     const workspaceId = (req as any).workspaceId as string
-    const { to, templateName, languageCode, params, channelId } = z.object({
+    const { to, templateName, languageCode, params, channelId, codigoBotao } = z.object({
       to: z.string().min(8),
       templateName: z.string(),
       languageCode: z.string(),
       params: z.array(z.string()).optional(),
       channelId: z.string().optional(),
+      // Código para o botão "Copiar código" de templates de Autenticação (ex.: portal do cliente SyncroLex)
+      codigoBotao: z.string().max(15).optional(),
     }).parse(req.body)
 
     const channel = channelId
@@ -36,7 +38,7 @@ export async function publicMessageRoutes(app: FastifyInstance) {
     }
 
     try {
-      const wamid = await provider.sendTemplate(channel.id, to, templateName, languageCode, params)
+      const wamid = await provider.sendTemplate(channel.id, to, templateName, languageCode, params, codigoBotao)
       return reply.status(200).send({ sent: true, messageId: wamid })
     } catch (err: any) {
       const errorMessage = err?.response?.data?.error?.message || err?.message || 'Falha desconhecida ao enviar template'
