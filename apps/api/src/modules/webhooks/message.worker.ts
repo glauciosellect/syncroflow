@@ -21,28 +21,55 @@ const AUDIO_FORCED_KEY = 'audioForced' // modo forçado por #audio/#texto, dentr
 // Supabase Storage, para que o link salvo em Message.mediaUrl não expire nem
 // exija o Bearer token da Meta para abrir no navegador do atendente.
 // Nunca lança — se falhar, a mensagem segue salva sem mediaUrl permanente.
+const EXT_POR_MIME: Record<string, string> = {
+  'application/pdf': 'pdf',
+  'application/msword': 'doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  'application/vnd.ms-excel': 'xls',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+  'application/vnd.ms-powerpoint': 'ppt',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
+  'application/zip': 'zip',
+  'text/plain': 'txt',
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'video/mp4': 'mp4',
+  'audio/ogg': 'ogg',
+}
+
+// Documentos de clientes (ex.: escritórios de advocacia) não podem se perder:
+// tenta até 3 vezes (a Meta às vezes responde 5xx/timeout na primeira) e só então desiste.
+// Nunca lança — se falhar de vez, o chamador marca a mensagem com mediaError.
 async function rehostIncomingMedia(
   workspaceId: string,
   mediaUrl: string,
   mimetype: string | undefined,
   authHeader: string | undefined,
+  fileName?: string,
 ): Promise<string | undefined> {
-  try {
-    const res = await axios.get(mediaUrl, {
-      responseType: 'arraybuffer',
-      timeout: 30000,
-      headers: authHeader ? { Authorization: authHeader } : undefined,
-    })
-    const buffer = Buffer.from(res.data)
-    const contentTypeHeader = res.headers['content-type']
-    const resolvedMimetype = mimetype || (typeof contentTypeHeader === 'string' ? contentTypeHeader : undefined) || 'application/octet-stream'
-    const ext = resolvedMimetype.split('/').pop()?.split(';')[0] || 'bin'
-    const { publicUrl } = await uploadAttachment(workspaceId, buffer, resolvedMimetype, `recebido.${ext}`)
-    return publicUrl
-  } catch (err: any) {
-    console.error('[WORKER] Falha ao re-hospedar mídia recebida:', err?.message)
-    return undefined
+  const MAX_TENTATIVAS = 3
+  for (let tentativa = 1; tentativa <= MAX_TENTATIVAS; tentativa++) {
+    try {
+      const res = await axios.get(mediaUrl, {
+        responseType: 'arraybuffer',
+        timeout: 45000,
+        maxContentLength: 100 * 1024 * 1024,
+        headers: authHeader ? { Authorization: authHeader } : undefined,
+      })
+      const buffer = Buffer.from(res.data)
+      const contentTypeHeader = res.headers['content-type']
+      const resolvedMimetype = (mimetype || (typeof contentTypeHeader === 'string' ? contentTypeHeader : undefined) || 'application/octet-stream').split(';')[0].trim()
+      const extDoNome = fileName?.includes('.') ? fileName.split('.').pop()!.toLowerCase().replace(/[^a-z0-9]/g, '') : ''
+      const ext = extDoNome || EXT_POR_MIME[resolvedMimetype] || resolvedMimetype.split('/').pop()?.replace(/[^a-z0-9]/gi, '') || 'bin'
+      const { publicUrl } = await uploadAttachment(workspaceId, buffer, resolvedMimetype, `recebido.${ext}`)
+      return publicUrl
+    } catch (err: any) {
+      console.error(`[WORKER] Falha ao re-hospedar mídia recebida (tentativa ${tentativa}/${MAX_TENTATIVAS}):`, err?.message)
+      if (tentativa < MAX_TENTATIVAS) await new Promise(r => setTimeout(r, 1500 * tentativa))
+    }
   }
+  return undefined
 }
 
 // Detecta se o remetente é um grupo do WhatsApp (@g.us)
@@ -101,6 +128,8 @@ export function startMessageWorker() {
       let from: string, name: string, text: string | undefined
       let incomingMediaType: string | undefined
       let incomingMediaUrl: string | undefined
+      let incomingFileName: string | undefined
+      let mediaFailed = false // arquivo recebido mas não foi possível guardar
       let emailMetadata: { threadId: string; messageId: string; references?: string; subject: string } | undefined
       let tiktokMeta: { tiktokCommentId: string; tiktokVideoId: string } | undefined
       let suppressReply = false
@@ -113,6 +142,7 @@ export function startMessageWorker() {
         name = msg.name
         text = msg.text
         incomingMediaType = msg.mediaType
+        incomingFileName = msg.fileName
 
         // Processar mídia: áudio (transcrição), imagem (visão), documento (extração)
         if (!text && msg.mediaUrl && msg.mediaType) {
@@ -130,31 +160,42 @@ export function startMessageWorker() {
             if (result.transcription) {
               text = result.transcription
               if (result.fileURL) {
-                incomingMediaUrl = await rehostIncomingMedia(channel.workspaceId, result.fileURL, result.mimetype, result.authHeader)
+                incomingMediaUrl = await rehostIncomingMedia(channel.workspaceId, result.fileURL, result.mimetype, result.authHeader, msg.fileName)
+                if (!incomingMediaUrl) mediaFailed = true
               }
             } else if (result.fileURL) {
               // Re-hospeda no storage próprio e processa com IA em paralelo — os dois
               // baixam da mesma URL temporária da Meta, rodar em série só aumenta a
               // janela de risco dela expirar entre uma chamada e outra.
               const [rehostedUrl, processedText] = await Promise.all([
-                rehostIncomingMedia(channel.workspaceId, result.fileURL, result.mimetype, result.authHeader),
+                rehostIncomingMedia(channel.workspaceId, result.fileURL, result.mimetype, result.authHeader, msg.fileName),
                 processIncomingMedia(result.fileURL, msg.mediaType, result.mimetype, result.authHeader),
               ])
               incomingMediaUrl = rehostedUrl
+              if (!rehostedUrl) mediaFailed = true
               text = processedText
             } else {
+              // Não conseguiu nem obter o link de download na Meta
+              mediaFailed = true
               text = msg.mediaType === 'audio'
                 ? '[Áudio recebido — não foi possível transcrever]'
-                : '[Mídia recebida]'
+                : msg.mediaType === 'document'
+                  ? '[Documento recebido — não foi possível baixar o arquivo]'
+                  : '[Mídia recebida]'
             }
           } else {
             const [rehostedUrl, processedText] = await Promise.all([
-              rehostIncomingMedia(channel.workspaceId, msg.mediaUrl, undefined, undefined),
+              rehostIncomingMedia(channel.workspaceId, msg.mediaUrl, undefined, undefined, msg.fileName),
               processIncomingMedia(msg.mediaUrl, msg.mediaType),
             ])
             incomingMediaUrl = rehostedUrl || msg.mediaUrl
             text = processedText
           }
+
+          // Legenda escrita pelo cliente junto do arquivo vem antes do resumo automático
+          if (msg.caption && text) text = `${msg.caption}
+
+${text}`
         }
 
         if (!text) return
@@ -251,6 +292,9 @@ export function startMessageWorker() {
       } else {
         return
       }
+
+      // Dados do arquivo recebido, guardados na mensagem para a tela mostrar nome ou aviso de falha
+      const mediaMeta = incomingMediaType ? { fileName: incomingFileName, mediaError: mediaFailed || undefined } : undefined
 
       const agentChannel = channel.agentChannels[0]
       if (!agentChannel) { console.log('[WORKER] canal sem agente vinculado — descartado'); return }
@@ -435,7 +479,7 @@ export function startMessageWorker() {
 
           // Salvar a mensagem do lead e retornar — IA responderá quando o lead escrever de volta
           const userMsgForFC = await prisma.message.create({
-            data: { conversationId: conv.id, role: 'USER', content: text, mediaUrl: incomingMediaUrl, mediaType: incomingMediaType },
+            data: { conversationId: conv.id, role: 'USER', content: text, mediaUrl: incomingMediaUrl, mediaType: incomingMediaType, metadata: mediaMeta as any },
           })
           await prisma.conversation.update({ where: { id: conv.id }, data: { unreadCount: { increment: 1 } } })
           try { emitNewMessage(channel.workspaceId, conv.id, userMsgForFC) } catch {}
@@ -453,7 +497,7 @@ export function startMessageWorker() {
           take: 20,
         }),
         prisma.message.create({
-          data: { conversationId: conversation.id, role: 'USER', content: text, mediaUrl: incomingMediaUrl, mediaType: incomingMediaType, metadata: (emailMetadata ?? tiktokMeta) as any },
+          data: { conversationId: conversation.id, role: 'USER', content: text, mediaUrl: incomingMediaUrl, mediaType: incomingMediaType, metadata: (emailMetadata ?? tiktokMeta ?? mediaMeta) as any },
         }),
       ])
       // userMsg é gravada em paralelo: tira ela do histórico (já vai como userMessage) e põe em ordem cronológica

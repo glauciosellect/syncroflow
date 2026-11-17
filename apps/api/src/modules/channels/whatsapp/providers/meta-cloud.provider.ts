@@ -369,10 +369,17 @@ export class MetaCloudApiProvider implements WhatsAppProvider {
 
     if (!text && !mediaType) return null
 
+    // Legenda e nome do arquivo vêm dentro do objeto da mídia (image/video/document)
+    const mediaObj = msg.type === 'image' ? msg.image : msg.type === 'video' ? msg.video : msg.type === 'document' ? msg.document : undefined
+    const caption = typeof mediaObj?.caption === 'string' && mediaObj.caption.trim() ? mediaObj.caption.trim() : undefined
+    const fileName = typeof mediaObj?.filename === 'string' && mediaObj.filename.trim() ? mediaObj.filename.trim() : undefined
+
     return {
       from,
       name,
       text,
+      caption,
+      fileName,
       mediaUrl: mediaId ? `meta-cloud:${mediaId}` : undefined,
       mediaType,
       messageId: msg.id || '',

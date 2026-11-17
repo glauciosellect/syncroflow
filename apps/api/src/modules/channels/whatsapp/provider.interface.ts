@@ -4,6 +4,10 @@ export interface WhatsAppMessage {
   text?: string
   mediaUrl?: string
   mediaType?: 'image' | 'audio' | 'video' | 'document'
+  /** Legenda enviada junto da mídia (WhatsApp) */
+  caption?: string
+  /** Nome original do arquivo (documentos) */
+  fileName?: string
   messageId: string
   timestamp: number
 }

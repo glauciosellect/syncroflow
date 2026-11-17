@@ -80,14 +80,28 @@ function ContactPanel({ contactId, workspaceId }: { contactId: string; workspace
     enabled: !!contactId && activeSection === 'history',
   })
 
+  const [noteError, setNoteError] = useState<string | null>(null)
+
   const updateMutation = useMutation({
-    mutationFn: (data: any) => api.patch(`/contacts/${contactId}`, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['contact', contactId] }),
+    mutationFn: (data: any) => api.patch(`/contacts/${contactId}`, data).then(r => r.data),
+    onSuccess: (saved) => {
+      // Grava na tela exatamente o que o servidor confirmou, sem esperar o refetch:
+      // antes a nota "sumia" por instantes (ou para sempre se o refetch falhasse).
+      if (saved?.id) qc.setQueryData(['contact', contactId], saved)
+      qc.invalidateQueries({ queryKey: ['contact', contactId] })
+    },
   })
 
-  const handleSaveNote = () => {
-    updateMutation.mutate({ notes: noteText })
-    setEditingNote(false)
+  // Só fecha o editor depois que o servidor confirmou. Se falhar, o texto digitado
+  // continua na tela com aviso — nunca se perde uma anotação em silêncio.
+  const handleSaveNote = async () => {
+    setNoteError(null)
+    try {
+      await updateMutation.mutateAsync({ notes: noteText })
+      setEditingNote(false)
+    } catch (e: any) {
+      setNoteError(e?.response?.data?.error || 'Não foi possível salvar a nota. Seu texto foi mantido — tente novamente.')
+    }
   }
 
   const handleAddTag = () => {
@@ -249,11 +263,12 @@ function ContactPanel({ contactId, workspaceId }: { contactId: string; workspace
                     placeholder="Anote observações sobre este contato..."
                     autoFocus
                   />
+                  {noteError && <p className="text-xs text-red-600 mt-1">{noteError}</p>}
                   <div className="flex gap-1 mt-1">
                     <Button size="sm" className="h-6 text-xs bg-[#1565C0]" onClick={handleSaveNote} disabled={updateMutation.isPending}>
-                      Salvar
+                      {updateMutation.isPending ? 'Salvando…' : 'Salvar'}
                     </Button>
-                    <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => setEditingNote(false)}>
+                    <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => { setEditingNote(false); setNoteError(null) }}>
                       Cancelar
                     </Button>
                   </div>
@@ -752,8 +767,14 @@ function ChatPageContent() {
                       )}
                       {msg.mediaUrl && msg.mediaType && msg.mediaType !== 'audio' && msg.mediaType !== 'image' && (
                         <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 mb-1.5 underline text-sm">
-                          <FileText className="w-3.5 h-3.5" />Ver documento
+                          <FileText className="w-3.5 h-3.5" />{msg.metadata?.fileName ? `Abrir ${msg.metadata.fileName}` : 'Ver documento'}
                         </a>
+                      )}
+                      {!msg.mediaUrl && msg.mediaType && msg.mediaType !== 'audio' && msg.metadata?.mediaError && (
+                        <div className="flex items-center gap-1 mb-1.5 text-xs bg-amber-500/20 text-amber-900 rounded-lg px-2 py-1">
+                          <AlertTriangle className="w-3 h-3 shrink-0" />
+                          <span>O cliente enviou {msg.mediaType === 'document' ? 'um documento' : 'um arquivo'}{msg.metadata?.fileName ? ` (${msg.metadata.fileName})` : ''}, mas não foi possível baixá-lo. Peça para reenviar ou abra pelo WhatsApp.</span>
+                        </div>
                       )}
                       {msg.content && <p className="whitespace-pre-wrap">{msg.content}</p>}
                       {msg.metadata?.sendError && (
