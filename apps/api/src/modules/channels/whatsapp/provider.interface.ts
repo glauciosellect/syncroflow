@@ -51,7 +51,7 @@ export interface WhatsAppProvider {
   // Mensagem de template aprovado pela Meta — único jeito permitido de a
   // empresa iniciar conversa com alguém que nunca escreveu antes (fora da
   // janela de 24h). "to" já deve estar em formato internacional.
-  sendTemplate?(channelId: string, to: string, templateName: string, languageCode: string, params?: string[]): Promise<string | null>
+  sendTemplate?(channelId: string, to: string, templateName: string, languageCode: string, params?: string[], urlButtonParam?: string): Promise<string | null>
   // Lista os templates aprovados na WABA do canal, para a UI oferecer ao
   // operador escolher qual usar ao iniciar uma conversa nova.
   listTemplates?(channelId: string): Promise<WhatsAppTemplate[]>
