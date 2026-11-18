@@ -41,8 +41,13 @@ export async function publicMessageRoutes(app: FastifyInstance) {
       const wamid = await provider.sendTemplate(channel.id, to, templateName, languageCode, params, codigoBotao)
       return reply.status(200).send({ sent: true, messageId: wamid })
     } catch (err: any) {
-      const errorMessage = err?.response?.data?.error?.message || err?.message || 'Falha desconhecida ao enviar template'
-      return reply.status(502).send({ sent: false, error: errorMessage })
+      const metaError = err?.response?.data?.error
+      const errorMessage = metaError?.message || err?.message || 'Falha desconhecida ao enviar template'
+      req.log.error({ templateName, metaCode: metaError?.code, metaSubcode: metaError?.error_subcode, errorMessage }, 'send-template falhou')
+      // Recusa da Meta (4xx) volta como 422: o proxy do EasyPanel troca o corpo de qualquer 5xx por uma
+      // página HTML, escondendo o motivo de quem chama a API. Falha de rede/infra continua 502.
+      const recusadaPelaMeta = Boolean(metaError) && err?.response?.status >= 400 && err?.response?.status < 500
+      return reply.status(recusadaPelaMeta ? 422 : 502).send({ sent: false, error: errorMessage, code: metaError?.code })
     }
   })
 }
