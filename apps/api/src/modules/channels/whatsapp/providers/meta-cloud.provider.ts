@@ -257,6 +257,31 @@ export class MetaCloudApiProvider implements WhatsAppProvider {
     }
   }
 
+  // Template de Autenticação (código de uso único) com botão "Copiar código".
+  // Usa o token do próprio canal, então funciona na conta WhatsApp (WABA) de cada cliente.
+  async createAuthenticationTemplate(channelId: string, name: string, expirationMinutes = 10): Promise<'created' | 'exists'> {
+    const channel = await prisma.channel.findUnique({ where: { id: channelId } })
+    const config = channel?.config as any
+    if (!config?.wabaId || !config?.accessToken) throw new Error('Canal sem wabaId/accessToken')
+    try {
+      await axios.post(`${GRAPH_URL}/${config.wabaId}/message_templates`, {
+        name,
+        language: 'pt_BR',
+        category: 'AUTHENTICATION',
+        components: [
+          { type: 'BODY', add_security_recommendation: true },
+          { type: 'FOOTER', code_expiration_minutes: expirationMinutes },
+          { type: 'BUTTONS', buttons: [{ type: 'OTP', otp_type: 'COPY_CODE', text: 'Copiar código' }] },
+        ],
+      }, { headers: { Authorization: `Bearer ${config.accessToken}` } })
+      return 'created'
+    } catch (err: any) {
+      const e = err?.response?.data?.error
+      if (e?.error_subcode === 2388024) return 'exists'
+      throw err
+    }
+  }
+
   async getBusinessProfile(channelId: string): Promise<WhatsAppBusinessProfile> {
     const { phoneNumberId, accessToken } = await this.getConfig(channelId)
     const res = await axios.get(`${GRAPH_URL}/${phoneNumberId}/whatsapp_business_profile`, {
