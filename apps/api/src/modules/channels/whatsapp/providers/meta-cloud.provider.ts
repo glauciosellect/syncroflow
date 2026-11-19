@@ -395,7 +395,22 @@ export class MetaCloudApiProvider implements WhatsAppProvider {
     const contact = value?.contacts?.[0]
     const name = contact?.profile?.name || 'Desconhecido'
 
-    const text = msg.type === 'text' ? msg.text?.body : undefined
+    // Texto da mensagem. Além de "text", o cliente também responde por:
+    //  - "button": toque no botão de resposta rápida de um template (ex.: "Responder");
+    //  - "interactive": resposta de botão/lista de uma mensagem interativa;
+    //  - "location": localização compartilhada.
+    // Antes só "text" era lido: o toque em "Responder" era descartado em silêncio, a conversa
+    // nunca reabria a janela de 24h e o atendente ficava sem poder responder.
+    let text: string | undefined
+    if (msg.type === 'text') text = msg.text?.body
+    else if (msg.type === 'button') text = msg.button?.text || msg.button?.payload
+    else if (msg.type === 'interactive') {
+      text = msg.interactive?.button_reply?.title || msg.interactive?.list_reply?.title || msg.interactive?.nfm_reply?.body
+    } else if (msg.type === 'location' && msg.location?.latitude != null) {
+      const { latitude, longitude, name, address } = msg.location
+      text = `📍 Localização${name ? ` — ${name}` : ''}${address ? ` (${address})` : ''}: https://maps.google.com/?q=${latitude},${longitude}`
+    }
+    if (typeof text === 'string') text = text.trim() || undefined
 
     let mediaType: WhatsAppMessage['mediaType'] | undefined
     let mediaId: string | undefined
