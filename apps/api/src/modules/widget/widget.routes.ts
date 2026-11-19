@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { prisma } from '../../lib/prisma'
 import { messageQueue } from '../../lib/queue'
 import { WIDGET_SCRIPT } from './widget.script'
+import { normalizeBrazilianNumber } from '../channels/whatsapp/providers/meta-cloud.provider'
 
 // Rotas PÚBLICAS do widget de chat para sites (sem JWT). Proteções:
 //  - origem validada contra allowedDomains do canal
@@ -66,7 +67,54 @@ export async function widgetRoutes(app: FastifyInstance) {
       position: cfg?.position || 'bottom-right',
       welcomeMessage: cfg?.welcomeMessage || 'Olá! Como posso ajudar?',
       online: !!agent && agent.isActive,
+      // Pede nome + WhatsApp antes de abrir o chat (padrão: ligado; desligue com config.requireLead = false)
+      requireLead: cfg?.requireLead !== false,
     })
+  })
+
+  // Formulário inicial do chat: guarda nome e WhatsApp do visitante ANTES da conversa começar, junto
+  // com o site e a página de onde ele veio — assim o atendente sabe quem é e pode chamá-lo no WhatsApp.
+  app.post('/widget/:channelId/lead', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (req, reply) => {
+    open(reply)
+    const { channelId } = req.params as { channelId: string }
+    const parsed = z.object({
+      visitorId: visitorIdSchema,
+      name: z.string().trim().min(2).max(80),
+      phone: z.string().trim().min(8).max(30),
+      page: z.string().max(400).optional(),
+      title: z.string().max(160).optional(),
+    }).safeParse(req.body)
+    if (!parsed.success) return reply.status(400).send({ error: 'Informe seu nome e o WhatsApp com DDD' })
+
+    const channel = await loadChannel(channelId)
+    if (!channel || !originAllowed(req, (channel.config as any)?.allowedDomains)) {
+      return reply.status(404).send({ error: 'Canal não encontrado' })
+    }
+
+    const phone = normalizeBrazilianNumber(parsed.data.phone)
+    if (!/^d{10,15}$/.test(phone)) return reply.status(400).send({ error: 'WhatsApp inválido. Informe com DDD, ex.: (32) 99999-0000' })
+
+    // Só endereço da página (sem ?query nem #hash, que podem carregar dados pessoais)
+    let pagina: string | undefined
+    try { const u = new URL(parsed.data.page || ''); pagina = u.hostname + u.pathname } catch { pagina = undefined }
+    const site = hostOf(req.headers.origin as string | undefined) || hostOf(req.headers.referer as string | undefined) || pagina?.split('/')[0]
+
+    const where = { workspaceId_channelId_externalId: { workspaceId: channel.workspaceId, channelId, externalId: parsed.data.visitorId } }
+    const existing = await prisma.contact.findUnique({ where })
+    const variables = {
+      ...((existing?.variables as Record<string, unknown>) || {}),
+      origem: 'site',
+      site,
+      pagina,
+      tituloPagina: parsed.data.title,
+      whatsapp: phone,
+    }
+    await prisma.contact.upsert({
+      where,
+      create: { workspaceId: channel.workspaceId, channelId, externalId: parsed.data.visitorId, name: parsed.data.name, phone, variables: variables as any },
+      update: { name: parsed.data.name, phone, variables: variables as any },
+    })
+    return reply.send({ ok: true })
   })
 
   // Visitante envia mensagem

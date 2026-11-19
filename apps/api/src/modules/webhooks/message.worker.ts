@@ -336,7 +336,7 @@ ${text}`
       let contact = await prisma.contact.findUnique({
         where: { workspaceId_channelId_externalId: { workspaceId: channel.workspaceId, channelId, externalId: from } },
       })
-      const isNewContact = !contact
+      let isNewContact = !contact
 
       // Contato importado manualmente (sem canal ainda) pode já existir com
       // o mesmo telefone — completa esse registro em vez de duplicar.
@@ -363,6 +363,12 @@ ${text}`
         where: { channelId, contactId: contact.id, status: { not: 'CLOSED' } },
       })
       if (!conversation) {
+        // No widget o contato já nasce no formulário (nome + WhatsApp), antes da 1ª mensagem. Sem este
+        // ajuste ele nunca contaria como "contato novo" e não criaria o lead nem a apresentação da IA.
+        const hadConversation = channelType === 'WIDGET' && !isNewContact
+          ? (await prisma.conversation.count({ where: { contactId: contact.id } })) > 0
+          : true
+        if (channelType === 'WIDGET' && !hadConversation) isNewContact = true
         conversation = await prisma.conversation.create({
           data: {
             workspaceId: channel.workspaceId,
