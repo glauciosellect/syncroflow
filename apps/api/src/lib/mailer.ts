@@ -7,6 +7,9 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
+  connectionTimeout: 10_000,
+  greetingTimeout: 10_000,
+  socketTimeout: 15_000,
 })
 
 export async function sendEmail(to: string, subject: string, html: string) {
@@ -19,7 +22,7 @@ export async function sendEmail(to: string, subject: string, html: string) {
 }
 
 export function workspaceInviteEmail(inviterName: string, workspaceName: string, role: string, acceptUrl: string): string {
-  const roleLabel = role === 'ADMIN' ? 'Administrador' : 'Agente'
+  const roleLabel = ({ ADMIN: 'Administrador', MEMBER: 'Membro', AGENT: 'Agente', VIEWER: 'Visualizador' } as Record<string, string>)[role] || 'Agente'
   return `
     <h2>Você foi convidado!</h2>
     <p><strong>${inviterName}</strong> convidou você para participar do workspace <strong>${workspaceName}</strong> como <strong>${roleLabel}</strong>.</p>

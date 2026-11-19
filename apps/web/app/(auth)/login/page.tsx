@@ -74,7 +74,7 @@ function LoginContent() {
         const workspace = workspaceMembers?.[0]?.workspace
         if (user && workspace) {
           setAuth(user, workspace, token, refresh)
-          router.push('/dashboard')
+          router.push('/chat')
         }
       }).catch(() => {
         toast({ title: 'Erro ao autenticar com Google', variant: 'destructive' })
@@ -90,7 +90,7 @@ function LoginContent() {
       const res = await api.post('/auth/login', data)
       const { user, workspace, accessToken, refreshToken } = res.data
       setAuth(user, workspace, accessToken, refreshToken)
-      router.push('/dashboard')
+      router.push('/chat')
     } catch (err: any) {
       const msg = err.response?.data?.error || 'Erro ao fazer login'
       if (msg.includes('2FA') || msg.includes('obrigatório')) setNeeds2FA(true)

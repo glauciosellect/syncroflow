@@ -51,18 +51,34 @@ const TABS = [
   { id: 'audit',    label: 'Auditoria',   icon: ScrollText },
 ]
 
+// Avisa se o e-mail do convite saiu. Se não saiu, copia o link para o administrador enviar manualmente.
+function notifyInviteResult(data: { emailSent?: boolean; acceptUrl?: string } | undefined, toast: (o: any) => void) {
+  if (data?.emailSent === false && data.acceptUrl) {
+    try { navigator.clipboard?.writeText(data.acceptUrl) } catch { /* ignora */ }
+    toast({
+      title: 'Convite criado, mas o e-mail não pôde ser enviado',
+      description: `O link foi copiado: ${data.acceptUrl} — envie ao convidado pelo WhatsApp.`,
+      variant: 'destructive',
+    })
+    return
+  }
+  toast({ title: '✅ Convite enviado por e-mail' })
+}
+
 // ─── Modal de convite ─────────────────────────────────────────────────────────
 
 function InviteModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const qc = useQueryClient()
+  const { toast } = useToast()
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<string>('AGENT')
   const [error, setError] = useState('')
 
   const invite = useMutation({
     mutationFn: (data: { email: string; role: string }) => api.post('/workspaces/me/members/invite', data),
-    onSuccess: () => {
+    onSuccess: (res: any) => {
       qc.invalidateQueries({ queryKey: ['invites'] })
+      notifyInviteResult(res?.data, toast)
       setEmail(''); setRole('AGENT'); setError(''); onClose()
     },
     onError: (err: any) => setError(err.response?.data?.error || 'Erro ao enviar convite'),
@@ -190,7 +206,8 @@ export default function TeamPage() {
   const resendInvite = useMutation({
     mutationFn: ({ email, role }: { email: string; role: string }) =>
       api.post('/workspaces/me/members/invite', { email, role }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['invites'] }); toast({ title: 'Convite reenviado' }) },
+    onSuccess: (res: any) => { qc.invalidateQueries({ queryKey: ['invites'] }); notifyInviteResult(res?.data, toast) },
+    onError: (err: any) => toast({ title: err?.response?.data?.error ?? 'Erro ao reenviar convite', variant: 'destructive' }),
   })
 
   const auditLogs: any[] = auditData?.logs ?? []

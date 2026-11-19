@@ -84,7 +84,7 @@ export async function workspaceRoutes(app: FastifyInstance) {
 
     const { email, role: inviteRole } = z.object({
       email: z.string().email(),
-      role: z.enum(['ADMIN', 'AGENT']).default('AGENT'),
+      role: z.enum(['ADMIN', 'MEMBER', 'AGENT', 'VIEWER']).default('AGENT'),
     }).parse(req.body)
 
     const inviter = await prisma.user.findUnique({ where: { id: sub }, select: { name: true } })
@@ -107,9 +107,17 @@ export async function workspaceRoutes(app: FastifyInstance) {
     })
 
     const acceptUrl = `${process.env.FRONTEND_URL}/accept-invite?token=${token}`
-    await sendEmail(email, `Convite para ${workspace.name} — SyncroFlow`, workspaceInviteEmail(inviter?.name || 'Alguém', workspace.name, inviteRole, acceptUrl))
+    // O convite já está salvo; se o e-mail falhar (SMTP fora do ar/mal configurado) não derruba a
+    // requisição: devolvemos o link para o administrador copiar e enviar manualmente.
+    let emailSent = true
+    try {
+      await sendEmail(email, `Convite para ${workspace.name} — SyncroFlow`, workspaceInviteEmail(inviter?.name || 'Alguém', workspace.name, inviteRole, acceptUrl))
+    } catch (err: any) {
+      emailSent = false
+      console.error('[CONVITE] Falha ao enviar e-mail de convite:', err?.message || err)
+    }
 
-    return reply.status(201).send({ ok: true })
+    return reply.status(201).send({ ok: true, emailSent, acceptUrl })
   })
 
   app.delete('/workspaces/me/invites/:id', async (req, reply) => {

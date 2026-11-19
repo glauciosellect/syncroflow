@@ -100,7 +100,7 @@ export default function RegisterPage() {
         if ((window as any).gtag) (window as any).gtag('event', 'sign_up', { method: 'email' })
       }
 
-      router.push('/dashboard')
+      router.push('/chat')
     } catch (err: any) {
       toast({ title: 'Erro ao criar conta', description: err.response?.data?.error || 'Tente novamente', variant: 'destructive' })
       setStep(1)

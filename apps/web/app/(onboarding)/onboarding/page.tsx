@@ -4,6 +4,6 @@ import { useRouter } from 'next/navigation'
 
 export default function OnboardingRedirect() {
   const router = useRouter()
-  useEffect(() => { router.replace('/dashboard') }, [router])
+  useEffect(() => { router.replace('/chat') }, [router])
   return null
 }

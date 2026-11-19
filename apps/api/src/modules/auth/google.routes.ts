@@ -102,7 +102,7 @@ export async function googleRoutes(app: FastifyInstance) {
       })
 
       // Usuários existentes vão direto ao dashboard; novos usuários passam pelo onboarding
-      const destination = (!isNewUser || (user as any).onboardingDone) ? `${FRONTEND_URL}/dashboard` : `${FRONTEND_URL}/register?step=2`
+      const destination = (!isNewUser || (user as any).onboardingDone) ? `${FRONTEND_URL}/chat` : `${FRONTEND_URL}/register?step=2`
       const params = new URLSearchParams({
         token: jwtTokens.accessToken,
         refresh: jwtTokens.refreshToken,

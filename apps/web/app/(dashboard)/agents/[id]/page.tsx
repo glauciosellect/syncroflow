@@ -261,9 +261,9 @@ export default function AgentDetailPage() {
   }
 
   return (
-    <div className="flex gap-6 h-full">
-      {/* Sidebar do agente */}
-      <div className="w-56 shrink-0">
+    <div className="flex flex-col md:flex-row gap-4 md:gap-6 md:h-full">
+      {/* Sidebar do agente (no celular vira um bloco no topo, com abas rolando na horizontal) */}
+      <div className="w-full md:w-56 md:shrink-0">
         <Link href="/agents" className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 mb-4">
           <ArrowLeft className="w-4 h-4" /> Voltar
         </Link>
@@ -336,10 +336,10 @@ export default function AgentDetailPage() {
           </div>
         </div>
 
-        <nav className="space-y-1">
+        <nav className="flex md:block gap-1 md:space-y-1 overflow-x-auto md:overflow-visible pb-1 md:pb-0 -mx-1 px-1 md:mx-0 md:px-0">
           {tabs.map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)}
-              className={cn('w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+              className={cn('shrink-0 md:shrink md:w-full whitespace-nowrap text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                 activeTab === tab ? 'bg-blue-50 text-[#1565C0]' : 'text-gray-600 hover:bg-gray-50')}>
               {tab}
             </button>
