@@ -835,6 +835,9 @@ function ChatPageContent() {
                   </span>
                 </div>
                 <TemplateSelector
+                  // key por conversa: sem isso o formulário guardava o nome/variáveis da conversa anterior
+                  // (ex.: abrir o Glaucio depois da Cris e o template sair "Olá Cris…" para o Glaucio)
+                  key={selected.id}
                   channelId={selected.channelId}
                   conversationId={selected.id}
                   contactName={selected.contact?.name}
