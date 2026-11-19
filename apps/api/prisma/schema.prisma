@@ -77,6 +77,7 @@ model Workspace {
   auditLogs             AuditLog[]
   agentLearnings        AgentLearning[]
   campaigns             Campaign[]
+  contactLists          ContactList[]
 }
 
 model WorkspaceMember {
@@ -355,8 +356,34 @@ model Contact {
   conversations Conversation[]
   appointments  Appointment[]
   campaignRecipients CampaignRecipient[]
+  lists         ContactListMember[]
 
   @@unique([workspaceId, channelId, externalId])
+}
+
+// Listas de contatos (como as "Listas" do WhatsApp Business): o atendente junta
+// contatos em grupos próprios (Importante, Lead, Clientes VIP...) e filtra o chat por eles.
+model ContactList {
+  id          String              @id @default(cuid())
+  workspaceId String
+  name        String
+  color       String              @default("#1565C0")
+  createdAt   DateTime            @default(now())
+  workspace   Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  members     ContactListMember[]
+
+  @@unique([workspaceId, name])
+}
+
+model ContactListMember {
+  listId    String
+  contactId String
+  createdAt DateTime    @default(now())
+  list      ContactList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  contact   Contact     @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@id([listId, contactId])
+  @@index([contactId])
 }
 
 model Appointment {

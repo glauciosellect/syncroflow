@@ -51,7 +51,7 @@ export async function conversationRoutes(app: FastifyInstance) {
   app.get('/conversations', async (req, reply) => {
     const { sub, wid } = req.user as { sub: string; wid?: string }
     const workspaceId = await getWorkspaceId(sub, wid)
-    const { status, agentId, channelId, page = '1', limit = '20', search, assignedToMe } = req.query as Record<string, string>
+    const { status, agentId, channelId, page = '1', limit = '20', search, assignedToMe, listId } = req.query as Record<string, string>
     const skip = (Number(page) - 1) * Number(limit)
 
     const where: any = { workspaceId }
@@ -65,6 +65,8 @@ export async function conversationRoutes(app: FastifyInstance) {
     // vale tanto pra conversa tocada pela IA quanto pela equipe humana, já que
     // filtra pelo contato, não pelo responsável pelo atendimento.
     if (search) where.contactId = { in: await findContactIdsBySearch(workspaceId, search) }
+    // Filtro por lista de contatos (só consulta a tabela de listas quando o filtro é usado)
+    if (listId) where.contact = { lists: { some: { listId } } }
 
     const [conversations, total] = await prisma.$transaction([
       prisma.conversation.findMany({
@@ -82,6 +84,19 @@ export async function conversationRoutes(app: FastifyInstance) {
       prisma.conversation.count({ where }),
     ])
     return reply.send({ data: conversations, total, page: Number(page), limit: Number(limit) })
+  })
+
+  // Quantas conversas têm mensagens não lidas — vira o número no ícone do app (como o
+  // WhatsApp) e no título da aba. Conversa encerrada não conta.
+  app.get('/conversations/unread-count', async (req, reply) => {
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
+    const where = { workspaceId, unreadCount: { gt: 0 }, status: { not: 'CLOSED' as const } }
+    const [conversations, agg] = await prisma.$transaction([
+      prisma.conversation.count({ where }),
+      prisma.conversation.aggregate({ where, _sum: { unreadCount: true } }),
+    ])
+    return reply.send({ conversations, messages: agg._sum.unreadCount ?? 0 })
   })
 
   // Inicia uma conversa nova com um contato da agenda (ex: importado via CSV,

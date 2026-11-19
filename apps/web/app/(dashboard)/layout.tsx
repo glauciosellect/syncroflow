@@ -7,6 +7,7 @@ import { Topbar } from '@/components/shared/topbar'
 import { MascoteHelper } from '@/components/shared/mascote-helper'
 import { TutorialProvider } from '@/components/shared/tutorial-context'
 import { useSocketConnect } from '@/hooks/use-socket'
+import { useAppBadge } from '@/hooks/use-app-badge'
 import { Softphone } from '@/components/shared/softphone'
 import { AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
@@ -19,6 +20,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [hydrated, setHydrated] = useState(false)
 
   useSocketConnect()
+  useAppBadge()
 
   useEffect(() => {
     setHydrated(true)

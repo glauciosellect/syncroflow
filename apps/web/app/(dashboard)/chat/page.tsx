@@ -19,6 +19,7 @@ import { MessageComposer } from '@/components/shared/message-composer'
 import { TemplateSelector } from '@/components/shared/template-selector'
 import { NewConversationDialog } from '@/components/shared/new-conversation-dialog'
 import { useAuthStore } from '@/store/auth.store'
+import { AddToListButton, ListFilterBar, ManageListsDialog, listsByContact, useContactLists } from '@/components/chat/contact-lists'
 
 // Toca um beep suave ao chegar mensagem nova
 function playNotificationSound() {
@@ -366,6 +367,10 @@ function ChatPageContent() {
   const [search, setSearch] = useState('')
   const [showNewConversation, setShowNewConversation] = useState(false)
   const [channelFilter, setChannelFilter] = useState('all')
+  const [listFilter, setListFilter] = useState('all')
+  const [showManageLists, setShowManageLists] = useState(false)
+  const { data: contactLists } = useContactLists()
+  const listasDoContato = useMemo(() => listsByContact(contactLists), [contactLists])
   const [showProfile, setShowProfile] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -404,7 +409,7 @@ function ChatPageContent() {
           // Toca som de notificação
           playNotificationSound()
           // Incrementa na lista em cache
-          qc.setQueryData(['conversations', filter, search, channelFilter], (old: any) => {
+          qc.setQueryData(['conversations', filter, search, channelFilter, listFilter], (old: any) => {
             if (!old) return old
             return {
               ...old,
@@ -421,15 +426,15 @@ function ChatPageContent() {
     }
 
     qc.invalidateQueries({ queryKey: ['conversations'] })
-  }, [qc, filter, search, channelFilter])
+  }, [qc, filter, search, channelFilter, listFilter])
 
   const handleConversationUpdated = useCallback((conv: any) => {
-    qc.setQueryData(['conversations', filter, search, channelFilter], (old: any) => {
+    qc.setQueryData(['conversations', filter, search, channelFilter, listFilter], (old: any) => {
       if (!old) return old
       return { ...old, data: old.data?.map((c: any) => c.id === conv.id ? { ...c, ...conv } : c) }
     })
     setSelected((prev: any) => prev?.id === conv.id ? { ...prev, ...conv } : prev)
-  }, [filter, search, channelFilter])
+  }, [filter, search, channelFilter, listFilter])
 
   const handleMessageDeleted = useCallback((data: { conversationId: string; messageId: string }) => {
     qc.setQueryData(['messages', data.conversationId], (old: any) => {
@@ -455,13 +460,14 @@ function ChatPageContent() {
   })
 
   const { data: conversations } = useQuery({
-    queryKey: ['conversations', filter, search, channelFilter],
+    queryKey: ['conversations', filter, search, channelFilter, listFilter],
     queryFn: () => api.get('/conversations', {
       params: {
         status: filter !== 'all' && filter !== 'mine' ? filter : undefined,
         assignedToMe: filter === 'mine' ? 'true' : undefined,
         search: search || undefined,
         channelId: channelFilter !== 'all' ? channelFilter : undefined,
+        listId: listFilter !== 'all' ? listFilter : undefined,
       },
     }).then(r => r.data),
   })
@@ -550,7 +556,7 @@ function ChatPageContent() {
   const handleSelectConversation = useCallback((conv: any) => {
     setSelected(conv)
     if ((conv.unreadCount || 0) > 0) {
-      qc.setQueryData(['conversations', filter, search, channelFilter], (old: any) => {
+      qc.setQueryData(['conversations', filter, search, channelFilter, listFilter], (old: any) => {
         if (!old) return old
         return {
           ...old,
@@ -559,12 +565,13 @@ function ChatPageContent() {
           ),
         }
       })
-      api.get(`/conversations/${conv.id}`).catch(() => {})
+      api.get(`/conversations/${conv.id}`).then(() => qc.invalidateQueries({ queryKey: ['unread-count'] })).catch(() => {})
     }
-  }, [qc, filter, search, channelFilter])
+  }, [qc, filter, search, channelFilter, listFilter])
 
   return (
     <div className="h-full flex -m-4 md:-m-6 bg-white rounded-lg overflow-hidden border border-gray-200">
+      <ManageListsDialog open={showManageLists} onClose={() => setShowManageLists(false)} />
       <NewConversationDialog
         open={showNewConversation}
         onClose={() => setShowNewConversation(false)}
@@ -608,6 +615,7 @@ function ChatPageContent() {
               </button>
             ))}
           </div>
+          <ListFilterBar lists={contactLists ?? []} active={listFilter} onChange={setListFilter} onManage={() => setShowManageLists(true)} />
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -632,6 +640,13 @@ function ChatPageContent() {
                   <p className={cn('text-xs truncate', (conv.unreadCount || 0) > 0 ? 'text-gray-700 font-medium' : 'text-gray-400')}>
                     {conv.messages?.[0]?.content || 'Sem mensagens'}
                   </p>
+                  {(listasDoContato.get(conv.contactId) ?? []).length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {(listasDoContato.get(conv.contactId) ?? []).map((l) => (
+                        <span key={l.id} className="text-[10px] leading-none px-1.5 py-0.5 rounded-full text-white" style={{ background: l.color }}>{l.name}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
                   <Badge className={cn('text-xs', statusColors[conv.status])}>{statusLabels[conv.status]}</Badge>
@@ -676,6 +691,7 @@ function ChatPageContent() {
             </div>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
+              {selected.contactId && <AddToListButton contactId={selected.contactId} onManage={() => setShowManageLists(true)} />}
               {selected.status === 'WAITING_HUMAN' && (
                 <Button size="sm" onClick={() => assumeMutation.mutate(selected.id)} disabled={assumeMutation.isPending} className="bg-green-600 hover:bg-green-700 text-white h-7 text-xs">
                   <UserCheck className="w-3 h-3 mr-1" />Assumir

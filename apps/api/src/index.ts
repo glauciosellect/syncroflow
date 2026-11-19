@@ -29,6 +29,7 @@ import { flowRoutes } from './modules/flows/flows.routes'
 import { channelRoutes } from './modules/channels/channels.routes'
 import { conversationRoutes } from './modules/conversations/conversations.routes'
 import { contactRoutes } from './modules/contacts/contacts.routes'
+import { contactListRoutes } from './modules/contacts/contact-lists.routes'
 import { knowledgeRoutes } from './modules/knowledge/knowledge.routes'
 import { analyticsRoutes } from './modules/analytics/analytics.routes'
 import { attendanceRoutes } from './modules/attendances/attendances.routes'
@@ -180,6 +181,7 @@ async function bootstrap() {
   await app.register(emailChannelRoutes)
   await app.register(conversationRoutes)
   await app.register(contactRoutes)
+  await app.register(contactListRoutes)
   await app.register(knowledgeRoutes)
   await app.register(analyticsRoutes)
   await app.register(attendanceRoutes)

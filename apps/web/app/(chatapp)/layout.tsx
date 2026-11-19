@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/auth.store'
 import { useSocketConnect } from '@/hooks/use-socket'
+import { useAppBadge } from '@/hooks/use-app-badge'
 
 export default function ChatAppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -10,6 +11,7 @@ export default function ChatAppLayout({ children }: { children: React.ReactNode 
   const [hydrated, setHydrated] = useState(false)
 
   useSocketConnect()
+  useAppBadge()
 
   useEffect(() => {
     setHydrated(true)
