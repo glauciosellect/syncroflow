@@ -91,8 +91,10 @@ export async function widgetRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: 'Canal não encontrado' })
     }
 
-    const phone = normalizeBrazilianNumber(parsed.data.phone)
-    if (!/^d{10,15}$/.test(phone)) return reply.status(400).send({ error: 'WhatsApp inválido. Informe com DDD, ex.: (32) 99999-0000' })
+    // Número com "+" de outro país (ex.: +1 415…) fica como veio; sem "+" ou com +55, normaliza como número brasileiro
+    const bruto = parsed.data.phone
+    const phone = bruto.startsWith('+') && !bruto.startsWith('+55') ? bruto.replace(/\D/g, '') : normalizeBrazilianNumber(bruto)
+    if (!/^\d{10,15}$/.test(phone)) return reply.status(400).send({ error: 'WhatsApp inválido. Informe com DDD, ex.: (32) 99999-0000' })
 
     // Só endereço da página (sem ?query nem #hash, que podem carregar dados pessoais)
     let pagina: string | undefined
