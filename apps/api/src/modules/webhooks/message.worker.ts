@@ -14,6 +14,7 @@ import { handleDocumentTurn } from '../documents/document-flow'
 import { notifySyncrolex } from '../../lib/syncrolex-webhook'
 import { fetchComment, replyToComment, shortenForTikTok, type TikTokConfig } from '../../lib/tiktok'
 import { aiPromisedHandoff } from '../../lib/handoff'
+import { moveToWaitingHuman, DEFAULT_HANDOFF_REPLY } from '../urgency/handoff.service'
 import axios from 'axios'
 
 const AUDIO_FORCED_KEY = 'audioForced' // modo forçado por #audio/#texto, dentro de contact.variables
@@ -704,6 +705,7 @@ ${text}`
 
       let calendarHandled = false
       let responseText: string = ''
+      let forceHandoff: string | null = null
       let creditsUsed = 0
 
       const convHistory = history.map((m) => ({
@@ -799,6 +801,12 @@ ${text}`
           responseText = 'Estou transferindo você para o setor especializado. Por favor, aguarde.'
           creditsUsed = 0
         }
+
+      } else if (intention && (intention.actionType as string) === 'HUMAN_TRANSFER') {
+        // Transferir para a equipe: resposta ao cliente + conversa vai para Aguardando humano (feito abaixo)
+        responseText = (intention.webhookBody as any)?.fixedMessage || DEFAULT_HANDOFF_REPLY
+        creditsUsed = 0
+        forceHandoff = `Pediu atendimento humano (${intention.name}): ${text}`
 
       } else if (intention && intention.actionType === 'INTERNAL') {
         // Intenção interna — mensagem fixa, zero créditos de IA
@@ -948,18 +956,20 @@ ${text}`
 
       // Se o agente prometeu passar para um humano ("vou transferir", "vou avisar o responsável"...),
       // a conversa vai imediatamente para "Aguardando humano" (e a IA para de responder nela).
-      const promisedHandoff = aiPromisedHandoff(responseText)
+      const promisedHandoff = !!forceHandoff || aiPromisedHandoff(responseText)
 
       const updatedConv = await prisma.conversation.update({
         where: { id: conversation.id },
         data: {
           creditsUsed: { increment: creditsUsed },
           interactionCount: { increment: 1 },
-          ...(promisedHandoff ? { status: 'WAITING_HUMAN' as const, transferSummary: text.slice(0, 500) } : {}),
         },
       })
       try { emitConversationUpdated(channel.workspaceId, updatedConv) } catch {}
-      if (promisedHandoff) console.log(`[WORKER] Handoff detectado: conversa ${conversation.id} -> WAITING_HUMAN`)
+      if (promisedHandoff) {
+        console.log(`[WORKER] Handoff: conversa ${conversation.id} -> WAITING_HUMAN`)
+        await moveToWaitingHuman({ workspaceId: channel.workspaceId, conversationId: conversation.id, summary: forceHandoff ?? text })
+      }
 
       await prisma.workspace.update({
         where: { id: channel.workspaceId },

@@ -646,6 +646,7 @@ enum IntentionAction {
   INTERNAL
   CALENDAR
   AGENT_TRANSFER
+  HUMAN_TRANSFER
 }
 
 enum IntentionResponseMode {

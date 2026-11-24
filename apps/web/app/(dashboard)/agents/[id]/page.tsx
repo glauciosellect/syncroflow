@@ -221,9 +221,12 @@ export default function AgentDetailPage() {
       payload = { name, description: description || null, actionType: 'CALENDAR', calendarAction, responseMode: 'FIXED_MESSAGE', webhookBody: null }
     } else if (actionType === 'AGENT_TRANSFER') {
       payload = { name, description: description || null, actionType: 'AGENT_TRANSFER', transferToAgentId: transferToAgentId || null, responseMode: 'FIXED_MESSAGE', webhookBody: null }
+    } else if (actionType === 'HUMAN_TRANSFER') {
+      payload = { name, description: description || null, actionType: 'HUMAN_TRANSFER', responseMode: 'FIXED_MESSAGE', webhookBody: fixedMessage ? { fixedMessage } : null }
     } else {
       payload = { name, description: description || null, actionType: 'INTERNAL', responseMode: 'FIXED_MESSAGE', webhookBody: fixedMessage ? { fixedMessage } : null }
     }
+    payload.isActive = true // salvar pelo formulário deixa a intenção ativa
     if (editingIntention) {
       updateIntentionMutation.mutate({ intentId: editingIntention.id, data: payload })
     } else {
@@ -751,6 +754,7 @@ export default function AgentDetailPage() {
                         { value: 'INTERNAL', label: '💬 Mensagem fixa' },
                         { value: 'CALENDAR', label: '📅 Google Calendar' },
                         { value: 'AGENT_TRANSFER', label: '🤝 Transferir agente' },
+                        { value: 'HUMAN_TRANSFER', label: '🙋 Transferir para equipe' },
                       ].map(opt => (
                         <button key={opt.value} type="button"
                           onClick={() => setIntentionForm(p => ({ ...p, actionType: opt.value }))}
@@ -797,12 +801,17 @@ export default function AgentDetailPage() {
                       <p className="text-xs text-gray-400 mt-1">O agente vai extrair data/hora da conversa e criar o evento automaticamente no Google Calendar.</p>
                     </div>
                   )}
-                  {intentionForm.actionType === 'INTERNAL' && (
+                  {intentionForm.actionType === 'HUMAN_TRANSFER' && (
+                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                      Quando o cliente disser algo parecido com o campo acima, a conversa vai para <b>Aguardando humano</b>, a IA para de responder nela e a equipe é avisada por WhatsApp e e-mail (contatos de emergência em Configurações).
+                    </p>
+                  )}
+                  {(intentionForm.actionType === 'INTERNAL' || intentionForm.actionType === 'HUMAN_TRANSFER') && (
                   <div>
-                    <Label>Mensagem de resposta</Label>
+                    <Label>{intentionForm.actionType === 'HUMAN_TRANSFER' ? 'Mensagem ao cliente (opcional)' : 'Mensagem de resposta'}</Label>
                     <textarea
                       className="w-full mt-1 border border-input rounded-md px-3 py-2 text-sm h-28 resize-none focus:outline-none focus:ring-2 focus:ring-ring"
-                      placeholder="Ex: Temos planos para todos os tamanhos de operação..."
+                      placeholder={intentionForm.actionType === 'HUMAN_TRANSFER' ? 'Ex: Certo! Já avisei nossa equipe e em breve alguém fala com você. (se vazio, uso um texto padrão)' : 'Ex: Temos planos para todos os tamanhos de operação...'}
                       value={intentionForm.fixedMessage}
                       onChange={e => setIntentionForm(p => ({ ...p, fixedMessage: e.target.value }))}
                     />
@@ -844,6 +853,9 @@ export default function AgentDetailPage() {
                         {intention.description && <p className="text-xs text-gray-500 mb-1">{intention.description}</p>}
                         {intention.webhookBody?.fixedMessage && (
                           <p className="text-xs text-gray-400 bg-gray-50 rounded px-2 py-1 mt-1 truncate">"{intention.webhookBody.fixedMessage}"</p>
+                        )}
+                        {intention.actionType === 'HUMAN_TRANSFER' && (
+                          <p className="text-xs text-amber-600 mt-1">🙋 Transfere para a equipe (Aguardando humano + aviso)</p>
                         )}
                         {intention.actionType === 'AGENT_TRANSFER' && intention.transferToAgentId && (
                           <p className="text-xs text-blue-500 mt-1">🤝 Transfere para: {(workspaceAgents as any[]).find((a: any) => a.id === intention.transferToAgentId)?.name || intention.transferToAgentId}</p>

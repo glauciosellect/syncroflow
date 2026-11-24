@@ -8,7 +8,7 @@ const intentionSchema = z.object({
   name: z.string().min(1).max(255),
   description: z.string().max(512).optional().nullable(),
   fields: z.any().optional().nullable(),
-  actionType: z.enum(['WEBHOOK', 'INTERNAL', 'CALENDAR', 'AGENT_TRANSFER']).optional(),
+  actionType: z.enum(['WEBHOOK', 'INTERNAL', 'CALENDAR', 'AGENT_TRANSFER', 'HUMAN_TRANSFER']).optional(),
   calendarAction: z.enum(['SCHEDULE', 'LIST', 'CANCEL']).optional().nullable(),
   transferToAgentId: z.string().optional().nullable(),
   webhookUrl: z.string().url().optional().nullable(),

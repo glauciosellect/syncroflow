@@ -84,8 +84,10 @@ export async function sendUrgencyAlert(opts: {
   clientName: string
   clientPhone?: string
   lastMessage: string
+  kind?: 'urgency' | 'handoff'
 }): Promise<UrgencyAlertResult> {
   const { workspaceId, conversationId, whatsappChannelId, clientName, clientPhone, lastMessage } = opts
+  const handoff = opts.kind === 'handoff'
   const result: UrgencyAlertResult = { alerted: false, channelsOk: [] }
 
   try {
@@ -93,12 +95,15 @@ export async function sendUrgencyAlert(opts: {
     if (!cfg.enabled || (cfg.contacts.length === 0 && cfg.emails.length === 0)) return result
 
     const baseUrl = process.env.WEB_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://app.syncroflow.io'
-    const link = `${baseUrl}/chat?conversation=${conversationId}`
+    const link = `${baseUrl}/chat?conversationId=${conversationId}`
     const resumo = lastMessage.length > 280 ? lastMessage.slice(0, 277) + '...' : lastMessage
-    const body =
-      `🚨 URGÊNCIA — ${clientName}${clientPhone ? ` (${clientPhone})` : ''}\n\n` +
-      `"${resumo}"\n\n` +
-      `A IA pausou o atendimento. Abra a conversa e clique em "Assumir":\n${link}`
+    const body = handoff
+      ? `🙋 Cliente aguardando atendimento — ${clientName}${clientPhone ? ` (${clientPhone})` : ''}\n\n` +
+        `"${resumo}"\n\n` +
+        `A IA já avisou o cliente que alguém da equipe vai falar com ele. Abra a conversa e clique em "Assumir":\n${link}`
+      : `🚨 URGÊNCIA — ${clientName}${clientPhone ? ` (${clientPhone})` : ''}\n\n` +
+        `"${resumo}"\n\n` +
+        `A IA pausou o atendimento. Abra a conversa e clique em "Assumir":\n${link}`
 
     // Canal WhatsApp de onde o alerta sai
     let channelId = whatsappChannelId
@@ -139,8 +144,8 @@ export async function sendUrgencyAlert(opts: {
       try {
         await sendEmail(
           email,
-          `🚨 Urgência no atendimento: ${clientName}`,
-          `<h2>🚨 Urgência detectada</h2><p><strong>${clientName}</strong>${clientPhone ? ` (${clientPhone})` : ''}</p><blockquote>${resumo}</blockquote><p><a href="${link}">Abrir conversa e assumir</a></p>`
+          handoff ? `🙋 Cliente aguardando atendimento: ${clientName}` : `🚨 Urgência no atendimento: ${clientName}`,
+          `<h2>${handoff ? '🙋 Cliente aguardando atendimento' : '🚨 Urgência detectada'}</h2><p><strong>${clientName}</strong>${clientPhone ? ` (${clientPhone})` : ''}</p><blockquote>${resumo}</blockquote><p><a href="${link}">Abrir conversa e assumir</a></p>`
         )
         result.channelsOk.push(`email:${email}`)
       } catch (err: any) {
