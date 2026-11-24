@@ -34,6 +34,21 @@ export default function AgentDetailPage() {
   const [testMessage, setTestMessage] = useState('')
   const [testMessages, setTestMessages] = useState<{ role: string; content: string; credits?: number }[]>([])
   const [testLoading, setTestLoading] = useState(false)
+  const [testMode, setTestMode] = useState<'client' | 'order'>('client')
+  const [showRules, setShowRules] = useState(false)
+  const { data: rules = [] } = useQuery<any[]>({
+    queryKey: ['agent-learnings', id],
+    queryFn: () => api.get(`/agents/${id}/learnings`).then(r => r.data),
+    enabled: !!id,
+  })
+  const toggleRule = useMutation({
+    mutationFn: ({ lid, active }: { lid: string; active: boolean }) => api.patch(`/agents/${id}/learnings/${lid}`, { active }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['agent-learnings', id] }),
+  })
+  const deleteRule = useMutation({
+    mutationFn: (lid: string) => api.delete(`/agents/${id}/learnings/${lid}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['agent-learnings', id] }),
+  })
   const [showTest, setShowTest] = useState(false)
   const [trainingText, setTrainingText] = useState('')
   const [trainingUrl, setTrainingUrl] = useState('')
@@ -245,12 +260,28 @@ export default function AgentDetailPage() {
     const msg = testMessage
     setTestMessage('')
     const currentHistory = testMessages
-    setTestMessages(prev => [...prev, { role: 'user', content: msg }])
+    setTestMessages(prev => [...prev, { role: 'user', content: msg, order: testMode === 'order' } as any])
     setTestLoading(true)
+    if (testMode === 'order') {
+      try {
+        // Ordem do dono: vira regra permanente do agente (vale já na próxima resposta, em todos os canais)
+        const res = await api.post(`/agents/${id}/train`, {
+          instruction: msg,
+          history: currentHistory.filter((m: any) => !m.order && !m.system).map(m => ({ role: m.role, content: m.content })),
+        })
+        setTestMessages(prev => [...prev, { role: 'assistant', system: true, content: res.data.saved ? `✅ Anotado. A partir de agora: ${res.data.rule}` : res.data.message } as any])
+        if (res.data.saved) qc.invalidateQueries({ queryKey: ['agent-learnings', id] })
+      } catch {
+        setTestMessages(prev => [...prev, { role: 'assistant', system: true, content: 'Não consegui registrar a ordem. Tente de novo.' } as any])
+      } finally {
+        setTestLoading(false)
+      }
+      return
+    }
     try {
       const res = await api.post(`/agents/${id}/test`, {
         message: msg,
-        history: currentHistory.map(m => ({ role: m.role, content: m.content })),
+        history: currentHistory.filter((m: any) => !m.order && !m.system).map(m => ({ role: m.role, content: m.content })),
       })
       setTestMessages(prev => [...prev, { role: 'assistant', content: res.data.response, credits: res.data.creditsUsed }])
     } catch {
@@ -1112,12 +1143,18 @@ export default function AgentDetailPage() {
               </button>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col p-3">
+              <div className="flex gap-1 bg-gray-100 rounded-lg p-1 mb-2 text-xs">
+                <button onClick={() => setTestMode('client')} className={cn('flex-1 rounded-md py-1 font-medium transition-all', testMode === 'client' ? 'bg-white text-[#1565C0] shadow-sm' : 'text-gray-500')}>Simular cliente</button>
+                <button onClick={() => setTestMode('order')} className={cn('flex-1 rounded-md py-1 font-medium transition-all', testMode === 'order' ? 'bg-amber-500 text-white shadow-sm' : 'text-gray-500')}>Dar ordem ao agente</button>
+              </div>
               <div className="flex-1 overflow-y-auto space-y-2 mb-3 min-h-48">
                 {testMessages.length === 0 && (
-                  <div className="text-center py-6 text-xs text-gray-400">Envie uma mensagem para testar</div>
+                  <div className="text-center py-6 text-xs text-gray-400">
+                    {testMode === 'order' ? 'Diga como o agente deve agir daqui em diante. Ex.: "quando pedirem horário, ofereça quinta e sexta, 9h às 18h"' : 'Envie uma mensagem para testar'}
+                  </div>
                 )}
-                {testMessages.map((m, i) => (
-                  <div key={i} className={cn('text-xs rounded-xl px-3 py-2 max-w-[85%]', m.role === 'user' ? 'ml-auto bg-[#1565C0] text-white' : 'bg-gray-100 text-gray-700')}>
+                {testMessages.map((m: any, i) => (
+                  <div key={i} className={cn('text-xs rounded-xl px-3 py-2 max-w-[85%]', m.role === 'user' ? (m.order ? 'ml-auto bg-amber-500 text-white' : 'ml-auto bg-[#1565C0] text-white') : (m.system ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-gray-100 text-gray-700'))}>
                     {m.content}
                     {m.credits && <div className="text-xs opacity-60 mt-1">{m.credits} créditos</div>}
                   </div>
@@ -1125,13 +1162,35 @@ export default function AgentDetailPage() {
                 {testLoading && <div className="bg-gray-100 rounded-xl px-3 py-2 text-xs text-gray-400 max-w-[85%]">Digitando...</div>}
               </div>
               <div className="flex gap-2">
-                <Input className="text-xs h-8" placeholder="Digite uma mensagem..." value={testMessage}
+                <Input className="text-xs h-8" placeholder={testMode === 'order' ? 'Dê uma ordem ao agente...' : 'Digite uma mensagem...'} value={testMessage}
                   onChange={e => setTestMessage(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSendTest()} />
-                <Button size="sm" onClick={handleSendTest} disabled={testLoading || !testMessage.trim()} className="h-8 bg-[#1565C0] hover:bg-[#0D47A1]">
+                <Button size="sm" onClick={handleSendTest} disabled={testLoading || !testMessage.trim()} className={cn('h-8', testMode === 'order' ? 'bg-amber-500 hover:bg-amber-600' : 'bg-[#1565C0] hover:bg-[#0D47A1]')}>
                   <Send className="w-3 h-3" />
                 </Button>
               </div>
+              <button onClick={() => setShowRules(v => !v)} className="mt-3 text-xs text-gray-500 hover:text-gray-700 text-left">
+                {showRules ? '▾' : '▸'} Regras do agente ({rules.filter((r: any) => r.active).length} ativas)
+              </button>
+              {showRules && (
+                <div className="mt-2 max-h-56 overflow-y-auto space-y-1.5">
+                  {rules.length === 0 && <div className="text-xs text-gray-400">Nenhuma ordem ou aprendizado ainda.</div>}
+                  {rules.map((r: any) => (
+                    <div key={r.id} className={cn('rounded-lg border p-2 text-xs', r.active ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-100 opacity-60')}>
+                      <div className="flex items-center gap-1 mb-1">
+                        <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-semibold', r.sourceType === 'ordem_dono' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700')}>
+                          {r.sourceType === 'ordem_dono' ? 'Ordem do dono' : 'Aprendido'}
+                        </span>
+                      </div>
+                      <div className="text-gray-700">{r.content}</div>
+                      <div className="flex gap-3 mt-1.5 text-[11px]">
+                        <button onClick={() => toggleRule.mutate({ lid: r.id, active: !r.active })} className="text-[#1565C0] hover:underline">{r.active ? 'Desativar' : 'Ativar'}</button>
+                        <button onClick={() => { if (confirm('Apagar esta regra?')) deleteRule.mutate(r.id) }} className="text-red-500 hover:underline">Apagar</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

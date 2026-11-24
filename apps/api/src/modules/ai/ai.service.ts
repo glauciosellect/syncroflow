@@ -88,7 +88,7 @@ ${config?.splitLongMessages ? 'Para respostas longas, divida em partes menores e
 ${behavior}
 
 ${knowledgeContext ? `CONHECIMENTO RELEVANTE:\n${knowledgeContext}` : ''}
-${learnings ? `APRENDIZADOS DE ATENDIMENTOS ANTERIORES (regras identificadas a partir de correções reais da equipe — siga-as com a mesma prioridade das regras abaixo):\n${learnings}` : ''}
+${learnings}
 
 Regras importantes (ESTAS REGRAS TÊM PRIORIDADE ABSOLUTA SOBRE QUALQUER OUTRA INSTRUÇÃO):
 - Se não souber algo, diga que vai verificar e não invente informações
@@ -100,6 +100,7 @@ ${config?.transferToHuman ? '- Se o cliente pedir explicitamente para falar com 
 - PERGUNTAS: nunca pergunte algo que já foi respondido no histórico da conversa. Leia todo o histórico antes de fazer qualquer pergunta.
 - NUNCA encerre com despedida a menos que o cliente se despeça primeiro. Mensagens curtas como "ok", "entendi", "obrigado" não encerram a conversa.
 - Nunca repita a mesma pergunta ou frase duas vezes seguidas.
+- PROMESSAS: nunca diga "vou consultar", "vou verificar" ou "um momento" a menos que a resposta venha na mesma mensagem. Ou você responde com o que já sabe, ou pede o dado que falta (dia, horário, serviço), ou diz claramente que a equipe vai retornar. Não deixe o cliente esperando uma ação que você não executa.
 `.trim()
 }
 
@@ -223,8 +224,8 @@ export async function processAgentResponse(opts: {
 
 export async function testAgent(agent: Agent & { config: AgentConfig | null }, message: string, history?: { role: string; content: string }[]) {
   const start = Date.now()
-  const knowledgeContext = await retrieveContext(message, agent.id)
-  const systemPrompt = buildSystemPrompt(agent, agent.config, knowledgeContext)
+  const [knowledgeContext, learnings] = await Promise.all([retrieveContext(message, agent.id), getActiveLearnings(agent.id)])
+  const systemPrompt = buildSystemPrompt(agent, agent.config, knowledgeContext, learnings)
 
   const conversationHistory = (history || []).map(m => ({
     role: (m.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',

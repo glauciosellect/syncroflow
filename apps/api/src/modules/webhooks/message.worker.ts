@@ -714,6 +714,9 @@ ${text}`
       // Só intercepta com calendar se o contato já tem nome registrado;
       // caso contrário o agente IA precisa coletar dados primeiro
       const contactHasName = !!(contact.name && contact.name.trim().length > 0)
+      // Resposta curta a uma pergunta de agenda ("quinta", "a próxima") não repete a palavra "agendar":
+      // considera as últimas mensagens da conversa para não deixar o cliente sem agendamento.
+      const recentlyScheduling = history.slice(-6).some((m) => scheduleKeywords.test(m.content))
 
       if (wsForCalendar?.googleCalendarEnabled && contactHasName) {
         if (rescheduleKeywords.test(text) && hasDateTime) {
@@ -733,7 +736,7 @@ ${text}`
           responseText = result.message
           creditsUsed = 1
           calendarHandled = true
-        } else if (scheduleKeywords.test(text) && hasDateTime) {
+        } else if ((scheduleKeywords.test(text) || recentlyScheduling) && hasDateTime) {
           const result = await scheduleAppointment({ workspaceId: channel.workspaceId, userMessage: text, contactName: contact.name ?? 'Cliente', contactPhone: channelType === 'WHATSAPP' ? from : undefined, contactId: contact.id, channelId: channel.id, conversationHistory: convHistory })
           responseText = result.message
           creditsUsed = 1

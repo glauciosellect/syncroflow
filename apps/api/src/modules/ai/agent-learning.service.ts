@@ -78,7 +78,7 @@ export async function captureLearningFromConversation(opts: {
     // Mantém só as N mais recentes ativas — desativa o excedente em vez de
     // deixar a memória crescer sem limite (custo de contexto em toda resposta).
     const active = await prisma.agentLearning.findMany({
-      where: { agentId, active: true },
+      where: { agentId, active: true, sourceType: { not: 'ordem_dono' } }, // ordens do dono nunca são desativadas pelo limite
       orderBy: { createdAt: 'desc' },
       select: { id: true },
     })
@@ -95,14 +95,28 @@ export async function captureLearningFromConversation(opts: {
 /** Lições ativas do agente, formatadas para entrar no system prompt. */
 export async function getActiveLearnings(agentId: string, limit = 20): Promise<string> {
   try {
-    const learnings = await prisma.agentLearning.findMany({
-      where: { agentId, active: true },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-      select: { content: true },
-    })
-    if (learnings.length === 0) return ''
-    return learnings.map((l) => `- ${l.content}`).join('\n')
+    const [orders, learnings] = await Promise.all([
+      prisma.agentLearning.findMany({
+        where: { agentId, active: true, sourceType: 'ordem_dono' },
+        orderBy: { createdAt: 'asc' },
+        take: 40,
+        select: { content: true },
+      }),
+      prisma.agentLearning.findMany({
+        where: { agentId, active: true, sourceType: { not: 'ordem_dono' } },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        select: { content: true },
+      }),
+    ])
+    const parts: string[] = []
+    if (orders.length) {
+      parts.push('ORDENS DIRETAS DO DONO (OBRIGATÓRIAS — valem mais do que qualquer outra regra ou aprendizado; cumpra sempre, em toda conversa):\n' + orders.map((o) => '- ' + o.content).join('\n'))
+    }
+    if (learnings.length) {
+      parts.push('APRENDIZADOS DE ATENDIMENTOS ANTERIORES (regras identificadas a partir de correções reais da equipe):\n' + learnings.map((l) => '- ' + l.content).join('\n'))
+    }
+    return parts.join('\n\n')
   } catch (err: any) {
     console.error('[AgentLearning] getActiveLearnings ERRO:', err?.message)
     return ''

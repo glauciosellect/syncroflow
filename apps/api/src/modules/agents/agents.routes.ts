@@ -201,4 +201,53 @@ export async function agentRoutes(app: FastifyInstance) {
     const result = await testAgent(agent, message, history)
     return reply.send(result)
   })
+
+  // ── Modo "ordem" do chat de teste: o dono diz como o agente deve agir daqui em diante ──
+  app.post('/agents/:id/train', async (req, reply) => {
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
+    const { id } = req.params as { id: string }
+    const { instruction, history } = z.object({
+      instruction: z.string().min(3).max(2000),
+      history: z.array(z.object({ role: z.string(), content: z.string() })).optional(),
+    }).parse(req.body)
+    const agent = await prisma.agent.findFirst({ where: { id, workspaceId }, select: { id: true } })
+    if (!agent) return reply.status(404).send({ error: 'Agente não encontrado' })
+    const { ruleFromOrder, saveOwnerOrder } = await import('../ai/agent-owner-orders')
+    const rule = await ruleFromOrder(instruction, history)
+    if (!rule) return reply.send({ saved: false, message: 'Não entendi isso como uma ordem. Diga como o agente deve agir, por exemplo: "quando o cliente pedir horário, ofereça quinta e sexta".' })
+    const saved = await saveOwnerOrder({ workspaceId, agentId: id, content: rule })
+    return reply.send({ saved: true, id: saved.id, rule })
+  })
+
+  app.get('/agents/:id/learnings', async (req, reply) => {
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
+    const { id } = req.params as { id: string }
+    const rows = await prisma.agentLearning.findMany({
+      where: { agentId: id, workspaceId },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+      select: { id: true, content: true, sourceType: true, active: true, createdAt: true },
+    })
+    return reply.send(rows)
+  })
+
+  app.patch('/agents/:id/learnings/:learningId', async (req, reply) => {
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
+    const { id, learningId } = req.params as { id: string; learningId: string }
+    const data = z.object({ active: z.boolean().optional(), content: z.string().min(3).max(600).optional() }).parse(req.body)
+    const r = await prisma.agentLearning.updateMany({ where: { id: learningId, agentId: id, workspaceId }, data })
+    if (r.count === 0) return reply.status(404).send({ error: 'Regra não encontrada' })
+    return reply.send({ ok: true })
+  })
+
+  app.delete('/agents/:id/learnings/:learningId', async (req, reply) => {
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
+    const { id, learningId } = req.params as { id: string; learningId: string }
+    await prisma.agentLearning.deleteMany({ where: { id: learningId, agentId: id, workspaceId } })
+    return reply.send({ ok: true })
+  })
 }
