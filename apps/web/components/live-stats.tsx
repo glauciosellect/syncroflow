@@ -6,6 +6,7 @@ import { MessageSquare, Clock, Plug, Users, ChevronDown, X, ArrowRight, Bot, Use
 import api from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { CountUp, timeAgo } from '@/components/futuristic'
+import { ErrorState, Skeleton } from '@/components/dashboard/ui'
 
 const channelIcon: Record<string, string> = {
   WHATSAPP: '📱', INSTAGRAM: '📸', FACEBOOK: '📘', TELEGRAM: '✈️', WIDGET: '💬', EMAIL: '📧', TIKTOK: '🎵',
@@ -13,9 +14,9 @@ const channelIcon: Record<string, string> = {
 
 type Kind = 'open' | 'waiting'
 
-function Tile({ icon: Icon, label, value, hint, from, to, glow, onClick, active, pulse, loading }: {
-  icon: any; label: string; value: number; hint: string; from: string; to: string; glow: string
-  onClick?: () => void; active?: boolean; pulse?: boolean; loading?: boolean
+function Tile({ icon: Icon, label, value, hint, color, onClick, active, attention, loading, controls }: {
+  icon: any; label: string; value: number; hint: string; color: string
+  onClick?: () => void; active?: boolean; attention?: boolean; loading?: boolean; controls?: string
 }) {
   const Comp: any = onClick ? 'button' : 'div'
   return (
@@ -23,88 +24,82 @@ function Tile({ icon: Icon, label, value, hint, from, to, glow, onClick, active,
       onClick={onClick}
       type={onClick ? 'button' : undefined}
       aria-expanded={onClick ? !!active : undefined}
-      style={{ background: `linear-gradient(135deg, ${from}, ${to})`, ['--glow' as any]: glow }}
-      className={cn(
-        'sf-sweep sf-grid-bg relative overflow-hidden rounded-2xl p-4 text-left text-white w-full transition-transform',
-        'shadow-lg ring-1 ring-white/20',
-        onClick && 'cursor-pointer hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-white',
-        pulse && 'sf-glow',
-        active && 'ring-2 ring-white/80',
-      )}
+      aria-controls={onClick ? controls : undefined}
+      className={cn('nc-card nc-in nc-glass !p-4 text-left w-full min-h-[104px] transition-shadow', onClick && 'cursor-pointer hover:shadow-md')}
+      style={{
+        borderColor: attention || active ? color : undefined,
+        boxShadow: `inset 4px 0 0 ${color}, var(--nc-shadow)`,
+        background: attention ? `color-mix(in srgb, ${color} 7%, var(--nc-surface))` : undefined,
+      }}
     >
-      <div className="relative z-10">
-        <div className="flex items-center justify-between mb-2">
-          <span className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center"><Icon className="w-4 h-4" /></span>
-          {onClick
-            ? <ChevronDown className={cn('w-4 h-4 opacity-80 transition-transform', active && 'rotate-180')} />
-            : <span className="text-[10px] uppercase tracking-widest opacity-70">ao vivo</span>}
-        </div>
-        <div className="text-4xl font-bold tabular-nums leading-none">{loading ? '—' : <CountUp value={value} />}</div>
-        <div className="text-xs font-medium opacity-90 mt-1.5">{label}</div>
-        <div className="text-[11px] opacity-70">{hint}</div>
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex items-center gap-2 text-xs font-medium nc-muted">
+          <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `color-mix(in srgb, ${color} 14%, transparent)`, color }}><Icon className="w-4 h-4" aria-hidden /></span>
+          {label}
+        </span>
+        {onClick && <ChevronDown className={cn('w-4 h-4 nc-muted transition-transform', active && 'rotate-180')} aria-hidden />}
       </div>
+      <div className="mt-2 text-3xl font-semibold tabular-nums tracking-tight">
+        {loading ? <Skeleton className="h-8 w-14" /> : <CountUp value={value} />}
+      </div>
+      <div className="text-[11px] mt-0.5" style={{ color: attention ? color : 'var(--nc-text-2)', fontWeight: attention ? 600 : 400 }}>{hint}</div>
     </Comp>
   )
 }
 
-function ConversationList({ kind, onClose }: { kind: Kind; onClose: () => void }) {
-  const { data = [], isLoading } = useQuery<any[]>({
+function ConversationList({ kind, onClose, id }: { kind: Kind; onClose: () => void; id: string }) {
+  const { data = [], isLoading, isError, refetch } = useQuery<any[]>({
     queryKey: ['live-conversations', kind],
     queryFn: () => api.get('/analytics/live-conversations', { params: { kind: kind === 'waiting' ? 'waiting' : 'open' } }).then(r => r.data),
     refetchInterval: 20_000,
   })
   const waiting = kind === 'waiting'
+  const tone = waiting ? 'var(--nc-warning)' : 'var(--nc-primary)'
 
   return (
-    <div className={cn('sf-rise sf-panel p-0 overflow-hidden')}
-      style={{ ['--accent-a' as any]: waiting ? '#F59E0B' : '#22D3EE', ['--accent-b' as any]: waiting ? '#EC4899' : '#3B82F6' }}>
-      <div className="flex items-center justify-between px-5 py-3 border-b border-border/60">
+    <div id={id} className="nc-card nc-in !p-0 overflow-hidden" role="region" aria-label={waiting ? 'Leads aguardando retorno humano' : 'Conversas abertas'}
+      style={{ borderTopWidth: 3, borderTopColor: tone }}>
+      <div className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: 'var(--nc-border)' }}>
         <div>
           <h3 className="text-sm font-semibold">{waiting ? 'Leads aguardando retorno humano' : 'Conversas abertas agora'}</h3>
-          <p className="text-xs text-muted-foreground">
-            {waiting ? 'A IA avisou que iria transferir — quem espera há mais tempo aparece primeiro' : 'Mais recentes primeiro'}
-          </p>
+          <p className="text-xs nc-muted">{waiting ? 'A IA avisou que iria transferir — quem espera há mais tempo aparece primeiro' : 'Mais recentes primeiro'}</p>
         </div>
-        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground" aria-label="Fechar lista"><X className="w-4 h-4" /></button>
+        <button onClick={onClose} className="p-2 rounded-lg hover:opacity-70 min-w-[36px] min-h-[36px] inline-flex items-center justify-center" aria-label="Fechar lista"><X className="w-4 h-4" /></button>
       </div>
 
       {isLoading ? (
-        <div className="p-6 text-sm text-muted-foreground">Carregando…</div>
+        <div className="p-5 space-y-2" aria-busy="true">{Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-12" />)}</div>
+      ) : isError ? (
+        <div className="p-4"><ErrorState title="Não foi possível carregar a lista" onRetry={() => refetch()} /></div>
       ) : data.length === 0 ? (
-        <div className="p-8 text-center text-sm text-muted-foreground">
-          {waiting ? '🎉 Ninguém esperando retorno agora.' : 'Nenhuma conversa aberta.'}
-        </div>
+        <div className="p-8 text-center text-sm nc-muted">{waiting ? 'Ninguém esperando retorno agora.' : 'Nenhuma conversa aberta.'}</div>
       ) : (
-        <ul className="divide-y divide-border/50 max-h-[360px] overflow-y-auto">
+        <ul className="max-h-[360px] overflow-y-auto">
           {data.map((c) => {
             const name = c.contact?.name || c.contact?.phone || 'Contato sem nome'
             const isWaiting = c.status === 'WAITING_HUMAN'
             return (
-              <li key={c.id}>
-                <Link href={`/chat?conversationId=${c.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-muted/60 transition-colors group">
-                  <div className={cn('w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0',
-                    isWaiting ? 'bg-gradient-to-br from-amber-400 to-pink-500' : 'bg-gradient-to-br from-cyan-400 to-blue-600')}>
+              <li key={c.id} className="border-b last:border-b-0" style={{ borderColor: 'var(--nc-border)' }}>
+                <Link href={`/chat?conversationId=${c.id}`} className="flex items-center gap-3 px-5 py-3 hover:opacity-90 transition-opacity group min-h-[56px]">
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold shrink-0"
+                    style={{ background: `color-mix(in srgb, ${isWaiting ? 'var(--nc-warning)' : 'var(--nc-primary)'} 16%, transparent)`, color: isWaiting ? 'var(--nc-warning)' : 'var(--nc-primary)' }}>
                     {name[0]?.toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium truncate">{name}</span>
-                      <span className="text-xs" title={c.channel?.name}>{channelIcon[c.channel?.type] || '💬'}</span>
-                      {c.unreadCount > 0 && <span className="text-[10px] font-bold bg-rose-500 text-white rounded-full px-1.5">{c.unreadCount}</span>}
+                      <span className="text-xs" title={c.channel?.name} aria-label={c.channel?.name}>{channelIcon[c.channel?.type] || '💬'}</span>
+                      {c.unreadCount > 0 && <span className="text-[10px] font-bold rounded-full px-1.5" style={{ background: 'var(--nc-danger)', color: '#fff' }} aria-label={`${c.unreadCount} não lidas`}>{c.unreadCount}</span>}
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {c.transferSummary || c.lastMessage?.content || '—'}
-                    </p>
+                    <p className="text-xs nc-muted truncate">{c.transferSummary || c.lastMessage?.content || '—'}</p>
                   </div>
                   <div className="text-right shrink-0">
-                    <div className={cn('text-xs font-semibold', isWaiting ? 'text-amber-500' : 'text-muted-foreground')}>
-                      {timeAgo(c.waitingSince)}
-                    </div>
-                    <div className="text-[10px] text-muted-foreground inline-flex items-center gap-1">
-                      {isWaiting ? <><UserRound className="w-3 h-3" />aguarda humano</> : <><Bot className="w-3 h-3" />{c.status === 'HUMAN_ACTIVE' ? 'humano' : 'IA'}</>}
+                    <div className="text-xs font-semibold" style={{ color: isWaiting ? 'var(--nc-warning)' : 'var(--nc-text-2)' }}>{timeAgo(c.waitingSince)}</div>
+                    <div className="text-[10px] nc-muted inline-flex items-center gap-1">
+                      {isWaiting ? <><UserRound className="w-3 h-3" aria-hidden />aguarda humano</> : <><Bot className="w-3 h-3" aria-hidden />{c.status === 'HUMAN_ACTIVE' ? 'equipe' : 'IA'}</>}
                     </div>
                   </div>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <ArrowRight className="w-4 h-4 nc-muted opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity" aria-hidden />
                 </Link>
               </li>
             )
@@ -118,7 +113,7 @@ function ConversationList({ kind, onClose }: { kind: Kind; onClose: () => void }
 /** Os 4 cards "ao vivo" (iguais no Dashboard e no Comercial) + lista que abre ao clicar no azul/laranja. */
 export function LiveStats() {
   const [open, setOpen] = useState<Kind | null>(null)
-  const { data: rt, isLoading } = useQuery({
+  const { data: rt, isLoading, isError, refetch } = useQuery({
     queryKey: ['analytics-realtime'],
     queryFn: () => api.get('/analytics/realtime').then(r => r.data),
     refetchInterval: 20_000,
@@ -128,21 +123,23 @@ export function LiveStats() {
   const inactiveCh = channels.length - activeCh
   const waiting = rt?.waitingHuman ?? 0
 
+  if (isError) return <ErrorState title="Não foi possível carregar os números ao vivo" hint="Verifique sua conexão." onRetry={() => refetch()} />
+
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Tile icon={MessageSquare} label="Conversas abertas" hint={open === 'open' ? 'clique para fechar' : 'clique para ver a lista'}
-          value={rt?.openConversations ?? 0} from="#1D4ED8" to="#06B6D4" glow="rgba(34,211,238,.5)"
+          value={rt?.openConversations ?? 0} color="var(--nc-primary)" controls="live-list"
           onClick={() => setOpen(open === 'open' ? null : 'open')} active={open === 'open'} loading={isLoading} />
-        <Tile icon={Clock} label="Aguardando humano" hint={waiting > 0 ? 'clique para ver quem espera' : 'ninguém esperando'}
-          value={waiting} from="#F97316" to="#EC4899" glow="rgba(249,115,22,.6)"
-          onClick={() => setOpen(open === 'waiting' ? null : 'waiting')} active={open === 'waiting'} pulse={waiting > 0} loading={isLoading} />
+        <Tile icon={Clock} label="Aguardando humano" hint={waiting > 0 ? 'requer atenção — clique para ver' : 'ninguém esperando'}
+          value={waiting} color="var(--nc-warning)" controls="live-list"
+          onClick={() => setOpen(open === 'waiting' ? null : 'waiting')} active={open === 'waiting'} attention={waiting > 0} loading={isLoading} />
         <Tile icon={Plug} label="Canais ativos" hint={inactiveCh > 0 ? `${inactiveCh} inativo(s)` : 'todos ativos'}
-          value={activeCh} from="#047857" to="#84CC16" glow="rgba(16,185,129,.5)" loading={isLoading} />
-        <Tile icon={Users} label="Novos contatos hoje" hint="últimas 24h"
-          value={rt?.newContactsToday ?? 0} from="#7C3AED" to="#D946EF" glow="rgba(139,92,246,.5)" loading={isLoading} />
+          value={activeCh} color="var(--nc-success)" loading={isLoading} />
+        <Tile icon={Users} label="Novos contatos hoje" hint="últimas 24 horas"
+          value={rt?.newContactsToday ?? 0} color="var(--nc-accent)" loading={isLoading} />
       </div>
-      {open && <ConversationList kind={open} onClose={() => setOpen(null)} />}
+      {open && <ConversationList id="live-list" kind={open} onClose={() => setOpen(null)} />}
     </div>
   )
 }

@@ -201,7 +201,7 @@ export async function analyticsRoutes(app: FastifyInstance) {
     }
 
     const [
-      conversations, prevConversations, handedOff,
+      conversations, prevConversations, handedOff, prevHandedOff, prevAppts,
       newLeads, prevLeads, totalLeads, leadsWithValue,
       newContacts, prevContacts,
       pendingFollowUps, overdueFollowUps, doneFollowUps,
@@ -214,6 +214,8 @@ export async function analyticsRoutes(app: FastifyInstance) {
       prisma.conversation.count({ where: { workspaceId, createdAt: range } }),
       prisma.conversation.count({ where: { workspaceId, createdAt: prevRange } }),
       prisma.conversation.count({ where: { workspaceId, createdAt: range, ...handedOffWhere } }),
+      prisma.conversation.count({ where: { workspaceId, createdAt: prevRange, ...handedOffWhere } }),
+      prisma.appointment.count({ where: { workspaceId, startAt: prevRange } }),
       prisma.lead.count({ where: { workspaceId, createdAt: range } }),
       prisma.lead.count({ where: { workspaceId, createdAt: prevRange } }),
       prisma.lead.count({ where: { workspaceId } }),
@@ -252,10 +254,17 @@ export async function analyticsRoutes(app: FastifyInstance) {
 
     // horário de pico (hora local do Brasil, UTC-3)
     const hours = Array.from({ length: 24 }, (_, h) => ({ hour: h, count: 0 }))
-    convRows.forEach((r) => { hours[(r.createdAt.getUTCHours() + 21) % 24].count++ })
+    // mapa de calor: dia da semana (0 = domingo) × hora, em horário de Brasília (UTC-3)
+    const heatmap: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0))
+    convRows.forEach((r) => {
+      const local = new Date(r.createdAt.getTime() - 3 * 3600000)
+      hours[local.getUTCHours()].count++
+      heatmap[local.getUTCDay()][local.getUTCHours()]++
+    })
 
     const msgs = Object.fromEntries(msgByRole.map((m) => [m.role, m._count._all])) as Record<string, number>
     const aiHandled = Math.max(0, conversations - handedOff)
+    const prevAiHandled = Math.max(0, prevConversations - prevHandedOff)
     const uniqueHuman = new Set(responseTimes.map((r) => r.conversationId)).size
 
     return reply.send({
@@ -263,7 +272,8 @@ export async function analyticsRoutes(app: FastifyInstance) {
         conversations, prevConversations,
         newLeads, prevLeads, totalLeads,
         newContacts, prevContacts,
-        aiHandled, handedOff,
+        aiHandled, handedOff, prevAiHandled, prevHandedOff,
+        prevAiResolutionRate: prevConversations > 0 ? Math.round((prevAiHandled / prevConversations) * 100) : null,
         aiResolutionRate: conversations > 0 ? Math.round((aiHandled / conversations) * 100) : 0,
         leadConversionRate: newContacts > 0 ? Math.round((newLeads / newContacts) * 100) : 0,
         pipelineValue: leadsWithValue._sum.value ?? 0,
@@ -271,7 +281,7 @@ export async function analyticsRoutes(app: FastifyInstance) {
         humanAttended: uniqueHuman,
       },
       followUps: { pending: pendingFollowUps, overdue: overdueFollowUps, done: doneFollowUps },
-      appointments: { period: apptsPeriod, upcoming7d: apptsUpcoming },
+      appointments: { period: apptsPeriod, prev: prevAppts, upcoming7d: apptsUpcoming },
       messages: { client: msgs.USER ?? 0, ai: msgs.ASSISTANT ?? 0, human: msgs.HUMAN ?? 0 },
       funnel: [
         ...(unstaged > 0 ? [{ id: 'none', name: 'Sem etapa', color: '#94A3B8', count: unstaged }] : []),
@@ -283,6 +293,9 @@ export async function analyticsRoutes(app: FastifyInstance) {
         .slice(0, 8),
       timeline: Object.values(series).sort((a, b) => a.date.localeCompare(b.date)),
       hours,
+      heatmap,
+      range: { start: range.gte.toISOString(), end: range.lte.toISOString() },
+      generatedAt: new Date().toISOString(),
     })
   })
 

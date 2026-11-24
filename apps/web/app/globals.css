@@ -463,3 +463,46 @@
 @media (prefers-reduced-motion: reduce) {
   .sf-glow, .sf-sweep::after, .sf-rise { animation: none !important; }
 }
+
+/* ── NuClick Dashboard Master v1.0 — tokens semânticos (Light/Dark) ─────────
+   Usados pelo Dashboard e pelo Comercial. Nada de cor solta nos componentes. */
+:root {
+  --nc-bg: #F4F7FB; --nc-surface: #FFFFFF; --nc-surface-elevated: #FFFFFF; --nc-surface-muted: #EDF2F8;
+  --nc-text: #172338; --nc-text-2: #63718A; --nc-border: #DCE4EF;
+  --nc-primary: #087EA4; --nc-secondary: #5267D8; --nc-accent: #7857D6;
+  --nc-success: #16865B; --nc-warning: #B7791F; --nc-danger: #C43D55; --nc-info: #2377C8;
+  --nc-shadow: 0 1px 2px rgba(23,35,56,.05), 0 8px 24px -16px rgba(23,35,56,.18);
+}
+.dark {
+  --nc-bg: #08111F; --nc-surface: #101C2D; --nc-surface-elevated: #16243A; --nc-surface-muted: #0D1929;
+  --nc-text: #F2F6FC; --nc-text-2: #A8B5C8; --nc-border: #26364D;
+  --nc-primary: #36C5E8; --nc-secondary: #8292FF; --nc-accent: #A78BFA;
+  --nc-success: #35D39A; --nc-warning: #F5BD55; --nc-danger: #FF7185; --nc-info: #65B7FF;
+  --nc-shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px -16px rgba(0,0,0,.6);
+}
+
+.nc-card {
+  position: relative; border-radius: 16px; padding: 20px;
+  background: var(--nc-surface); color: var(--nc-text);
+  border: 1px solid var(--nc-border); box-shadow: var(--nc-shadow);
+}
+@supports (backdrop-filter: blur(1px)) {
+  .nc-glass { background: color-mix(in srgb, var(--nc-surface) 78%, transparent); backdrop-filter: blur(12px); }
+}
+.nc-muted { color: var(--nc-text-2); }
+.nc-focus:focus-visible, .nc-card button:focus-visible, .nc-card a:focus-visible, .nc-card select:focus-visible, .nc-card input:focus-visible {
+  outline: 2px solid var(--nc-primary); outline-offset: 2px; border-radius: 8px;
+}
+@keyframes nc-skel { 0%,100% { opacity: .55 } 50% { opacity: 1 } }
+.nc-skel { background: var(--nc-surface-muted); border-radius: 8px; animation: nc-skel 1.4s ease-in-out infinite; }
+@keyframes nc-in { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }
+.nc-in { animation: nc-in .35s ease-out both; }
+@media (prefers-reduced-motion: reduce) { .nc-skel, .nc-in { animation: none !important; } }
+
+/* Painéis antigos (Comercial) herdam o novo acabamento, sem brilho exagerado */
+.sf-panel {
+  background: var(--nc-surface); border: 1px solid var(--nc-border); box-shadow: var(--nc-shadow); backdrop-filter: none;
+}
+.sf-panel::before { opacity: .55; height: 2px; }
+.sf-grid-bg { background-image: none; }
+.sf-glow { animation: none !important; }
