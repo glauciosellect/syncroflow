@@ -126,7 +126,8 @@ export async function analyticsRoutes(app: FastifyInstance) {
     const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000)
 
     const [openConversations, waitingHuman, channels, agents, recentConversations, newContactsToday] = await prisma.$transaction([
-      prisma.conversation.count({ where: { workspaceId, status: { in: [ConversationStatus.AI_ACTIVE, ConversationStatus.HUMAN_ACTIVE] } } }),
+      // "Abertas" = tudo que não foi encerrado (inclui as que aguardam humano)
+      prisma.conversation.count({ where: { workspaceId, status: { not: ConversationStatus.CLOSED } } }),
       prisma.conversation.count({ where: { workspaceId, status: ConversationStatus.WAITING_HUMAN } }),
       prisma.channel.findMany({ where: { workspaceId }, select: { id: true, name: true, type: true, isActive: true } }),
       prisma.agent.findMany({ where: { workspaceId }, select: { id: true, name: true, funcao: true, isActive: true, _count: { select: { conversations: true } } } }),
@@ -140,6 +141,149 @@ export async function analyticsRoutes(app: FastifyInstance) {
     ])
 
     return reply.send({ openConversations, waitingHuman, channels, agents, recentConversations, newContactsToday })
+  })
+
+  // Lista de conversas ao vivo (card laranja "Aguardando humano" / card azul "Conversas abertas")
+  app.get('/analytics/live-conversations', async (req, reply) => {
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
+    const { kind } = req.query as { kind?: string }
+
+    const where =
+      kind === 'waiting'
+        ? { workspaceId, status: ConversationStatus.WAITING_HUMAN }
+        : { workspaceId, status: { not: ConversationStatus.CLOSED } }
+
+    const rows = await prisma.conversation.findMany({
+      where,
+      orderBy: { updatedAt: kind === 'waiting' ? 'asc' : 'desc' }, // quem espera há mais tempo primeiro
+      take: 60,
+      select: {
+        id: true, status: true, updatedAt: true, startedAt: true, interactionCount: true, transferSummary: true, unreadCount: true,
+        contact: { select: { id: true, name: true, phone: true } },
+        agent: { select: { name: true } },
+        channel: { select: { type: true, name: true } },
+        messages: { orderBy: { createdAt: 'desc' }, take: 1, select: { content: true, role: true, createdAt: true } },
+      },
+    })
+
+    return reply.send(rows.map((c) => ({
+      id: c.id,
+      status: c.status,
+      contact: c.contact,
+      agent: c.agent?.name ?? null,
+      channel: c.channel,
+      transferSummary: c.transferSummary,
+      unreadCount: c.unreadCount,
+      interactionCount: c.interactionCount,
+      waitingSince: c.updatedAt,
+      lastMessage: c.messages[0] ? { content: c.messages[0].content.slice(0, 140), role: c.messages[0].role, at: c.messages[0].createdAt } : null,
+    })))
+  })
+
+  // Painel de resultados do negócio (leads, funil, atendimento da IA, agenda...)
+  app.get('/analytics/business', async (req, reply) => {
+    const { sub, wid } = req.user as { sub: string; wid?: string }
+    const workspaceId = await getWorkspaceId(sub, wid)
+    const { start, end } = req.query as Record<string, string>
+    const range = dateRange(start, end)
+    const now = new Date()
+    const spanMs = range.lte.getTime() - range.gte.getTime()
+    const prevRange = { gte: new Date(range.gte.getTime() - spanMs), lt: range.gte }
+    const in7d = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+
+    const handedOffWhere = {
+      OR: [
+        { status: { in: [ConversationStatus.WAITING_HUMAN, ConversationStatus.HUMAN_ACTIVE] } },
+        { transferSummary: { not: null } },
+        { assignedToId: { not: null } },
+      ],
+    }
+
+    const [
+      conversations, prevConversations, handedOff,
+      newLeads, prevLeads, totalLeads, leadsWithValue,
+      newContacts, prevContacts,
+      pendingFollowUps, overdueFollowUps, doneFollowUps,
+      apptsPeriod, apptsUpcoming,
+      msgByRole,
+      stages, unstaged,
+      convRows, leadRows, contactRows, leadSources,
+      responseTimes,
+    ] = await Promise.all([
+      prisma.conversation.count({ where: { workspaceId, createdAt: range } }),
+      prisma.conversation.count({ where: { workspaceId, createdAt: prevRange } }),
+      prisma.conversation.count({ where: { workspaceId, createdAt: range, ...handedOffWhere } }),
+      prisma.lead.count({ where: { workspaceId, createdAt: range } }),
+      prisma.lead.count({ where: { workspaceId, createdAt: prevRange } }),
+      prisma.lead.count({ where: { workspaceId } }),
+      prisma.lead.aggregate({ where: { workspaceId, value: { not: null } }, _sum: { value: true }, _count: true }),
+      prisma.contact.count({ where: { workspaceId, createdAt: range } }),
+      prisma.contact.count({ where: { workspaceId, createdAt: prevRange } }),
+      prisma.followUp.count({ where: { workspaceId, status: 'PENDING', scheduledAt: { gte: now } } }),
+      prisma.followUp.count({ where: { workspaceId, status: 'PENDING', scheduledAt: { lt: now } } }),
+      prisma.followUp.count({ where: { workspaceId, status: 'DONE', doneAt: range } }),
+      prisma.appointment.count({ where: { workspaceId, startAt: range } }),
+      prisma.appointment.count({ where: { workspaceId, startAt: { gte: now, lte: in7d } } }),
+      prisma.message.groupBy({ by: ['role'], where: { conversation: { workspaceId }, createdAt: range }, _count: { _all: true } }),
+      prisma.pipelineStage.findMany({ where: { workspaceId }, orderBy: { order: 'asc' }, select: { id: true, name: true, color: true, _count: { select: { leads: true } } } }),
+      prisma.lead.count({ where: { workspaceId, stageId: null } }),
+      prisma.conversation.findMany({ where: { workspaceId, createdAt: range }, select: { createdAt: true, status: true } }),
+      prisma.lead.findMany({ where: { workspaceId, createdAt: range }, select: { createdAt: true } }),
+      prisma.contact.findMany({ where: { workspaceId, createdAt: range }, select: { createdAt: true } }),
+      prisma.lead.groupBy({ by: ['source'], where: { workspaceId, createdAt: range }, _count: { _all: true } }),
+      // tempo até o 1º atendimento humano (assumir) — aproximação via mensagens HUMAN
+      prisma.message.findMany({
+        where: { conversation: { workspaceId }, createdAt: range, role: 'HUMAN' },
+        select: { conversationId: true, createdAt: true },
+        orderBy: { createdAt: 'asc' },
+        take: 500,
+      }),
+    ])
+
+    // série diária
+    const day = (d: Date) => d.toISOString().split('T')[0]
+    const series: Record<string, { date: string; conversations: number; leads: number; contacts: number }> = {}
+    const ensure = (k: string) => (series[k] ||= { date: k, conversations: 0, leads: 0, contacts: 0 })
+    for (let t = range.gte.getTime(); t <= range.lte.getTime(); t += 86400000) ensure(day(new Date(t)))
+    convRows.forEach((r) => { ensure(day(r.createdAt)).conversations++ })
+    leadRows.forEach((r) => { ensure(day(r.createdAt)).leads++ })
+    contactRows.forEach((r) => { ensure(day(r.createdAt)).contacts++ })
+
+    // horário de pico (hora local do Brasil, UTC-3)
+    const hours = Array.from({ length: 24 }, (_, h) => ({ hour: h, count: 0 }))
+    convRows.forEach((r) => { hours[(r.createdAt.getUTCHours() + 21) % 24].count++ })
+
+    const msgs = Object.fromEntries(msgByRole.map((m) => [m.role, m._count._all])) as Record<string, number>
+    const aiHandled = Math.max(0, conversations - handedOff)
+    const uniqueHuman = new Set(responseTimes.map((r) => r.conversationId)).size
+
+    return reply.send({
+      totals: {
+        conversations, prevConversations,
+        newLeads, prevLeads, totalLeads,
+        newContacts, prevContacts,
+        aiHandled, handedOff,
+        aiResolutionRate: conversations > 0 ? Math.round((aiHandled / conversations) * 100) : 0,
+        leadConversionRate: newContacts > 0 ? Math.round((newLeads / newContacts) * 100) : 0,
+        pipelineValue: leadsWithValue._sum.value ?? 0,
+        pipelineValueCount: leadsWithValue._count,
+        humanAttended: uniqueHuman,
+      },
+      followUps: { pending: pendingFollowUps, overdue: overdueFollowUps, done: doneFollowUps },
+      appointments: { period: apptsPeriod, upcoming7d: apptsUpcoming },
+      messages: { client: msgs.USER ?? 0, ai: msgs.ASSISTANT ?? 0, human: msgs.HUMAN ?? 0 },
+      funnel: [
+        ...(unstaged > 0 ? [{ id: 'none', name: 'Sem etapa', color: '#94A3B8', count: unstaged }] : []),
+        ...stages.map((s) => ({ id: s.id, name: s.name, color: s.color, count: s._count.leads })),
+      ],
+      sources: leadSources
+        .map((s) => ({ source: s.source || 'Não informado', count: s._count._all }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 8),
+      timeline: Object.values(series).sort((a, b) => a.date.localeCompare(b.date)),
+      hours,
+    })
   })
 
   app.get('/analytics/attendance', async (req, reply) => {

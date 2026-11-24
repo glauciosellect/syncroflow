@@ -422,3 +422,44 @@
     background-clip: text;
   }
 }
+
+/* ── Visual "futurista" do Dashboard / Comercial ─────────────────────────── */
+@keyframes sf-glow {
+  0%, 100% { box-shadow: 0 8px 24px -8px var(--glow, rgba(59,130,246,.5)), 0 0 0 0 var(--glow, rgba(59,130,246,.0)); }
+  50%      { box-shadow: 0 8px 32px -6px var(--glow, rgba(59,130,246,.6)), 0 0 0 5px transparent, 0 0 28px 2px var(--glow, rgba(59,130,246,.35)); }
+}
+@keyframes sf-sweep {
+  0%   { transform: translateX(-120%) skewX(-18deg); }
+  100% { transform: translateX(260%) skewX(-18deg); }
+}
+@keyframes sf-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.sf-rise  { animation: sf-rise .5s cubic-bezier(.2,.7,.2,1) both; }
+.sf-glow  { animation: sf-glow 2.4s ease-in-out infinite; }
+.sf-grid-bg {
+  background-image:
+    linear-gradient(rgba(255,255,255,.10) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.10) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+.sf-sweep::after {
+  content: ''; position: absolute; inset: 0; width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.22), transparent);
+  animation: sf-sweep 4.5s ease-in-out infinite; pointer-events: none;
+}
+.sf-panel {
+  position: relative; border-radius: 1.25rem;
+  background: hsl(var(--card) / .86); backdrop-filter: blur(10px);
+  border: 1px solid hsl(var(--border) / .8);
+  box-shadow: 0 1px 0 rgba(255,255,255,.5) inset, 0 12px 32px -18px rgba(30,41,90,.35);
+}
+.sf-panel::before {
+  content: ''; position: absolute; left: 1.25rem; right: 1.25rem; top: 0; height: 2px; border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent-a, #22d3ee), var(--accent-b, #8b5cf6), transparent);
+  opacity: .9;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sf-glow, .sf-sweep::after, .sf-rise { animation: none !important; }
+}
