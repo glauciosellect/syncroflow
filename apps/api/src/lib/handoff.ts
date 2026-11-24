@@ -13,6 +13,12 @@ const HANDOFF_PATTERNS: RegExp[] = [
   /\b(um|uma|o|a|nosso|nossa)\s+(atendente|especialista|consultor\w*|advogad\w+|humano|respons[aá]vel|gerente|vendedor\w*|membro\s+da\s+equipe)\s+(vai|ir[aá]|poder[aá]|entrar[aá])\s+(entrar\s+em\s+contato|te\s+atender|lhe\s+atender|falar\s+com\s+voc[eê]|assumir|continuar|dar\s+continuidade|retornar)/i,
   // "nossa equipe vai entrar em contato / retornar"
   /\b(nossa\s+equipe|o\s+time|a\s+equipe)\s+(vai|ir[aá]|entrar[aá]|retornar[aá])\s+(entrar\s+em\s+contato|retornar|te\s+chamar|falar\s+com\s+voc[eê]|dar\s+continuidade)/i,
+  // "alguém da equipe entra em contato", "A Letícia vai entrar em contato / retornar com você"
+  /\b(entra|entram|entrar[aá]|entrar[aã]o|vai\s+entrar|v[aã]o\s+entrar|ir[aá]\s+entrar)\s+em\s+contato\b/i,
+  /\b(vai|ir[aá]|v[aã]o|poder[aá])\s+(te\s+|lhe\s+)?(retornar|dar\s+(um\s+)?retorno|responder|ligar|chamar)\b.{0,40}(com\s+voc[eê]|voc[eê]|em\s+breve|assim\s+que)/i,
+  // "vou passar isso para o pessoal técnico", "vou deixar registrado para a equipe"
+  /\b(vou|irei|vamos|eu)\s+(passar|repassar|encaminhar)\s+(isso|tudo|essas?\s+informa[cç][oõ]es|seu\s+(caso|contato|pedido))\s+(para|pra|ao|à|a)\b/i,
+  /\b(deixar|deixo|deixei|registrei|vou\s+registrar)\b.{0,60}\b(equipe|respons[aá]vel|time|pessoal)\b/i,
   // "aguarde, (um|nosso) atendente..." / "aguarde um momento que vou chamar"
   /\baguarde\b.{0,60}\b(atendente|especialista|respons[aá]vel|equipe|humano)\b/i,
 ]
