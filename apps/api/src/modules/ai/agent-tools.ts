@@ -546,7 +546,7 @@ export async function processAgentWithTools(opts: {
 }): Promise<{ content: string; creditsUsed: number; toolsUsed: string[] }> {
   const { agent, systemPrompt, conversationHistory, userMessage, ctx, enabledTools } = opts
 
-  const model = agent.llmModel?.startsWith('claude') ? agent.llmModel : 'claude-haiku-4-5'
+  const model = 'claude-haiku-4-5' // modelo único dos agentes (ver AGENT_MODEL em ai.service)
 
   // Filtra tools habilitadas para este agente
   const tools = enabledTools

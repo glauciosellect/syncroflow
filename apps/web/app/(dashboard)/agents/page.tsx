@@ -12,11 +12,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { AgentWizard } from '@/components/agents/agent-wizard'
 
 const purposeLabel: Record<string, string> = { SUPPORT: 'Suporte', SALES: 'Vendas', PERSONAL: 'Pessoal' }
-const modelLabel: Record<string, string> = {
-  'claude-haiku-4-5': 'Claude Haiku',
-  'claude-3-5-haiku-20241022': 'Claude Haiku',
-  'claude-3-5-sonnet-20241022': 'Claude Sonnet',
-}
+
 
 export default function AgentsPage() {
   const { toast } = useToast()
@@ -99,7 +95,7 @@ export default function AgentsPage() {
               </div>
 
               {agent.companyName && <p className="text-sm text-gray-500 mb-2">{agent.companyName}</p>}
-              <div className="text-xs text-gray-400 mb-3">{modelLabel[agent.llmModel] || agent.llmModel}</div>
+              <div className="text-xs text-gray-400 mb-3">Claude Haiku</div>
 
               <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
                 <Link href={`/agents/${agent.id}`} className="flex-1">

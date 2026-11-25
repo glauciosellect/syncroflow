@@ -12,7 +12,8 @@ const agentSchema = z.object({
   companyDesc: z.string().max(2000).optional().nullable(),
   behavior: z.string().max(6000).optional().nullable(),
   communicationStyle: z.enum(['FORMAL', 'NORMAL', 'CASUAL']).optional(),
-  llmModel: z.string().optional(),
+  // Só Claude Haiku: qualquer valor enviado vira o modelo padrão
+  llmModel: z.string().optional().transform((v) => (v === undefined ? undefined : 'claude-haiku-4-5')),
   avatarUrl: z.string().optional().nullable(),
 })
 

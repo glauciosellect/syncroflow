@@ -20,6 +20,9 @@ export async function generateEmbedding(text: string): Promise<number[]> {
   return res.data[0].embedding
 }
 
+/** Modelo único dos agentes (decisão de 25/11/2026: só Claude Haiku; o cliente não escolhe). */
+export const AGENT_MODEL = 'claude-haiku-4-5'
+
 export async function callLLM(opts: {
   model: string
   system: string
@@ -212,13 +215,13 @@ export async function processAgentResponse(opts: {
   const messages = [...conversationHistory, { role: 'user' as const, content: userMessage }]
 
   const res = await callLLM({
-    model: agent.llmModel || 'claude-haiku-4-5',
+    model: AGENT_MODEL,
     system: systemPrompt,
     messages,
     maxTokens: 2048,
   })
 
-  const creditsUsed = calcCredits(res.inputTokens, res.outputTokens, agent.llmModel)
+  const creditsUsed = calcCredits(res.inputTokens, res.outputTokens, AGENT_MODEL)
   return { content: res.content, creditsUsed }
 }
 
@@ -233,15 +236,15 @@ export async function testAgent(agent: Agent & { config: AgentConfig | null }, m
   }))
 
   const res = await callLLM({
-    model: agent.llmModel || 'claude-haiku-4-5',
+    model: AGENT_MODEL,
     system: systemPrompt,
     messages: [...conversationHistory, { role: 'user' as const, content: message }],
   })
 
   return {
     response: res.content,
-    creditsUsed: calcCredits(res.inputTokens, res.outputTokens, agent.llmModel),
-    model: agent.llmModel,
+    creditsUsed: calcCredits(res.inputTokens, res.outputTokens, AGENT_MODEL),
+    model: AGENT_MODEL,
     responseTimeMs: Date.now() - start,
   }
 }

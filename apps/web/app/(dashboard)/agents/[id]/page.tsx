@@ -16,7 +16,6 @@ import { cn } from '@/lib/utils'
 const tabs = ['Perfil', 'Treinamentos', 'Intenções', 'Fluxos', 'IA Tools', 'Configurações']
 const modelOptions = [
   { value: 'claude-haiku-4-5', label: 'Claude Haiku', desc: 'Rápido e econômico', creditsPerMsg: 1, color: 'text-green-600' },
-  { value: 'claude-3-5-sonnet-20241022', label: 'Claude Sonnet', desc: 'Equilibrado', creditsPerMsg: 3, color: 'text-blue-600' },
 ]
 
 function calcMsgEstimate(credits: number, creditsPerMsg: number) {
@@ -336,17 +335,11 @@ export default function AgentDetailPage() {
           <div className="text-xs text-gray-400 mt-0.5">{agent.companyName}</div>
 
           <div className="mt-3">
-            <select
-              className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600"
-              value={f.llmModel || agent.llmModel}
-              onChange={(e) => setForm((prev: any) => ({ ...(prev || agent), llmModel: e.target.value }))}
-            >
-              {modelOptions.map(m => (
-                <option key={m.value} value={m.value}>{m.label} — {m.desc}</option>
-              ))}
-            </select>
+            <div className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 bg-gray-50" title="Todos os agentes usam o Claude Haiku">
+              Claude Haiku — rápido e econômico
+            </div>
             {(() => {
-              const selected = modelOptions.find(m => m.value === (f.llmModel || agent.llmModel))
+              const selected = modelOptions[0]
               const wsCredits = (agent as any).workspace?.credits ?? 0
               if (!selected) return null
               return (
